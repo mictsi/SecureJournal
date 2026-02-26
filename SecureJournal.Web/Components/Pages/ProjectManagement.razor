@@ -1,0 +1,253 @@
+@page "/admin/projects"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<ProjectManagement> Logger
+
+<PageTitle>Project Management</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Project Management</h2>
+        <p>Create projects (code is generated automatically) and assign groups to projects.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <div class="panel-grid panel-grid-wide">
+        <section class="panel-card">
+            <div class="panel-card-header">
+                <h3>Create Project</h3>
+            </div>
+            <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="projectName">Name</label>
+                        <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="projectDescription">Description</label>
+                        <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
+                        <small class="text-muted">Project code will be generated automatically (for example `PRJ0001`).</small>
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Create Project</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
+                </div>
+            </EditForm>
+        </section>
+
+        <section class="panel-card">
+            <div class="panel-card-header">
+                <h3>Assign Group to Project</h3>
+            </div>
+            @if (_projects.Count == 0 || _groups.Count == 0)
+            {
+                <p class="mb-0">Create at least one project and one group first.</p>
+            }
+            else
+            {
+                <EditForm Model="ProjectGroupDraft" OnValidSubmit="AssignGroupToProjectAsync" FormName="admin-project-assign-group">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="assignProjectGroupId">Group</label>
+                            <InputSelect id="assignProjectGroupId" class="form-select" TValue="Guid" @bind-Value="ProjectGroupDraft.GroupId">
+                                @foreach (var group in _groups)
+                                {
+                                    <option value="@group.GroupId">@group.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="assignProjectId">Project</label>
+                            <InputSelect id="assignProjectId" class="form-select" TValue="Guid" @bind-Value="ProjectGroupDraft.ProjectId">
+                                @foreach (var project in _projects)
+                                {
+                                    <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Assign Group</button>
+                    </div>
+                </EditForm>
+            }
+        </section>
+    </div>
+
+    <section class="panel-card mt-3">
+        <div class="panel-card-header">
+            <h3>Projects</h3>
+            <span class="text-muted">@_projects.Count</span>
+        </div>
+        @if (_projects.Count == 0)
+        {
+            <p class="mb-0">No projects created yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Assigned Groups</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var project in _projects)
+                        {
+                            <tr>
+                                <td><code>@project.Code</code></td>
+                                <td>@project.Name</td>
+                                <td>@FormatList(project.AssignedGroups)</td>
+                                <td>@project.Description</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [SupplyParameterFromForm(FormName = "admin-project-create")]
+    private CreateProjectRequest? PostedProjectDraft { get; set; }
+    private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
+
+    [SupplyParameterFromForm(FormName = "admin-project-assign-group")]
+    private AssignGroupToProjectRequest? PostedProjectGroupDraft { get; set; }
+    private AssignGroupToProjectRequest ProjectGroupDraft => PostedProjectGroupDraft ??= new();
+
+    private UserContext? _currentUser;
+    private List<ProjectOverview> _projects = new();
+    private List<GroupOverview> _groups = new();
+    private string? _message;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        _currentUser = JournalApp.GetCurrentUser();
+        _projects = JournalApp.GetProjects().ToList();
+        _groups = JournalApp.GetGroups().ToList();
+        EnsureDefaults();
+    }
+
+    private Task CreateProjectAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation("Admin project form submit: CreateProject {Code}", ProjectDraft.Code);
+
+        try
+        {
+            var project = JournalApp.CreateProject(ProjectDraft);
+            _message = $"Project '{project.Code}' created.";
+            ResetProjectForm();
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin project create failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task AssignGroupToProjectAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation(
+            "Admin project form submit: AssignGroupToProject GroupId={GroupId} ProjectId={ProjectId}",
+            ProjectGroupDraft.GroupId,
+            ProjectGroupDraft.ProjectId);
+
+        try
+        {
+            var added = JournalApp.AssignGroupToProject(ProjectGroupDraft);
+            _message = added ? "Group assigned to project." : "Group is already assigned to that project.";
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin project assignment failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void EnsureDefaults()
+    {
+        if (_groups.Count > 0 && _groups.All(g => g.GroupId != ProjectGroupDraft.GroupId))
+        {
+            ProjectGroupDraft.GroupId = _groups[0].GroupId;
+        }
+
+        if (_projects.Count > 0 && _projects.All(p => p.ProjectId != ProjectGroupDraft.ProjectId))
+        {
+            ProjectGroupDraft.ProjectId = _projects[0].ProjectId;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+
+    private static string FormatList(IReadOnlyList<string> values)
+        => values.Count == 0 ? "-" : string.Join(", ", values);
+
+    private void ResetProjectForm()
+    {
+        ProjectDraft.Code = string.Empty;
+        ProjectDraft.Name = string.Empty;
+        ProjectDraft.Description = string.Empty;
+    }
+}

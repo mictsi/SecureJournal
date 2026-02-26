@@ -1,0 +1,36 @@
+@using SecureJournal.Core.Domain
+@inject ISecureJournalAppService JournalApp
+
+<div class="brand-panel">
+    <div class="brand-kicker">Secure Journal</div>
+</div>
+
+<nav class="sj-nav" aria-label="Primary navigation">
+    <NavLink class="sj-nav-link" href="projects" Match="NavLinkMatch.Prefix">
+        My Projects
+    </NavLink>
+    <NavLink class="sj-nav-link" href="journal">
+        New Journal Entry
+    </NavLink>
+    <NavLink class="sj-nav-link" href="audit">
+        Audit Search
+    </NavLink>
+    <NavLink class="sj-nav-link" href="exports">
+        Exports
+    </NavLink>
+    <NavLink class="sj-nav-link" href="login">
+        Account
+    </NavLink>
+    @if (JournalApp.HasCurrentUser() && JournalApp.GetCurrentUser().Role == AppRole.Administrator)
+    {
+        <NavLink class="sj-nav-link" href="admin/projects">
+            Project Management
+        </NavLink>
+        <NavLink class="sj-nav-link" href="admin/groups">
+            Group Management
+        </NavLink>
+        <NavLink class="sj-nav-link" href="admin/users">
+            User Management
+        </NavLink>
+    }
+</nav>

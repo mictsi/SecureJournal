@@ -1,0 +1,379 @@
+@page "/exports"
+@inject ISecureJournalAppService JournalApp
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Exports</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Exports</p>
+        <h2>CSV and JSON export generation</h2>
+        <p>Exports are generated server-side with role checks and audit logging. CSV exports include filter metadata as commented header lines.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+<div class="panel-grid panel-grid-wide">
+    <section class="panel-card">
+        <div class="panel-card-header">
+            <h3>Export Configuration</h3>
+            <span class="text-muted">@_currentUser?.Role</span>
+        </div>
+
+        @if (_currentUser is null)
+        {
+            <p class="mb-0">Loading user context...</p>
+        }
+        else
+        {
+            @if (!CanExportAnything)
+            {
+                <p class="mb-0">The current role does not have export permissions. Project users cannot export data in this prototype.</p>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="datasetKind">Dataset</label>
+                        <select id="datasetKind" class="form-select" @bind="_selectedDataset">
+                            @if (CanExportJournal)
+                            {
+                                <option value="@ExportDatasetKind.JournalEntries">Journal Entries</option>
+                            }
+                            @if (CanExportAudit)
+                            {
+                                <option value="@ExportDatasetKind.AuditLogs">Audit Logs</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="formatKind">Format</label>
+                        <select id="formatKind" class="form-select" @bind="_selectedFormat">
+                            <option value="@ExportFormat.Json">JSON</option>
+                            <option value="@ExportFormat.Csv">CSV</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="projectScope">Project Scope</label>
+                        <select id="projectScope" class="form-select" @bind="_projectExportScope" @bind:after="OnProjectScopeChanged">
+                            <option value="@ProjectExportScope.AllProjects">All Projects</option>
+                            <option value="@ProjectExportScope.SpecificProject">Specific Project</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="projectFilter">Project</label>
+                        <select id="projectFilter" class="form-select" @bind="_projectFilterValue" disabled="@(_projectExportScope != ProjectExportScope.SpecificProject)">
+                            <option value="">
+                                @(_projectExportScope == ProjectExportScope.SpecificProject ? "Select a project" : "All projects selected")
+                            </option>
+                            @foreach (var project in _projects)
+                            {
+                                <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="fromDate">From (UTC date)</label>
+                        <input id="fromDate" class="form-control" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="toDate">To (UTC date)</label>
+                        <input id="toDate" class="form-control" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
+                    </div>
+
+                    @if (_selectedDataset == ExportDatasetKind.JournalEntries)
+                    {
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input id="includeSoftDeleted" class="form-check-input" type="checkbox" @bind="_includeSoftDeleted" />
+                                <label class="form-check-label" for="includeSoftDeleted">Include soft-deleted journal entries (admin only)</label>
+                            </div>
+                        </div>
+                    }
+                    else if (_selectedDataset == ExportDatasetKind.AuditLogs)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label" for="actorUsername">Actor username contains</label>
+                            <input id="actorUsername" class="form-control" @bind="_auditActorUsername" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="auditOutcome">Outcome</label>
+                            <select id="auditOutcome" class="form-select" @bind="_auditOutcomeValue">
+                                <option value="">Any</option>
+                                @foreach (var outcome in _auditOutcomes)
+                                {
+                                    <option value="@outcome">@outcome</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="auditAction">Action</label>
+                            <select id="auditAction" class="form-select" @bind="_auditActionValue">
+                                <option value="">Any</option>
+                                @foreach (var action in _auditActions)
+                                {
+                                    <option value="@action">@action</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="auditEntity">Entity Type</label>
+                            <select id="auditEntity" class="form-select" @bind="_auditEntityValue">
+                                <option value="">Any</option>
+                                @foreach (var entity in _auditEntities)
+                                {
+                                    <option value="@entity">@entity</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+
+                <div class="mt-3 d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-primary" @onclick="GenerateExportAsync">Generate & Download</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ClearFilters">Clear Filters</button>
+                    @if (_exportResult is not null)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="DownloadExport">Download</button>
+                    }
+                </div>
+            }
+        }
+    </section>
+
+    <section class="panel-card">
+        <div class="panel-card-header">
+            <h3>Export Output Preview</h3>
+            <span class="text-muted">@(_exportResult?.RowCount ?? 0) row(s)</span>
+        </div>
+
+        @if (_exportResult is null)
+        {
+            <p class="mb-0">Generate an export to preview content and download the file.</p>
+        }
+        else
+        {
+            <dl class="meta-list mb-3">
+                <dt>File name</dt>
+                <dd><code>@_exportResult.FileName</code></dd>
+                <dt>Content type</dt>
+                <dd><code>@_exportResult.ContentType</code></dd>
+                <dt>Summary</dt>
+                <dd>@_exportResult.Summary</dd>
+            </dl>
+
+            <textarea class="form-control export-preview" readonly rows="18">@_exportResult.ContentText</textarea>
+        }
+    </section>
+</div>
+
+@code {
+    private enum ExportDatasetKind
+    {
+        JournalEntries,
+        AuditLogs
+    }
+
+    private enum ProjectExportScope
+    {
+        AllProjects,
+        SpecificProject
+    }
+
+    private readonly AuditActionType[] _auditActions = Enum.GetValues<AuditActionType>();
+    private readonly AuditEntityType[] _auditEntities = Enum.GetValues<AuditEntityType>();
+    private readonly AuditOutcome[] _auditOutcomes = Enum.GetValues<AuditOutcome>();
+
+    private UserContext? _currentUser;
+    private List<ProjectOverview> _projects = new();
+
+    private ExportDatasetKind _selectedDataset = ExportDatasetKind.JournalEntries;
+    private ExportFormat _selectedFormat = ExportFormat.Json;
+    private ProjectExportScope _projectExportScope = ProjectExportScope.AllProjects;
+
+    private string? _projectFilterValue;
+    private string? _fromDateText;
+    private string? _toDateText;
+    private bool _includeSoftDeleted;
+
+    private string? _auditActorUsername;
+    private string? _auditActionValue;
+    private string? _auditEntityValue;
+    private string? _auditOutcomeValue;
+
+    private ExportFileResult? _exportResult;
+    private string? _error;
+    private string? _message;
+
+    private bool CanExportJournal => _currentUser?.Role == AppRole.Administrator;
+    private bool CanExportAudit => _currentUser?.Role is AppRole.Administrator or AppRole.Auditor;
+    private bool CanExportAnything => CanExportJournal || CanExportAudit;
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _currentUser = JournalApp.GetCurrentUser();
+        _projects = JournalApp.GetProjects().ToList();
+
+        if (!CanExportJournal && CanExportAudit)
+        {
+            _selectedDataset = ExportDatasetKind.AuditLogs;
+        }
+
+        OnProjectScopeChanged();
+    }
+
+    private async Task GenerateExportAsync()
+    {
+        _error = null;
+        _message = null;
+
+        try
+        {
+            if (_projectExportScope == ProjectExportScope.SpecificProject && SelectedProjectIdForExport() is null)
+            {
+                _exportResult = null;
+                _error = "Select a project or change scope to All Projects.";
+                return;
+            }
+
+            _exportResult = _selectedDataset switch
+            {
+                ExportDatasetKind.JournalEntries => JournalApp.ExportJournalEntries(new JournalExportRequest
+                {
+                    Format = _selectedFormat,
+                    Filter = new JournalExportFilter
+                    {
+                        ProjectId = SelectedProjectIdForExport(),
+                        FromUtc = ParseFromDate(_fromDateText),
+                        ToUtc = ParseToDate(_toDateText),
+                        IncludeSoftDeleted = _includeSoftDeleted
+                    }
+                }),
+                ExportDatasetKind.AuditLogs => JournalApp.ExportAuditLogs(new AuditExportRequest
+                {
+                    Format = _selectedFormat,
+                    Filter = new AuditSearchFilter
+                    {
+                        ProjectId = SelectedProjectIdForExport(),
+                        FromUtc = ParseFromDate(_fromDateText),
+                        ToUtc = ParseToDate(_toDateText),
+                        ActorUsername = _auditActorUsername,
+                        Action = Enum.TryParse<AuditActionType>(_auditActionValue, out var action) ? action : null,
+                        EntityType = Enum.TryParse<AuditEntityType>(_auditEntityValue, out var entityType) ? entityType : null,
+                        Outcome = Enum.TryParse<AuditOutcome>(_auditOutcomeValue, out var outcome) ? outcome : null
+                    }
+                }),
+                _ => throw new InvalidOperationException("Unsupported export dataset.")
+            };
+
+            _message = _exportResult.Summary;
+            await DownloadExport();
+        }
+        catch (Exception ex)
+        {
+            _exportResult = null;
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DownloadExport()
+    {
+        if (_exportResult is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync(
+            "secureJournalDownloads.downloadText",
+            _exportResult.FileName,
+            _exportResult.ContentType,
+            _exportResult.ContentText);
+    }
+
+    private void ClearFilters()
+    {
+        _projectFilterValue = null;
+        _projectExportScope = ProjectExportScope.AllProjects;
+        _fromDateText = null;
+        _toDateText = null;
+        _includeSoftDeleted = false;
+        _auditActorUsername = null;
+        _auditActionValue = null;
+        _auditEntityValue = null;
+        _auditOutcomeValue = null;
+        _error = null;
+        _message = null;
+        _exportResult = null;
+    }
+
+    private void OnFromDateChanged(ChangeEventArgs args) => _fromDateText = args.Value?.ToString();
+
+    private void OnToDateChanged(ChangeEventArgs args) => _toDateText = args.Value?.ToString();
+
+    private void OnProjectScopeChanged()
+    {
+        if (_projectExportScope != ProjectExportScope.SpecificProject)
+        {
+            _projectFilterValue = null;
+            return;
+        }
+
+        if (!Guid.TryParse(_projectFilterValue, out _))
+        {
+            _projectFilterValue = _projects.FirstOrDefault()?.ProjectId.ToString();
+        }
+    }
+
+    private Guid? SelectedProjectIdForExport()
+        => _projectExportScope == ProjectExportScope.SpecificProject
+            ? TryParseGuid(_projectFilterValue)
+            : null;
+
+    private static Guid? TryParseGuid(string? value)
+        => Guid.TryParse(value, out var parsed) ? parsed : null;
+
+    private static DateTime? ParseFromDate(string? value)
+    {
+        if (!DateTime.TryParse(value, out var parsed))
+        {
+            return null;
+        }
+
+        return DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
+    }
+
+    private static DateTime? ParseToDate(string? value)
+    {
+        if (!DateTime.TryParse(value, out var parsed))
+        {
+            return null;
+        }
+
+        var endOfDay = parsed.Date.AddDays(1).AddTicks(-1);
+        return DateTime.SpecifyKind(endOfDay, DateTimeKind.Utc);
+    }
+}

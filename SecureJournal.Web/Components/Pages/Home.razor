@@ -1,0 +1,184 @@
+@page "/"
+@layout LandingLayout
+@inject ISecureJournalAppService JournalApp
+@inject PrototypeSessionCookieCoordinator SessionCookies
+@inject NavigationManager Navigation
+@inject ILogger<Home> Logger
+@inject IConfiguration Configuration
+
+<PageTitle>Secure Journal</PageTitle>
+
+<section class="landing-login">
+    <div class="landing-login-card">
+        <div class="landing-brand">
+            <div class="landing-logo" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="800" height="420" viewBox="0 0 800 420" role="img" aria-label="Secure Journal">
+                    <g transform="translate(400 210)" text-anchor="middle">
+                        <text
+                            x="0"
+                            y="-20"
+                            font-family="Roboto, Arial, Helvetica, sans-serif"
+                            font-size="92"
+                            font-weight="900"
+                            letter-spacing="-1.5"
+                            fill="#FFFFFF">...Secure</text>
+                        <text
+                            x="0"
+                            y="88"
+                            font-family="Roboto, Arial, Helvetica, sans-serif"
+                            font-size="92"
+                            font-weight="900"
+                            letter-spacing="-1.5"
+                            fill="#FFFFFF">Journal...</text>
+                    </g>
+                </svg>
+            </div>
+            <h1>Secure Journal</h1>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="alert alert-success" role="alert">@_message</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="alert alert-danger" role="alert">@_error</div>
+        }
+
+        @if (_enableLocalLogin)
+        {
+            @if (_enableAspNetIdentity)
+            {
+                <form method="post" action="/auth/local-login">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="landingUsername">Username</label>
+                            <input id="landingUsername" class="form-control" name="username" autocomplete="username" required />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="landingPassword">Password</label>
+                            <input id="landingPassword" class="form-control" type="password" name="password" autocomplete="current-password" required />
+                        </div>
+                    </div>
+                    <input type="hidden" name="returnUrl" value="/projects" />
+                    <input type="hidden" name="failurePath" value="/" />
+                    <div class="mt-3 d-grid">
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <EditForm Model="LoginModel" OnValidSubmit="LoginAsync" FormName="landing-login-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="landingUsername">Username</label>
+                            <InputText id="landingUsername" class="form-control" @bind-Value="LoginModel.Username" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="landingPassword">Password</label>
+                            <InputText id="landingPassword" class="form-control" type="password" @bind-Value="LoginModel.Password" />
+                        </div>
+                    </div>
+
+                    <div class="mt-3 d-grid">
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </EditForm>
+            }
+        }
+
+        @if (_enableOidc)
+        {
+            <div class="mt-3 d-grid">
+                <a class="btn btn-outline-light" href="/auth/oidc-login?returnUrl=/projects">Sign in with OIDC</a>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? QueryError { get; set; }
+
+    [SupplyParameterFromQuery(Name = "message")]
+    private string? QueryMessage { get; set; }
+
+    [SupplyParameterFromForm(FormName = "landing-login-form")]
+    private LoginForm? PostedLoginModel { get; set; }
+
+    private LoginForm LoginModel => PostedLoginModel ??= new();
+    private string? _message;
+    private string? _error;
+    private bool _enableLocalLogin;
+    private bool _enableOidc;
+    private bool _enableAspNetIdentity;
+
+    protected override void OnInitialized()
+    {
+        _enableLocalLogin = bool.TryParse(Configuration["Authentication:EnableLocalLogin"], out var localLogin) && localLogin;
+        _enableOidc = bool.TryParse(Configuration["Authentication:EnableOidc"], out var oidc) && oidc;
+        _enableAspNetIdentity = bool.TryParse(Configuration["Authentication:EnableAspNetIdentity"], out var identity) && identity;
+
+        if (JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/projects", forceLoad: false);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(QueryError))
+        {
+            _error = QueryError;
+        }
+
+        if (!string.IsNullOrWhiteSpace(QueryMessage))
+        {
+            _message = QueryMessage;
+        }
+    }
+
+    private async Task LoginAsync()
+    {
+        _message = null;
+        _error = null;
+        Logger.LogInformation("Landing login form submitted for username {Username}", LoginModel.Username);
+
+        try
+        {
+            var result = JournalApp.TryLocalLogin(LoginModel.Username, LoginModel.Password);
+            if (!result.Success)
+            {
+                Logger.LogWarning("Landing login failed for username {Username}: {Message}", LoginModel.Username, result.Message);
+                _error = result.Message;
+                return;
+            }
+
+            Logger.LogInformation("Landing login succeeded for username {Username}", LoginModel.Username);
+            await SessionCookies.PersistCurrentLoginAsync();
+            _message = result.Message;
+            LoginModel.Username = string.Empty;
+            LoginModel.Password = string.Empty;
+            Navigation.NavigateTo("/projects", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Landing login threw an exception for username {Username}", LoginModel.Username);
+            _error = ex.Message;
+        }
+    }
+
+    private sealed class LoginForm
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="SecureJournal.Core/SecureJournal.Core.csproj" />
+  <Project Path="SecureJournal.Web/SecureJournal.Web.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/SecureJournal.Tests/SecureJournal.Tests.csproj" />
+  </Folder>
+</Solution>
+

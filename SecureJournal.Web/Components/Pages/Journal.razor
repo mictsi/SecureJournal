@@ -1,0 +1,191 @@
+@page "/journal"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+
+<PageTitle>New Journal Entry</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">New Journal Entry</p>
+        <h2>Create append-only project event records</h2>
+        <p>Use <a href="/projects">My Projects</a> to browse and search journal entries per project.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+<section class="panel-card">
+    <div class="panel-card-header">
+        <h3>Create journal entry</h3>
+        <span class="text-muted">@(_currentUser?.Role.ToString() ?? "Unknown role")</span>
+    </div>
+
+    @if (_projects.Count == 0)
+    {
+        <p class="mb-0">No accessible projects are available for the current user.</p>
+    }
+    else if (_currentUser?.Role == AppRole.Auditor)
+    {
+        <p class="mb-0">Auditors can access audit logs only and cannot create or read journal entries.</p>
+    }
+    else
+    {
+        <EditForm Model="DraftModel" OnValidSubmit="CreateEntry" FormName="journal-create-entry">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label" for="projectSelect">Project</label>
+                    <InputSelect id="projectSelect" class="form-select" TValue="Guid" @bind-Value="DraftModel.ProjectId">
+                        @foreach (var project in _projects)
+                        {
+                            <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="col-md-5">
+                    <label class="form-label" for="actionInput">Action (max @FieldLimits.CategoryMax chars)</label>
+                    <InputText id="actionInput" class="form-control" maxlength="@FieldLimits.CategoryMax" @bind-Value="DraftModel.Action" />
+                </div>
+
+                <div class="col-md-7">
+                    <label class="form-label" for="subjectInput">Subject (one line, max @FieldLimits.SubjectMax chars)</label>
+                    <InputText id="subjectInput" class="form-control" maxlength="@FieldLimits.SubjectMax" @bind-Value="DraftModel.Subject" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="descriptionInput">Description</label>
+                    <div class="format-toolbar" role="toolbar" aria-label="Description formatting tools">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("**bold**")'><strong>B</strong></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("*italic*")'><em>I</em></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("`code`")'>Code</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("# Heading")'>H1</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("- item")'>List</button>
+                    </div>
+                    <InputTextArea id="descriptionInput" class="form-control" maxlength="@FieldLimits.DescriptionMax" rows="4" @bind-Value="DraftModel.Description" />
+                    <small class="text-muted">Basic formatting preview supports `#`, `**bold**`, `*italic*`, and `` `code` ``.</small>
+                    <div class="format-preview" aria-live="polite">
+                        <div class="format-preview-label">Description preview</div>
+                        <div class="format-preview-body">@SimpleMarkupPreview.Render(DraftModel.Description)</div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label" for="notesInput">Notes</label>
+                    <div class="format-toolbar" role="toolbar" aria-label="Notes formatting tools">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("**bold**")'><strong>B</strong></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("*italic*")'><em>I</em></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("`code`")'>Code</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("# Heading")'>H1</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("- item")'>List</button>
+                    </div>
+                    <InputTextArea id="notesInput" class="form-control" maxlength="@FieldLimits.NotesMax" rows="4" @bind-Value="DraftModel.Notes" />
+                    <div class="format-preview" aria-live="polite">
+                        <div class="format-preview-label">Notes preview</div>
+                        <div class="format-preview-body">@SimpleMarkupPreview.Render(DraftModel.Notes)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create Entry</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetDraft">Reset Form</button>
+            </div>
+        </EditForm>
+    }
+</section>
+
+@code {
+    [SupplyParameterFromForm(FormName = "journal-create-entry")]
+    private CreateJournalEntryRequest? PostedDraftModel { get; set; }
+    private CreateJournalEntryRequest DraftModel => PostedDraftModel ??= new();
+
+    private UserContext? _currentUser;
+    private List<ProjectOverview> _projects = new();
+    private string? _message;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        _currentUser = JournalApp.GetCurrentUser();
+        _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
+
+        if (DraftModel.ProjectId == Guid.Empty && _projects.Count > 0)
+        {
+            DraftModel.ProjectId = _projects[0].ProjectId;
+        }
+    }
+
+    private void CreateEntry()
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var created = JournalApp.CreateJournalEntry(DraftModel);
+            _message = $"Created journal entry '{created.Subject}' in project {created.ProjectCode}.";
+
+            var selectedProject = DraftModel.ProjectId;
+            DraftModel.Action = string.Empty;
+            DraftModel.Subject = string.Empty;
+            DraftModel.Description = string.Empty;
+            DraftModel.Notes = string.Empty;
+            DraftModel.ProjectId = selectedProject;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void ResetDraft()
+    {
+        var selectedProject = DraftModel.ProjectId;
+        DraftModel.Action = string.Empty;
+        DraftModel.Subject = string.Empty;
+        DraftModel.Description = string.Empty;
+        DraftModel.Notes = string.Empty;
+        DraftModel.ProjectId = selectedProject;
+        _message = null;
+        _error = null;
+    }
+
+    private void AppendDescriptionSnippet(string snippet)
+        => DraftModel.Description = AppendSnippet(DraftModel.Description, snippet);
+
+    private void AppendNotesSnippet(string snippet)
+        => DraftModel.Notes = AppendSnippet(DraftModel.Notes, snippet);
+
+    private static string AppendSnippet(string? currentValue, string snippet)
+    {
+        var current = currentValue ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(current))
+        {
+            return snippet;
+        }
+
+        return $"{current}{Environment.NewLine}{snippet}";
+    }
+}

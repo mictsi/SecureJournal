@@ -1,0 +1,441 @@
+@page "/projects"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+
+<PageTitle>My Projects</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">My Projects</p>
+        <h2>Projects available to the current user</h2>
+        <p>Select a project to browse journal entries. Search supports partial text matches in subject, description, and notes.</p>
+    </div>
+    @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
+    {
+        <button type="button" class="btn btn-outline-secondary" @onclick="RefreshSelectedProjectEntries">Refresh Entries</button>
+    }
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+<div class="panel-grid panel-grid-wide">
+    <section class="panel-card">
+        <div class="panel-card-header">
+            <h3>Projects</h3>
+            <span class="text-muted">@_projects.Count project(s)</span>
+        </div>
+
+        @if (_projects.Count == 0)
+        {
+            <p class="mb-0">No projects are available for the current user.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Assigned Groups</th>
+                            <th>Access</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var project in _projects)
+                        {
+                            var isSelected = _selectedProjectId == project.ProjectId;
+                            <tr class="@(isSelected ? "table-active" : string.Empty)">
+                                <td><code>@project.Code</code></td>
+                                <td>
+                                    <div>@project.Name</div>
+                                    @if (!string.IsNullOrWhiteSpace(project.Description))
+                                    {
+                                        <small class="text-muted">@project.Description</small>
+                                    }
+                                </td>
+                                <td>@(project.AssignedGroups.Count == 0 ? "-" : string.Join(", ", project.AssignedGroups))</td>
+                                <td>
+                                    @if (project.HasAccessForCurrentUser)
+                                    {
+                                        <span class="badge text-bg-success">Allowed</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-secondary">No access</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <button type="button"
+                                            class="btn btn-sm @(isSelected ? "btn-primary" : "btn-outline-secondary")"
+                                            @onclick="() => SelectProject(project.ProjectId)">
+                                        @(isSelected ? "Selected" : "Open")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel-card">
+        <h3>Current user context</h3>
+        <dl class="meta-list">
+            <dt>Display name</dt>
+            <dd>@_currentUser?.DisplayName</dd>
+            <dt>Username</dt>
+            <dd><code>@_currentUser?.Username</code></dd>
+            <dt>Role</dt>
+            <dd>@_currentUser?.Role</dd>
+            <dt>Group memberships</dt>
+            <dd>@_currentUserGroupNames</dd>
+        </dl>
+    </section>
+</div>
+
+<section class="panel-card mt-3">
+    <div class="panel-card-header">
+        <h3>Project Journal Entries</h3>
+        <span class="text-muted">@SelectedProjectLabel</span>
+    </div>
+
+    @if (_currentUser?.Role == AppRole.Auditor)
+    {
+        <p class="mb-0">Auditors can use this page to identify projects but cannot directly read journal entries. Use <a href="/audit">Audit Search</a> for evidence and activity.</p>
+    }
+    else if (_projects.Count == 0)
+    {
+        <p class="mb-0">Create or assign a project to view journal entries here.</p>
+    }
+    else if (!_selectedProjectId.HasValue)
+    {
+        <p class="mb-0">Select a project from the list above to view its journal entries.</p>
+    }
+    else
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="projectJournalSearch">Search</label>
+                <input id="projectJournalSearch"
+                       class="form-control"
+                       type="text"
+                       value="@_searchText"
+                       @oninput="OnSearchChanged"
+                       placeholder="Search subject, description, notes..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="projectJournalPageSize">Page size</label>
+                <select id="projectJournalPageSize" class="form-select" @onchange="OnPageSizeChanged">
+                    @foreach (var pageSize in _pageSizeOptions)
+                    {
+                        <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input id="projectIncludeDeleted"
+                           class="form-check-input"
+                           type="checkbox"
+                           checked="@_includeSoftDeleted"
+                           disabled="@(_currentUser?.Role != AppRole.Administrator)"
+                           @onchange="OnIncludeSoftDeletedChanged" />
+                    <label class="form-check-label" for="projectIncludeDeleted">Include soft-deleted (Admin only)</label>
+                </div>
+            </div>
+        </div>
+
+        @if (!_entries.Any())
+        {
+            <p class="mb-0">No journal entries were found for this project.</p>
+        }
+        else if (!FilteredEntries.Any())
+        {
+            <p class="mb-0">No journal entries match the current search text.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Created (UTC)</th>
+                            <th>Action</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in VisibleEntries)
+                        {
+                            <tr class="@(entry.IsSoftDeleted ? "table-warning" : string.Empty)">
+                                <td>
+                                    <div>@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</div>
+                                    <small class="text-muted">by @entry.CreatedBy</small>
+                                </td>
+                                <td>@entry.Action</td>
+                                <td>@entry.Subject</td>
+                                <td>
+                                    @if (entry.IsSoftDeleted)
+                                    {
+                                        <span class="badge text-bg-warning">Soft-deleted</span>
+                                        <div class="small text-muted">@entry.DeletedBy · @entry.DeletedAtUtc?.ToString("yyyy-MM-dd HH:mm")</div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-success">Active</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (!entry.IsSoftDeleted)
+                                    {
+                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
+                                            Soft-delete
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                            <tr class="entry-detail-row">
+                                <td colspan="5">
+                                    <div class="entry-detail-grid">
+                                        <div>
+                                            <strong>Description</strong>
+                                            <p>@entry.Description</p>
+                                        </div>
+                                        <div>
+                                            <strong>Notes</strong>
+                                            <p>@(string.IsNullOrWhiteSpace(entry.Notes) ? "No notes" : entry.Notes)</p>
+                                        </div>
+                                        <div>
+                                            <strong>Record checksum</strong>
+                                            <code class="checksum">@entry.FullRecordChecksum</code>
+                                        </div>
+                                        @if (entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(entry.DeleteReason))
+                                        {
+                                            <div>
+                                                <strong>Delete reason</strong>
+                                                <p>@entry.DeleteReason</p>
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pager-bar">
+                <div class="text-muted">Page @_currentPage of @TotalPages (@FilteredEntries.Count() matching)</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                </div>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private readonly int[] _pageSizeOptions = [5, 10, 20, 50];
+
+    private UserContext? _currentUser;
+    private List<ProjectOverview> _projects = new();
+    private List<GroupOverview> _groups = new();
+    private List<JournalEntryView> _entries = new();
+    private Guid? _selectedProjectId;
+    private bool _includeSoftDeleted;
+    private string _searchText = string.Empty;
+    private int _pageSize = 10;
+    private int _currentPage = 1;
+    private string _currentUserGroupNames = "None";
+    private string? _message;
+    private string? _error;
+
+    private IEnumerable<JournalEntryView> FilteredEntries
+        => _entries.Where(e =>
+            string.IsNullOrWhiteSpace(_searchText) ||
+            e.Subject.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+            e.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+            e.Notes.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<JournalEntryView> VisibleEntries
+        => FilteredEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+
+    private int TotalPages
+    {
+        get
+        {
+            var count = FilteredEntries.Count();
+            return Math.Max(1, (int)Math.Ceiling(count / (double)_pageSize));
+        }
+    }
+
+    private string SelectedProjectLabel
+        => _selectedProjectId.HasValue
+            ? _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId.Value) is { } project
+                ? $"{project.Code} - {project.Name}"
+                : "Selected project"
+            : "No project selected";
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        LoadPage();
+    }
+
+    private void LoadPage()
+    {
+        _currentUser = JournalApp.GetCurrentUser();
+        _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
+        _groups = JournalApp.GetGroups().ToList();
+
+        _currentUserGroupNames = _currentUser is null
+            ? "Unknown"
+            : ResolveGroupNames(_currentUser.GroupIds);
+
+        if (_currentUser?.Role != AppRole.Auditor)
+        {
+            if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
+            {
+                _selectedProjectId = _projects.FirstOrDefault()?.ProjectId;
+            }
+
+            RefreshSelectedProjectEntries();
+        }
+        else
+        {
+            _entries.Clear();
+        }
+    }
+
+    private void SelectProject(Guid projectId)
+    {
+        _selectedProjectId = projectId;
+        _searchText = string.Empty;
+        _currentPage = 1;
+        RefreshSelectedProjectEntries();
+    }
+
+    private void RefreshSelectedProjectEntries()
+    {
+        _error = null;
+
+        if (!_selectedProjectId.HasValue || _currentUser?.Role == AppRole.Auditor)
+        {
+            _entries = new List<JournalEntryView>();
+            _currentPage = 1;
+            return;
+        }
+
+        try
+        {
+            _entries = JournalApp.GetJournalEntries(_selectedProjectId.Value, includeSoftDeleted: _includeSoftDeleted).ToList();
+            _currentPage = Math.Min(_currentPage, TotalPages);
+            _currentPage = Math.Max(_currentPage, 1);
+        }
+        catch (Exception ex)
+        {
+            _entries = new List<JournalEntryView>();
+            _error = ex.Message;
+            _currentPage = 1;
+        }
+    }
+
+    private void SoftDelete(Guid recordId)
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var deleted = JournalApp.SoftDeleteJournalEntry(recordId);
+            _message = deleted ? "Entry soft-deleted." : "Entry was already deleted or not found.";
+            RefreshSelectedProjectEntries();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs args)
+    {
+        _searchText = args.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var next) && _pageSizeOptions.Contains(next))
+        {
+            _pageSize = next;
+            _currentPage = 1;
+        }
+    }
+
+    private void OnIncludeSoftDeletedChanged(ChangeEventArgs args)
+    {
+        _includeSoftDeleted = args.Value switch
+        {
+            bool b => b,
+            string s when bool.TryParse(s, out var parsed) => parsed,
+            _ => false
+        };
+
+        _currentPage = 1;
+        RefreshSelectedProjectEntries();
+    }
+
+    private void PreviousPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < TotalPages)
+        {
+            _currentPage++;
+        }
+    }
+
+    private string ResolveGroupNames(IReadOnlyList<Guid> groupIds)
+    {
+        if (_currentUser?.Role != AppRole.Administrator)
+        {
+            return groupIds.Count == 0 ? "None" : "Hidden (admin only)";
+        }
+
+        if (groupIds.Count == 0)
+        {
+            return "None";
+        }
+
+        var names = groupIds
+            .Select(id => _groups.FirstOrDefault(g => g.GroupId == id)?.Name ?? id.ToString("D"))
+            .ToList();
+
+        return string.Join(", ", names);
+    }
+}

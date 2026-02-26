@@ -1,0 +1,430 @@
+@page "/audit"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+
+<PageTitle>Audit Search</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Audit trail</p>
+        <h2>Search audit events and linked journal evidence</h2>
+        <p>
+            Event details are stored in plaintext per the current specification decision, with SHA-256 checksums for integrity.
+            This page filters on searchable metadata (time range, user, project, action, entity, outcome) for authorized roles and shows linked journal entry content when the audit row references a journal entry.
+        </p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+<section class="panel-card">
+    <div class="panel-card-header">
+        <h3>Filters</h3>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm" @onclick="ApplyFilters">Apply</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label" for="fromDate">From (UTC date)</label>
+            <input id="fromDate" class="form-control" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="toDate">To (UTC date)</label>
+            <input id="toDate" class="form-control" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="actorText">User</label>
+            <input id="actorText" class="form-control" type="text" placeholder="alice.admin" @bind="_actorUsername" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="projectFilter">Project</label>
+            <select id="projectFilter" class="form-select" @bind="_projectFilterValue">
+                <option value="">Any</option>
+                @foreach (var project in _projects)
+                {
+                    <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="actionFilter">Action</label>
+            <select id="actionFilter" class="form-select" @bind="_actionFilterValue">
+                <option value="">Any</option>
+                @foreach (var action in _auditActions)
+                {
+                    <option value="@action">@action</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="entityFilter">Entity</label>
+            <select id="entityFilter" class="form-select" @bind="_entityFilterValue">
+                <option value="">Any</option>
+                @foreach (var entity in _auditEntities)
+                {
+                    <option value="@entity">@entity</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="outcomeFilter">Outcome</label>
+            <select id="outcomeFilter" class="form-select" @bind="_outcomeFilterValue">
+                <option value="">Any</option>
+                @foreach (var outcome in _auditOutcomes)
+                {
+                    <option value="@outcome">@outcome</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="textFieldFilter">Text Field</label>
+            <select id="textFieldFilter" class="form-select" @bind="_textSearchField">
+                @foreach (var field in _textSearchFields)
+                {
+                    <option value="@field">@GetTextSearchFieldLabel(field)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label" for="textContains">Contains (case-insensitive)</label>
+            <input id="textContains" class="form-control" type="text" placeholder="Search within selected field..." @bind="_textSearchValue" />
+        </div>
+    </div>
+</section>
+
+<section class="panel-card">
+    <div class="panel-card-header">
+        <h3>Results</h3>
+        <span class="text-muted">@_rows.Count event(s)</span>
+    </div>
+
+    @if (_rows.Count == 0)
+    {
+        <p class="mb-0">No audit rows match the current filter criteria, or the current role cannot view audit logs.</p>
+    }
+    else
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <label class="form-label" for="auditPageSize">Page size</label>
+                <select id="auditPageSize" class="form-select" @onchange="OnPageSizeChanged">
+                    @foreach (var pageSize in _pageSizeOptions)
+                    {
+                        <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-9 d-flex align-items-end justify-content-md-end">
+                <small class="text-muted">Page @_currentPage of @TotalPages</small>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Timestamp (UTC)</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Project</th>
+                        <th>Outcome</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in PagedRows)
+                    {
+                        <tr>
+                            <td>@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td><code>@row.ActorUsername</code></td>
+                            <td>@row.Action</td>
+                            <td>
+                                <div>@row.EntityType</div>
+                                @if (!string.IsNullOrWhiteSpace(row.EntityId))
+                                {
+                                    <small class="text-muted">@row.EntityId</small>
+                                }
+                            </td>
+                            <td>@(row.ProjectCode ?? "-")</td>
+                            <td>
+                                <span class="badge @(row.Outcome == AuditOutcome.Success ? "text-bg-success" : row.Outcome == AuditOutcome.Denied ? "text-bg-danger" : "text-bg-warning")">
+                                    @row.Outcome
+                                </span>
+                            </td>
+                            <td>
+                                <div>@row.Details</div>
+                                <small class="text-muted">Checksum: <code>@row.DetailsChecksum</code></small>
+                                @if (row.RelatedJournalEntry is not null)
+                                {
+                                    <div class="audit-journal-preview mt-2">
+                                        <div class="audit-journal-preview-title">
+                                            Journal Entry <code>@row.RelatedJournalEntry.RecordId</code>
+                                            @if (row.RelatedJournalEntry.IsSoftDeleted)
+                                            {
+                                                <span class="badge text-bg-warning ms-2">Soft-deleted</span>
+                                            }
+                                        </div>
+                                        <div class="audit-journal-preview-meta">
+                                            <span><strong>Project:</strong> @row.RelatedJournalEntry.ProjectCode</span>
+                                            <span><strong>Created:</strong> @row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+                                            <span><strong>By:</strong> @row.RelatedJournalEntry.CreatedBy</span>
+                                        </div>
+                                        <div class="audit-journal-preview-field"><strong>Action:</strong> @row.RelatedJournalEntry.Action</div>
+                                        <div class="audit-journal-preview-field"><strong>Subject:</strong> @row.RelatedJournalEntry.Subject</div>
+                                        <div class="audit-journal-preview-field">
+                                            <strong>Description:</strong>
+                                            <div class="audit-journal-preview-text">@row.RelatedJournalEntry.Description</div>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(row.RelatedJournalEntry.Notes))
+                                        {
+                                            <div class="audit-journal-preview-field">
+                                                <strong>Notes:</strong>
+                                                <div class="audit-journal-preview-text">@row.RelatedJournalEntry.Notes</div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                <div class="mt-2 d-flex flex-column gap-1">
+                                    <div>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
+                                            Validate checksum
+                                        </button>
+                                    </div>
+                                    @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
+                                    {
+                                        <small class="@(validation.IsValid ? "text-success" : "text-danger")">
+                                            @validation.Message
+                                        </small>
+                                        @if (!validation.IsValid)
+                                        {
+                                            <small class="text-muted">Computed: <code>@validation.ComputedChecksum</code></small>
+                                        }
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pager-bar">
+            <div class="text-muted">Showing @PagedRows.Count() of @_rows.Count results</div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private enum AuditTextSearchField
+    {
+        Details,
+        ActorUsername,
+        EntityId,
+        ProjectCode,
+        Action,
+        EntityType,
+        Outcome
+    }
+
+    private readonly AuditActionType[] _auditActions = Enum.GetValues<AuditActionType>();
+    private readonly AuditEntityType[] _auditEntities = Enum.GetValues<AuditEntityType>();
+    private readonly AuditOutcome[] _auditOutcomes = Enum.GetValues<AuditOutcome>();
+    private readonly int[] _pageSizeOptions = [10, 25, 50, 100];
+    private readonly AuditTextSearchField[] _textSearchFields = Enum.GetValues<AuditTextSearchField>();
+
+    private List<ProjectOverview> _projects = new();
+    private List<AuditLogView> _rows = new();
+    private Dictionary<Guid, AuditChecksumValidationResult> _checksumValidationResults = new();
+    private string? _error;
+    private int _pageSize = 25;
+    private int _currentPage = 1;
+
+    private string? _fromDateText;
+    private string? _toDateText;
+    private string? _actorUsername;
+    private string? _projectFilterValue;
+    private string? _actionFilterValue;
+    private string? _entityFilterValue;
+    private string? _outcomeFilterValue;
+    private AuditTextSearchField _textSearchField = AuditTextSearchField.Details;
+    private string? _textSearchValue;
+
+    private IEnumerable<AuditLogView> PagedRows
+        => _rows.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+
+    private int TotalPages
+        => Math.Max(1, (int)Math.Ceiling(_rows.Count / (double)_pageSize));
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _projects = JournalApp.GetProjects().ToList();
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        _error = null;
+
+        try
+        {
+            var filter = new AuditSearchFilter
+            {
+                FromUtc = ParseFromDate(_fromDateText),
+                ToUtc = ParseToDate(_toDateText),
+                ActorUsername = _actorUsername,
+                ProjectId = Guid.TryParse(_projectFilterValue, out var projectId) ? projectId : null,
+                Action = Enum.TryParse<AuditActionType>(_actionFilterValue, out var action) ? action : null,
+                EntityType = Enum.TryParse<AuditEntityType>(_entityFilterValue, out var entityType) ? entityType : null,
+                Outcome = Enum.TryParse<AuditOutcome>(_outcomeFilterValue, out var outcome) ? outcome : null
+            };
+
+            _rows = JournalApp.SearchAuditLogs(filter)
+                .Where(MatchesSelectedTextSearch)
+                .ToList();
+            _checksumValidationResults.Clear();
+            _currentPage = 1;
+        }
+        catch (Exception ex)
+        {
+            _rows = new List<AuditLogView>();
+            _checksumValidationResults.Clear();
+            _error = ex.Message;
+            _currentPage = 1;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _fromDateText = null;
+        _toDateText = null;
+        _actorUsername = null;
+        _projectFilterValue = null;
+        _actionFilterValue = null;
+        _entityFilterValue = null;
+        _outcomeFilterValue = null;
+        _textSearchField = AuditTextSearchField.Details;
+        _textSearchValue = null;
+        _currentPage = 1;
+        ApplyFilters();
+    }
+
+    private static DateTime? ParseFromDate(string? value)
+    {
+        if (!DateTime.TryParse(value, out var parsed))
+        {
+            return null;
+        }
+
+        return DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
+    }
+
+    private static DateTime? ParseToDate(string? value)
+    {
+        if (!DateTime.TryParse(value, out var parsed))
+        {
+            return null;
+        }
+
+        var endOfDay = parsed.Date.AddDays(1).AddTicks(-1);
+        return DateTime.SpecifyKind(endOfDay, DateTimeKind.Utc);
+    }
+
+    private void OnFromDateChanged(ChangeEventArgs args)
+    {
+        _fromDateText = args.Value?.ToString();
+    }
+
+    private void OnToDateChanged(ChangeEventArgs args)
+    {
+        _toDateText = args.Value?.ToString();
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var next) && _pageSizeOptions.Contains(next))
+        {
+            _pageSize = next;
+            _currentPage = 1;
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < TotalPages)
+        {
+            _currentPage++;
+        }
+    }
+
+    private void ValidateChecksum(Guid auditId)
+    {
+        _error = null;
+
+        try
+        {
+            _checksumValidationResults[auditId] = JournalApp.ValidateAuditLogChecksum(auditId);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private bool MatchesSelectedTextSearch(AuditLogView row)
+    {
+        var needle = _textSearchValue?.Trim();
+        if (string.IsNullOrWhiteSpace(needle))
+        {
+            return true;
+        }
+
+        var haystack = _textSearchField switch
+        {
+            AuditTextSearchField.Details => row.Details,
+            AuditTextSearchField.ActorUsername => row.ActorUsername,
+            AuditTextSearchField.EntityId => row.EntityId ?? string.Empty,
+            AuditTextSearchField.ProjectCode => row.ProjectCode ?? string.Empty,
+            AuditTextSearchField.Action => row.Action.ToString(),
+            AuditTextSearchField.EntityType => row.EntityType.ToString(),
+            AuditTextSearchField.Outcome => row.Outcome.ToString(),
+            _ => row.Details
+        };
+
+        return haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetTextSearchFieldLabel(AuditTextSearchField field)
+        => field switch
+        {
+            AuditTextSearchField.ActorUsername => "Actor Username",
+            AuditTextSearchField.EntityId => "Entity Id",
+            AuditTextSearchField.ProjectCode => "Project Code",
+            AuditTextSearchField.EntityType => "Entity Type",
+            _ => field.ToString()
+        };
+}

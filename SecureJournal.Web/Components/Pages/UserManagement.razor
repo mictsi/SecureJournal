@@ -1,0 +1,387 @@
+@page "/admin/users"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<UserManagement> Logger
+
+<PageTitle>User Management</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>User Management</h2>
+        <p>Create local users, assign users to groups, and reset local passwords.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <div class="panel-grid panel-grid-wide">
+        <section class="panel-card">
+            <div class="panel-card-header">
+                <h3>Create User</h3>
+            </div>
+            <EditForm Model="UserDraft" OnValidSubmit="CreateUserAsync" FormName="admin-user-create">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="username">Username</label>
+                        <InputText id="username" class="form-control" maxlength="100" @bind-Value="UserDraft.Username" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="displayName">Display Name</label>
+                        <InputText id="displayName" class="form-control" maxlength="100" @bind-Value="UserDraft.DisplayName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="userRole">Role</label>
+                        <InputSelect id="userRole" class="form-select" TValue="AppRole" @bind-Value="UserDraft.Role">
+                            @foreach (var role in _roles)
+                            {
+                                <option value="@role">@role</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox id="isLocal" class="form-check-input" @bind-Value="UserDraft.IsLocalAccount" />
+                            <label class="form-check-label" for="isLocal">Local account</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="localPassword">Local Password</label>
+                        <InputText id="localPassword" class="form-control" type="password" maxlength="100" @bind-Value="UserDraft.LocalPassword" />
+                        <small class="text-muted">Required for local accounts. Minimum length: @_passwordMinLength.</small>
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetUserForm">Reset</button>
+                </div>
+            </EditForm>
+        </section>
+
+        <section class="panel-card">
+            <div class="panel-card-header">
+                <h3>Assign User to Group</h3>
+            </div>
+            @if (_users.Count == 0 || _groups.Count == 0)
+            {
+                <p class="mb-0">Create at least one user and one group first.</p>
+            }
+            else
+            {
+                <EditForm Model="UserGroupDraft" OnValidSubmit="AssignUserToGroupAsync" FormName="admin-user-assign-group">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="assignUserId">User</label>
+                            <InputSelect id="assignUserId" class="form-select" TValue="Guid" @bind-Value="UserGroupDraft.UserId">
+                                @foreach (var user in _users)
+                                {
+                                    <option value="@user.UserId">@user.DisplayName (@user.Username)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="assignUserGroupId">Group</label>
+                            <InputSelect id="assignUserGroupId" class="form-select" TValue="Guid" @bind-Value="UserGroupDraft.GroupId">
+                                @foreach (var group in _groups)
+                                {
+                                    <option value="@group.GroupId">@group.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Assign User</button>
+                    </div>
+                </EditForm>
+            }
+        </section>
+
+        <section class="panel-card">
+            <div class="panel-card-header">
+                <h3>Reset User Password</h3>
+            </div>
+            @if (_users.Count == 0)
+            {
+                <p class="mb-0">No users available.</p>
+            }
+            else
+            {
+                <EditForm Model="ResetPasswordDraft" OnValidSubmit="ResetUserPasswordAsync" FormName="admin-user-reset-password">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="resetUserId">User</label>
+                            <InputSelect id="resetUserId" class="form-select" TValue="Guid" @bind-Value="ResetPasswordDraft.UserId">
+                                @foreach (var user in _users)
+                                {
+                                    <option value="@user.UserId">@user.DisplayName (@user.Username)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="resetPassword">New Password</label>
+                            <InputText id="resetPassword" class="form-control" type="password" @bind-Value="ResetPasswordDraft.NewPassword" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="resetPasswordConfirm">Confirm New Password</label>
+                            <InputText id="resetPasswordConfirm" class="form-control" type="password" @bind-Value="ResetPasswordDraft.ConfirmPassword" />
+                            <small class="text-muted">Minimum length: @_passwordMinLength. Local accounts only.</small>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-warning">Reset Password</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetPasswordResetForm">Reset</button>
+                    </div>
+                </EditForm>
+            }
+        </section>
+    </div>
+
+    <section class="panel-card mt-3">
+        <div class="panel-card-header">
+            <h3>Users</h3>
+            <span class="text-muted">@_users.Count</span>
+        </div>
+        @if (_users.Count == 0)
+        {
+            <p class="mb-0">No users created yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Display Name</th>
+                            <th>Role</th>
+                            <th>Local</th>
+                            <th>Groups</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _users)
+                        {
+                            <tr>
+                                <td><code>@user.Username</code></td>
+                                <td>@user.DisplayName</td>
+                                <td>@user.Role</td>
+                                <td>@(user.IsLocalAccount ? "Yes" : "No")</td>
+                                <td>@FormatList(user.Groups)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
+
+    [SupplyParameterFromForm(FormName = "admin-user-create")]
+    private CreateUserRequest? PostedUserDraft { get; set; }
+    private CreateUserRequest UserDraft => PostedUserDraft ??= new() { Role = AppRole.ProjectUser, IsLocalAccount = true };
+
+    [SupplyParameterFromForm(FormName = "admin-user-assign-group")]
+    private AssignUserToGroupRequest? PostedUserGroupDraft { get; set; }
+    private AssignUserToGroupRequest UserGroupDraft => PostedUserGroupDraft ??= new();
+
+    [SupplyParameterFromForm(FormName = "admin-user-reset-password")]
+    private ResetPasswordForm? PostedResetPasswordDraft { get; set; }
+    private ResetPasswordForm ResetPasswordDraft => PostedResetPasswordDraft ??= new();
+
+    private UserContext? _currentUser;
+    private List<UserOverview> _users = new();
+    private List<GroupOverview> _groups = new();
+    private string? _message;
+    private string? _error;
+    private int _passwordMinLength;
+
+    protected override void OnInitialized()
+    {
+        if (!JournalApp.HasCurrentUser())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _passwordMinLength = JournalApp.GetLocalPasswordMinLength();
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        _currentUser = JournalApp.GetCurrentUser();
+        _users = JournalApp.GetUsers().ToList();
+        _groups = JournalApp.GetGroups().ToList();
+        EnsureDefaults();
+    }
+
+    private Task CreateUserAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation("Admin user form submit: CreateUser {Username}", UserDraft.Username);
+
+        try
+        {
+            var user = JournalApp.CreateUser(UserDraft);
+            _message = $"User '{user.Username}' created.";
+            ResetUserForm();
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin user create failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task AssignUserToGroupAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation(
+            "Admin user form submit: AssignUserToGroup UserId={UserId} GroupId={GroupId}",
+            UserGroupDraft.UserId,
+            UserGroupDraft.GroupId);
+
+        try
+        {
+            var added = JournalApp.AssignUserToGroup(UserGroupDraft);
+            _message = added ? "User assigned to group." : "User is already assigned to that group.";
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin user assignment failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ResetUserPasswordAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation("Admin user form submit: ResetPassword UserId={UserId}", ResetPasswordDraft.UserId);
+
+        if (!string.Equals(ResetPasswordDraft.NewPassword, ResetPasswordDraft.ConfirmPassword, StringComparison.Ordinal))
+        {
+            _error = "New password and confirmation do not match.";
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            var result = JournalApp.ResetLocalUserPassword(new AdminResetPasswordRequest
+            {
+                UserId = ResetPasswordDraft.UserId,
+                NewPassword = ResetPasswordDraft.NewPassword
+            });
+
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return Task.CompletedTask;
+            }
+
+            _message = result.Message;
+            ResetPasswordResetForm();
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin password reset failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void EnsureDefaults()
+    {
+        if (_users.Count > 0 && _users.All(u => u.UserId != UserGroupDraft.UserId))
+        {
+            UserGroupDraft.UserId = _users[0].UserId;
+        }
+
+        if (_groups.Count > 0 && _groups.All(g => g.GroupId != UserGroupDraft.GroupId))
+        {
+            UserGroupDraft.GroupId = _groups[0].GroupId;
+        }
+
+        if (_users.Count > 0 && _users.All(u => u.UserId != ResetPasswordDraft.UserId))
+        {
+            ResetPasswordDraft.UserId = _users[0].UserId;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+
+    private static string FormatList(IReadOnlyList<string> values)
+        => values.Count == 0 ? "-" : string.Join(", ", values);
+
+    private void ResetUserForm()
+    {
+        UserDraft.Username = string.Empty;
+        UserDraft.DisplayName = string.Empty;
+        UserDraft.Role = AppRole.ProjectUser;
+        UserDraft.IsLocalAccount = true;
+        UserDraft.LocalPassword = string.Empty;
+    }
+
+    private void ResetPasswordResetForm()
+    {
+        ResetPasswordDraft.NewPassword = string.Empty;
+        ResetPasswordDraft.ConfirmPassword = string.Empty;
+    }
+
+    private sealed class ResetPasswordForm
+    {
+        public Guid UserId { get; set; }
+
+        [Required]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

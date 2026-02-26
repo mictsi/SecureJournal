@@ -21,7 +21,7 @@
     <NavLink class="sj-nav-link" href="login">
         Account
     </NavLink>
-    @if (JournalApp.HasCurrentUser() && JournalApp.GetCurrentUser().Role == AppRole.Administrator)
+    @if (_showAdminLinks)
     {
         <NavLink class="sj-nav-link" href="admin/projects">
             Project Management
@@ -34,3 +34,18 @@
         </NavLink>
     }
 </nav>
+
+@code {
+    private bool _showAdminLinks;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!await JournalApp.HasCurrentUserAsync())
+        {
+            _showAdminLinks = false;
+            return;
+        }
+
+        _showAdminLinks = (await JournalApp.GetCurrentUserAsync()).Role == AppRole.Administrator;
+    }
+}

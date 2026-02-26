@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 using Microsoft.Data.SqlClient;
+using System.Data;
 using SecureJournal.Core.Domain;
 using SecureJournal.Web.Infrastructure.Persistence;
 
@@ -33,6 +34,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
 
             using var db = _dbFactory.CreateDbContext();
             db.Database.EnsureCreated();
+            EnsureAppUserExternalIdentityColumns(db);
             _initialized = true;
         }
     }
@@ -50,7 +52,9 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.DisplayName,
                 (AppRole)x.Role,
                 x.IsLocalAccount,
-                x.PasswordHash))
+                x.PasswordHash,
+                x.ExternalIssuer,
+                x.ExternalSubject))
             .ToList();
     }
 
@@ -337,6 +341,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             entity.Role = (int)user.Role;
             entity.IsLocalAccount = user.IsLocalAccount;
             entity.PasswordHash = user.PasswordHash;
+            entity.ExternalIssuer = user.ExternalIssuer;
+            entity.ExternalSubject = user.ExternalSubject;
             db.SaveChanges();
             tx.Commit();
         });
@@ -395,4 +401,78 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                && (sql.Number == 2601 || sql.Number == 2627)
                && sql.Message.Contains("app_users", StringComparison.OrdinalIgnoreCase)
                && sql.Message.Contains("username", StringComparison.OrdinalIgnoreCase));
+
+    private static void EnsureAppUserExternalIdentityColumns(SecureJournalAppDbContext db)
+    {
+        var provider = db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                IF COL_LENGTH('app_users', 'external_issuer') IS NULL
+                    ALTER TABLE app_users ADD external_issuer nvarchar(512) NULL;
+                IF COL_LENGTH('app_users', 'external_subject') IS NULL
+                    ALTER TABLE app_users ADD external_subject nvarchar(512) NULL;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS external_issuer varchar(512) NULL;
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS external_subject varchar(512) NULL;
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            var connection = db.Database.GetDbConnection();
+            var shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose)
+            {
+                connection.Open();
+            }
+
+            try
+            {
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var pragma = connection.CreateCommand())
+                {
+                    pragma.CommandText = "PRAGMA table_info(app_users);";
+                    using var reader = pragma.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        if (reader["name"] is string name && !string.IsNullOrWhiteSpace(name))
+                        {
+                            columns.Add(name);
+                        }
+                    }
+                }
+
+                if (!columns.Contains("external_issuer"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE app_users ADD COLUMN external_issuer TEXT NULL;";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("external_subject"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE app_users ADD COLUMN external_subject TEXT NULL;";
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    connection.Close();
+                }
+            }
+        }
+    }
 }

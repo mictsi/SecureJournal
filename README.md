@@ -26,7 +26,11 @@ It is designed for:
 - Audit details are plaintext with SHA-256 checksums
 - Per-browser authenticated sessions (cookie expiration configurable; default 8 hours)
 - Password hashing + configurable password complexity policy
+- Local login/logout endpoints use antiforgery protection (logout is POST-only)
+- OIDC users are bound to stable external identity (`iss` + `sub`) instead of username-only matching
+- OIDC username collisions with local users are rejected; unmapped external roles are denied
 - Role and project access enforced server-side
+- Optional buffered file logging can be enabled via `Logging:File:*` settings for troubleshooting
 
 ## Current Status
 
@@ -35,6 +39,7 @@ This repository contains a working Blazor Server application with:
 - ASP.NET Identity local authentication
 - optional OIDC sign-in + OIDC group-to-role mapping configuration
 - EF Core provider-backed persistence for `SQLite`, `SQL Server`, and `PostgreSQL`
+- xUnit test suite in `SecureJournal.Tests/` (service + integration coverage)
 
 The repository also keeps legacy fallback paths (prototype store/auth toggles) for compatibility/testing. Explicit EF Core migrations and environment-specific validation are still recommended before production deployment.
 
@@ -44,6 +49,7 @@ The repository also keeps legacy fallback paths (prototype store/auth toggles) f
 - Local deployment and configuration: `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md`
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
+- Changelog / release history: `CHANGELOG.md`
 - Sanitized config templates:
   - `SecureJournal.Web/appsettings.template.json`
   - `SecureJournal.Web/appsettings.Development.template.json`

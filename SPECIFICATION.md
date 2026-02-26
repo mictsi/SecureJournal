@@ -82,6 +82,7 @@ The application supports:
 - The system shall support enabling/disabling local login.
 - The system shall support generic OIDC login.
 - Users authenticated via OIDC shall be mapped to application users and roles/groups.
+- OIDC user identity binding shall use stable provider identifiers (`iss` + `sub`) and not rely on username/email alone.
 - OIDC configuration shall support role mapping by external group membership, where each application role can be configured with one or more external groups.
 - Role assignment shall be managed by administrators only.
 
@@ -140,8 +141,10 @@ For each journal entry, the system shall store:
 
 - Local passwords shall be stored using secure password hashing (framework standard).
 - OIDC integration shall use secure token validation and HTTPS.
+- OIDC logins without required identity claims (`iss`/`sub`) or without an explicit mapped application role shall be denied.
 - Authentication events shall be audited (success/failure/logout/lockout as applicable).
 - Session cookies shall expire automatically after a configurable duration (current appsettings setting: `Security:SessionCookieHours`, default `8` hours).
+- Local login and logout endpoints shall use CSRF/antiforgery protection; logout shall be POST-only.
 
 ### 7.4 Authorization Security
 
@@ -291,9 +294,10 @@ Install/setup/run instructions have been moved to:
 - `docs/BUILDING.md`
 - `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md`
 
-Configuration policy for the current project (as implemented):
+Configuration policy for the current project (current repository state):
 
-- All runtime settings, including secrets, are stored in appsettings files.
+- The local sample/development setup uses appsettings files for runtime settings.
+- For shared/staging/production environments, sensitive values should be overridden via environment variables, user-secrets, or a secret manager.
 - Primary files:
   - `SecureJournal.Web/appsettings.json`
   - `SecureJournal.Web/appsettings.Development.json`
@@ -327,7 +331,7 @@ This section documents what is needed to reproduce the current working implement
 
 - `SecureJournal.Core/` - core domain models, validation, security, application contracts
 - `SecureJournal.Web/` - Blazor Server UI, application services, EF Core persistence, ASP.NET Identity/OIDC integration, and legacy fallback paths
-- `tests/SecureJournal.Tests/` - xUnit tests for core service behavior and regression coverage
+- `SecureJournal.Tests/` - xUnit tests for core service behavior and regression coverage
 - `scripts/` - local start scripts (`start.ps1`, `start-clean.ps1`)
 - `.artifacts/` - local build/test outputs (including `verify-build` workaround output)
 
@@ -367,7 +371,7 @@ dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFa
 Tests:
 
 ```powershell
-dotnet test tests\SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "console;verbosity=minimal" -p:RestoreIgnoreFailedSources=true
+dotnet test SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "console;verbosity=minimal" -p:RestoreIgnoreFailedSources=true
 ```
 
 ### 19.4 Required Configuration Files (Current)
@@ -386,6 +390,7 @@ The current implementation expects these files to contain:
 - local/OIDC authentication toggles and OIDC placeholders
 - bootstrap administrator credentials
 - logging configuration (including request logging mode/level)
+- optional buffered file logging (`Logging:File:Enabled`, `Logging:File:Path`, `Logging:File:MinimumLevel`)
 - OIDC role-group mappings (`Authentication:Oidc:RoleGroupMappings:*`)
 
 ### 19.5 Current Local Storage / Persistence Behavior
@@ -428,6 +433,7 @@ When enabled, the app initializes:
 - App-data EF Core persistence store (projects/groups/users/journals/audit)
 - OIDC registration (when `Authentication:EnableOidc=true`)
 - OIDC group->role claims mapping parser/transformer
+- OIDC external identity binding by `iss` + `sub` with collision protections
 - bootstrap Identity admin seeding from `BootstrapAdmin`
 
 Template configuration files for safe sharing/onboarding:

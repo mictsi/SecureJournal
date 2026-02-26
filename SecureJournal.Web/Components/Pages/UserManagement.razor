@@ -230,48 +230,46 @@ else
     private string? _error;
     private int _passwordMinLength;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
         _passwordMinLength = JournalApp.GetLocalPasswordMinLength();
-        LoadData();
+        await LoadDataAsync();
     }
 
-    private void LoadData()
+    private async Task LoadDataAsync()
     {
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _users = JournalApp.GetUsers().ToList();
         _groups = JournalApp.GetGroups().ToList();
         EnsureDefaults();
     }
 
-    private Task CreateUserAsync()
+    private async Task CreateUserAsync()
     {
         ClearMessages();
         Logger.LogInformation("Admin user form submit: CreateUser {Username}", UserDraft.Username);
 
         try
         {
-            var user = JournalApp.CreateUser(UserDraft);
+            var user = await JournalApp.CreateUserAsync(UserDraft);
             _message = $"User '{user.Username}' created.";
             ResetUserForm();
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Admin user create failed");
             _error = ex.Message;
         }
-
-        return Task.CompletedTask;
     }
 
-    private Task AssignUserToGroupAsync()
+    private async Task AssignUserToGroupAsync()
     {
         ClearMessages();
         Logger.LogInformation(
@@ -283,18 +281,16 @@ else
         {
             var added = JournalApp.AssignUserToGroup(UserGroupDraft);
             _message = added ? "User assigned to group." : "User is already assigned to that group.";
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Admin user assignment failed");
             _error = ex.Message;
         }
-
-        return Task.CompletedTask;
     }
 
-    private Task ResetUserPasswordAsync()
+    private async Task ResetUserPasswordAsync()
     {
         ClearMessages();
         Logger.LogInformation("Admin user form submit: ResetPassword UserId={UserId}", ResetPasswordDraft.UserId);
@@ -302,12 +298,12 @@ else
         if (!string.Equals(ResetPasswordDraft.NewPassword, ResetPasswordDraft.ConfirmPassword, StringComparison.Ordinal))
         {
             _error = "New password and confirmation do not match.";
-            return Task.CompletedTask;
+            return;
         }
 
         try
         {
-            var result = JournalApp.ResetLocalUserPassword(new AdminResetPasswordRequest
+            var result = await JournalApp.ResetLocalUserPasswordAsync(new AdminResetPasswordRequest
             {
                 UserId = ResetPasswordDraft.UserId,
                 NewPassword = ResetPasswordDraft.NewPassword
@@ -316,20 +312,18 @@ else
             if (!result.Success)
             {
                 _error = result.Message;
-                return Task.CompletedTask;
+                return;
             }
 
             _message = result.Message;
             ResetPasswordResetForm();
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Admin password reset failed");
             _error = ex.Message;
         }
-
-        return Task.CompletedTask;
     }
 
     private void EnsureDefaults()

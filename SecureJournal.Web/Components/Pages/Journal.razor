@@ -115,20 +115,20 @@
     private string? _message;
     private string? _error;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
-        LoadData();
+        await LoadDataAsync();
     }
 
-    private void LoadData()
+    private async Task LoadDataAsync()
     {
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
 
         if (DraftModel.ProjectId == Guid.Empty && _projects.Count > 0)

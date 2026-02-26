@@ -36,6 +36,7 @@
             @if (_enableAspNetIdentity)
             {
                 <form method="post" action="/auth/local-login">
+                    <AntiforgeryToken />
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label" for="loginUsername">Username</label>
@@ -121,16 +122,13 @@
 
     <section class="panel-card">
         <h3>Current User</h3>
-        @{
-            var currentUser = JournalApp.GetCurrentUser();
-        }
         <dl class="meta-list mb-0">
             <dt>Display Name</dt>
-            <dd>@currentUser.DisplayName</dd>
+            <dd>@_currentUser?.DisplayName</dd>
             <dt>Username</dt>
-            <dd><code>@currentUser.Username</code></dd>
+            <dd><code>@_currentUser?.Username</code></dd>
             <dt>Role</dt>
-            <dd>@currentUser.Role</dd>
+            <dd>@_currentUser?.Role</dd>
         </dl>
     </section>
 </div>
@@ -155,10 +153,11 @@
     private bool _enableLocalLogin;
     private bool _enableOidc;
     private bool _enableAspNetIdentity;
+    private UserContext? _currentUser;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
@@ -168,6 +167,7 @@
         _enableOidc = bool.TryParse(Configuration["Authentication:EnableOidc"], out var oidc) && oidc;
         _enableAspNetIdentity = bool.TryParse(Configuration["Authentication:EnableAspNetIdentity"], out var identity) && identity;
         _passwordMinLength = JournalApp.GetLocalPasswordMinLength();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
     }
 
     protected override void OnParametersSet()
@@ -190,7 +190,7 @@
 
         try
         {
-            var result = JournalApp.TryLocalLogin(LoginModel.Username, LoginModel.Password);
+            var result = await JournalApp.TryLocalLoginAsync(LoginModel.Username, LoginModel.Password);
             if (!result.Success)
             {
                 Logger.LogWarning("Login failed for username {Username}: {Message}", LoginModel.Username, result.Message);
@@ -211,7 +211,7 @@
         }
     }
 
-    private Task ChangePasswordAsync()
+    private async Task ChangePasswordAsync()
     {
         ClearMessages();
         Logger.LogInformation("Change password form submitted for current user");
@@ -220,12 +220,12 @@
         {
             Logger.LogWarning("Change password validation failed: new password confirmation mismatch");
             _error = "New password and confirmation do not match.";
-            return Task.CompletedTask;
+            return;
         }
 
         try
         {
-            var result = JournalApp.ChangeCurrentUserPassword(new ChangePasswordRequest
+            var result = await JournalApp.ChangeCurrentUserPasswordAsync(new ChangePasswordRequest
             {
                 CurrentPassword = PasswordChangeModel.CurrentPassword,
                 NewPassword = PasswordChangeModel.NewPassword
@@ -235,7 +235,7 @@
             {
                 Logger.LogWarning("Password change failed: {Message}", result.Message);
                 _error = result.Message;
-                return Task.CompletedTask;
+                return;
             }
 
             Logger.LogInformation("Password change succeeded");
@@ -247,8 +247,6 @@
             Logger.LogError(ex, "Change password form submit threw an exception");
             _error = ex.Message;
         }
-
-        return Task.CompletedTask;
     }
 
     private void ClearMessages()

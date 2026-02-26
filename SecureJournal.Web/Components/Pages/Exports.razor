@@ -227,15 +227,15 @@
     private bool CanExportAudit => _currentUser?.Role is AppRole.Administrator or AppRole.Auditor;
     private bool CanExportAnything => CanExportJournal || CanExportAudit;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().ToList();
 
         if (!CanExportJournal && CanExportAudit)

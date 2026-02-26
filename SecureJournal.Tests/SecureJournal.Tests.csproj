@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.3" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
     <PackageReference Include="xunit" Version="2.9.2" />
@@ -24,13 +25,20 @@
 
   <ItemGroup>
     <Reference Include="SecureJournal.Core">
-      <HintPath>..\..\.artifacts\verify-build\SecureJournal.Core.dll</HintPath>
+      <HintPath>..\SecureJournal.Core\bin\Debug\net10.0\SecureJournal.Core.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="SecureJournal.Web">
-      <HintPath>..\..\.artifacts\verify-build\SecureJournal.Web.dll</HintPath>
+      <HintPath>..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.dll</HintPath>
       <Private>true</Private>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.deps.json" Link="SecureJournal.Web.deps.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.runtimeconfig.json" Link="SecureJournal.Web.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.staticwebassets.endpoints.json" Link="SecureJournal.Web.staticwebassets.endpoints.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.staticwebassets.runtime.json" Link="SecureJournal.Web.staticwebassets.runtime.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

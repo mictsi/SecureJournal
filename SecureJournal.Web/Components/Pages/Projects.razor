@@ -290,20 +290,20 @@
                 : "Selected project"
             : "No project selected";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
-        LoadPage();
+        await LoadPageAsync();
     }
 
-    private void LoadPage()
+    private async Task LoadPageAsync()
     {
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
         _groups = JournalApp.GetGroups().ToList();
 

@@ -73,7 +73,7 @@ public sealed class PrototypeSessionCookieCoordinator
     {
         if (_enableAspNetIdentity)
         {
-            _app.LogoutCurrentUser();
+            await _app.LogoutCurrentUserAsync();
             return;
         }
 

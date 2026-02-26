@@ -31,7 +31,10 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.Role).HasColumnName("role").IsRequired();
             entity.Property(x => x.IsLocalAccount).HasColumnName("is_local_account").IsRequired();
             entity.Property(x => x.PasswordHash).HasColumnName("password_hash");
+            entity.Property(x => x.ExternalIssuer).HasColumnName("external_issuer").HasMaxLength(512);
+            entity.Property(x => x.ExternalSubject).HasColumnName("external_subject").HasMaxLength(512);
             entity.HasIndex(x => x.Username).IsUnique();
+            entity.HasIndex(x => new { x.ExternalIssuer, x.ExternalSubject });
         });
 
         builder.Entity<ProjectEntity>(entity =>
@@ -124,6 +127,8 @@ public sealed class AppUserEntity
     public int Role { get; set; }
     public bool IsLocalAccount { get; set; }
     public string? PasswordHash { get; set; }
+    public string? ExternalIssuer { get; set; }
+    public string? ExternalSubject { get; set; }
 }
 
 public sealed class ProjectEntity

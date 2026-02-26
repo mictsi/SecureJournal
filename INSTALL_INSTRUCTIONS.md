@@ -43,7 +43,7 @@ dotnet --list-sdks
 
 ## 3. Configure Settings (AppSettings Files)
 
-Per the current project convention, all runtime settings, including secrets, are stored in appsettings files.
+The current local-development setup uses appsettings files for runtime configuration. For shared or production environments, prefer environment variables, `dotnet user-secrets`, or a secret manager for sensitive values.
 
 Files:
 
@@ -68,8 +68,9 @@ Current settings include:
 - `Authentication:Oidc:*` (including `ClientSecret`)
 - `BootstrapAdmin:*` (including `Password`)
   - `BootstrapAdmin:SyncPasswordOnStartup` (development convenience; can resync admin password from appsettings on startup)
+- `Logging:File:*` (optional buffered file logging for troubleshooting)
 
-Update the placeholders in the appsettings files before running in environments other than local development.
+Update the placeholders in the appsettings files before running, and avoid committing real secrets.
 
 Default local behavior (current repository settings):
 
@@ -98,7 +99,7 @@ The next app start recreates the SQLite database and seeds the bootstrap admin u
 From the repository root:
 
 ```powershell
-cd e:\KTH\SecureJournal
+cd c:\Users\ghost\GitHub\SecureJournal
 dotnet restore SecureJournal.Web\SecureJournal.Web.csproj
 dotnet build SecureJournal.Web\SecureJournal.Web.csproj
 dotnet run --project SecureJournal.Web
@@ -124,6 +125,7 @@ After startup:
 - `/` is the start page and contains only the app name + login form
 - Use `/login` for the extended local login page (including change-password form)
 - Use `/admin/projects`, `/admin/groups`, `/admin/users` for administrator management pages
+- Local login and logout are antiforgery-protected (`/auth/logout` is POST-only)
 
 Hot reload during development:
 
@@ -167,8 +169,10 @@ Production-capable features now implemented in the repository:
 
 - ASP.NET Identity local authentication (cookie-based)
 - OIDC sign-in plumbing and role mapping configuration
+- OIDC external identity binding using stable `iss` + `sub` claims (username collisions with local users are rejected)
 - EF Core provider-backed app-data and Identity persistence (`SQLite`, `SQL Server`, `PostgreSQL`) via configuration flags
 - Shared SQL database support for app-data + Identity contexts (startup can create missing context tables when no migrations are present)
+- Buffered file logging toggle for troubleshooting (`Logging:File:*`)
 
 Still recommended before production deployment:
 

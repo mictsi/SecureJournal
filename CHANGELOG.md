@@ -1,0 +1,33 @@
+# Changelog
+
+## 0.2.0 - 2026-02-26
+
+### Security
+
+- Added antiforgery protection to local login and converted logout to POST-only with CSRF protection
+- Hardened OIDC user resolution to bind external identities by `iss` + `sub` and reject username-collision privilege inheritance
+- Added regression and integration tests for OIDC identity binding and CSRF-protected auth endpoints
+
+### Reliability and Performance
+
+- Reduced sync-over-async deadlock risk in auth/current-user flows and moved major Blazor auth/user operations to async paths
+- Fixed local principal username normalization regression for Identity users (`admin` vs email fallback)
+- Added optional buffered file logging (`Logging:File:*`) for troubleshooting with lower request-path I/O overhead
+
+### Persistence and Compatibility
+
+- Persisted external OIDC identity fields (`ExternalIssuer`, `ExternalSubject`) in app-user storage
+- Added best-effort schema upgrades for existing SQLite / EF-backed app-user tables to support external identity columns
+
+### UI / UX
+
+- Compacted top header layout and simplified current-user display
+
+### Testing and Repo Layout
+
+- Moved test project to repository root (`SecureJournal.Tests/`)
+- Added CSRF integration tests and expanded OIDC security coverage
+
+### Documentation
+
+- Updated README, build, install, local deployment, and specification docs for 0.2.0 behavior and configuration

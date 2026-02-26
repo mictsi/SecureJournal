@@ -5,4 +5,6 @@ public sealed record AppUser(
     string Username,
     string DisplayName,
     AppRole Role,
-    bool IsLocalAccount);
+    bool IsLocalAccount,
+    string? ExternalIssuer = null,
+    string? ExternalSubject = null);

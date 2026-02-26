@@ -3,12 +3,11 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-@{
-    var isAuthenticated = JournalApp.HasCurrentUser();
-    var currentUser = isAuthenticated ? JournalApp.GetCurrentUser() : null;
+@if (!_authChecked)
+{
+    <div class="p-4">Loading...</div>
 }
-
-@if (!isAuthenticated)
+else if (!_isAuthenticated)
 {
     <div class="p-4">Redirecting to login...</div>
 }
@@ -22,21 +21,30 @@ else
         <main class="main-panel">
             <header class="app-header">
                 <div>
-                    <p class="app-header-label">Security-first project event logging</p>
                     <h1 class="app-header-title">Secure Journal</h1>
+                    <p class="app-header-label">Security-first project event logging</p>
                 </div>
 
                 <div class="header-actions">
                     <div class="session-chip">
-                        <span class="session-chip-label">Current User</span>
-                        <div class="session-chip-user">@currentUser!.DisplayName (@currentUser.Role)</div>
-                        <div class="small text-muted"><code>@currentUser.Username</code></div>
+                        <div class="session-chip-row">
+                            <span class="session-chip-label">Current user:</span>
+                            <span class="session-chip-user">@_currentUser!.Username</span>
+                        </div>
+                        <div class="session-chip-row">
+                            <span class="session-chip-label">Role</span>
+                            <span class="session-chip-role">@_currentUser.Role</span>
+                        </div>
                     </div>
 
                     <button type="button" class="btn btn-outline-secondary theme-toggle" @onclick="ToggleTheme">
                         Toggle Theme
                     </button>
-                    <a class="btn btn-outline-danger" href="/auth/logout?returnUrl=/">Logout</a>
+                    <form method="post" action="/auth/logout" class="d-inline">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="returnUrl" value="/" />
+                        <button type="submit" class="btn btn-outline-danger">Logout</button>
+                    </form>
                 </div>
             </header>
 
@@ -55,10 +63,17 @@ else
 
 @code {
     private bool _themeInitialized;
+    private bool _authChecked;
+    private bool _isAuthenticated;
+    private UserContext? _currentUser;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        _isAuthenticated = await JournalApp.HasCurrentUserAsync();
+        _currentUser = _isAuthenticated ? await JournalApp.GetCurrentUserAsync() : null;
+        _authChecked = true;
+
+        if (!_isAuthenticated)
         {
             Navigation.NavigateTo("/", forceLoad: false);
         }

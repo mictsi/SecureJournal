@@ -11,15 +11,17 @@ Primary configuration files:
 - `SecureJournal.Web/appsettings.template.json` (sanitized template)
 - `SecureJournal.Web/appsettings.Development.template.json` (sanitized template)
 
-Current project convention:
+Current repository state:
 
-- All runtime settings, including secrets, are stored in appsettings files.
+- The sample/dev setup uses `appsettings*.json` for local configuration.
+- Do not commit real secrets. Prefer `dotnet user-secrets`, environment variables, or a secret manager for non-local environments.
 
 Recommended workflow:
 
 1. Start from the sanitized `*.template.json` files.
 2. Copy values into the active `appsettings*.json` files.
 3. Replace all placeholders (connection strings, encryption keys, OIDC secrets, bootstrap admin password).
+4. Override sensitive values from environment variables in shared/staging/production environments.
 
 ## 2. Important Settings
 
@@ -60,6 +62,12 @@ Recommended workflow:
 - `Authentication:Oidc:GroupClaimType`
 - `Authentication:Oidc:RoleGroupMappings:*`
 
+### Logging
+
+- `Logging:File:Enabled`
+- `Logging:File:Path`
+- `Logging:File:MinimumLevel`
+
 ### OIDC Role -> Group Mapping (Configuration)
 
 You can predefine how external OIDC groups map to application roles.
@@ -90,6 +98,8 @@ Notes:
 - Values are one or more external group identifiers (name or object ID depending on your OIDC provider/claims setup).
 - `GroupClaimType` defaults to `groups`.
 - This configuration is used by the OIDC claims transformation to grant application roles from external group claims.
+- OIDC sign-in now requires stable external identity claims (`iss` + `sub`) and an explicit mapped application role.
+- Username collisions with local accounts are rejected (no username-based role inheritance).
 
 ### Bootstrap Admin
 
@@ -97,6 +107,10 @@ Notes:
 - `BootstrapAdmin:DisplayName`
 - `BootstrapAdmin:Password`
 - `BootstrapAdmin:SyncPasswordOnStartup`
+
+Security note:
+
+- Set a non-default bootstrap admin password before first use.
 
 ## 3. Connection String Examples
 
@@ -206,6 +220,11 @@ Manual run:
 dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
 ```
 
+Login/logout behavior:
+
+- Local login POST and logout POST are protected by antiforgery validation.
+- Logout is POST-only (`/auth/logout`), so UI clients should submit a form instead of linking to a GET endpoint.
+
 ## 5. Login And First Use
 
 1. Start the app.
@@ -219,7 +238,7 @@ dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFa
 If you want a local publish folder build:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -p:StaticWebAssetsCompressionEnabled=false
 ```
 
 Run the published app locally:
@@ -233,3 +252,5 @@ Notes:
 - Copy/update `appsettings*.json` in the publish folder as needed.
 - You can start from `appsettings.template.json` / `appsettings.Development.template.json` when preparing environment-specific publish configs.
 - For local testing with HTTPS, prefer the built-in dev profile (`dotnet run`) and startup scripts.
+- Relative file-log paths (for `Logging:File:Path`) resolve from the app content root.
+- File logging is buffered and intended for troubleshooting; configure rotation/retention externally if enabled long-term.

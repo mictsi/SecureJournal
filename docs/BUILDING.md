@@ -11,7 +11,7 @@
 
 - `SecureJournal.Core/` - shared domain/application contracts
 - `SecureJournal.Web/` - Blazor Server app
-- `tests/SecureJournal.Tests/` - xUnit tests (uses `.artifacts/verify-build` assembly references)
+- `SecureJournal.Tests/` - xUnit tests (service tests + integration tests)
 - `scripts/` - local startup helpers
 
 ## Configuration Templates
@@ -45,8 +45,13 @@ dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSo
 Build the web project first (because tests reference `.artifacts\verify-build` DLLs), then run:
 
 ```powershell
-dotnet test tests\SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "console;verbosity=minimal" -p:RestoreIgnoreFailedSources=true
+dotnet test SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "console;verbosity=minimal" -p:RestoreIgnoreFailedSources=true
 ```
+
+Notes:
+
+- The test project is located at the repository root (`SecureJournal.Tests/`).
+- Some local environments may require compiling the web project first if test assembly references are resolved from local build outputs.
 
 ## Hot Reload
 
@@ -69,3 +74,21 @@ These scripts:
 - delete both local SQLite databases (`SecureJournal` app DB + `Identity` DB) when using `start-clean.ps1`
 - sync Blazor framework JS fallback files to `SecureJournal.Web\wwwroot\_framework`
 - run the app with the local SDK workaround flags
+
+## Optional Troubleshooting File Logging
+
+You can enable buffered file logging for local troubleshooting:
+
+```json
+{
+  "Logging": {
+    "File": {
+      "Enabled": true,
+      "Path": "logs/securejournal.dev.log",
+      "MinimumLevel": "Debug"
+    }
+  }
+}
+```
+
+The logger writes asynchronously using a buffered queue and periodic flushes to reduce request-path I/O overhead.

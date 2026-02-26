@@ -51,6 +51,7 @@
             @if (_enableAspNetIdentity)
             {
                 <form method="post" action="/auth/local-login">
+                    <AntiforgeryToken />
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label" for="landingUsername">Username</label>
@@ -118,13 +119,13 @@
     private bool _enableOidc;
     private bool _enableAspNetIdentity;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _enableLocalLogin = bool.TryParse(Configuration["Authentication:EnableLocalLogin"], out var localLogin) && localLogin;
         _enableOidc = bool.TryParse(Configuration["Authentication:EnableOidc"], out var oidc) && oidc;
         _enableAspNetIdentity = bool.TryParse(Configuration["Authentication:EnableAspNetIdentity"], out var identity) && identity;
 
-        if (JournalApp.HasCurrentUser())
+        if (await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/projects", forceLoad: false);
         }

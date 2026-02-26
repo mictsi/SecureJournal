@@ -159,26 +159,26 @@ else
     private string? _message;
     private string? _error;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
-        LoadData();
+        await LoadDataAsync();
     }
 
-    private void LoadData()
+    private async Task LoadDataAsync()
     {
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().ToList();
         _groups = JournalApp.GetGroups().ToList();
         EnsureDefaults();
     }
 
-    private Task CreateProjectAsync()
+    private async Task CreateProjectAsync()
     {
         ClearMessages();
         Logger.LogInformation("Admin project form submit: CreateProject {Code}", ProjectDraft.Code);
@@ -188,7 +188,7 @@ else
             var project = JournalApp.CreateProject(ProjectDraft);
             _message = $"Project '{project.Code}' created.";
             ResetProjectForm();
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
@@ -196,10 +196,9 @@ else
             _error = ex.Message;
         }
 
-        return Task.CompletedTask;
     }
 
-    private Task AssignGroupToProjectAsync()
+    private async Task AssignGroupToProjectAsync()
     {
         ClearMessages();
         Logger.LogInformation(
@@ -211,7 +210,7 @@ else
         {
             var added = JournalApp.AssignGroupToProject(ProjectGroupDraft);
             _message = added ? "Group assigned to project." : "Group is already assigned to that project.";
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
@@ -219,7 +218,6 @@ else
             _error = ex.Message;
         }
 
-        return Task.CompletedTask;
     }
 
     private void EnsureDefaults()

@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
+using System.Security.Claims;
 using SecureJournal.Core.Application;
 using SecureJournal.Core.Domain;
 using SecureJournal.Core.Security;
@@ -585,6 +587,402 @@ public sealed class InMemorySecureJournalAppServiceTests
         });
         Assert.False(noDigitChange.Success);
         Assert.Contains("digit", noDigitChange.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OidcLogin_RejectsWhenIssuerOrSubjectMissing()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-missing-ids");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+            }
+
+            var principal = CreateOidcPrincipal(
+                username: "oidc-user",
+                issuer: null,
+                subject: "sub-123",
+                role: AppRole.ProjectUser);
+
+            var app = CreateOidcService(dbPath, principal);
+
+            Assert.False(app.HasCurrentUser());
+            Assert.Throws<UnauthorizedAccessException>(() => app.GetCurrentUser());
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_RejectsUsernameCollisionWithLocalAccount()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-local-collision");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+            }
+
+            var principal = CreateOidcPrincipal(
+                username: "admin",
+                issuer: "https://issuer.example",
+                subject: "sub-admin-collision",
+                role: AppRole.Administrator);
+
+            var app = CreateOidcService(dbPath, principal);
+
+            Assert.False(app.HasCurrentUser());
+            Assert.Throws<UnauthorizedAccessException>(() => app.GetCurrentUser());
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_RejectsWhenNoMappedRolePresent()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-no-role");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+            }
+
+            var principal = CreateOidcPrincipal(
+                username: "oidc-user",
+                issuer: "https://issuer.example",
+                subject: "sub-no-role",
+                role: null);
+
+            var app = CreateOidcService(dbPath, principal);
+
+            Assert.False(app.HasCurrentUser());
+            Assert.Throws<UnauthorizedAccessException>(() => app.GetCurrentUser());
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_LegacyExternalUsernameOnlyUser_GetsLinkedToIssuerAndSubject()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-legacy-link");
+        try
+        {
+            Guid legacyUserId;
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                var legacy = seed.App.CreateUser(new CreateUserRequest
+                {
+                    Username = "legacyext",
+                    DisplayName = "Legacy External",
+                    Role = AppRole.ProjectUser,
+                    IsLocalAccount = false
+                });
+                legacyUserId = legacy.UserId;
+            }
+
+            const string issuer = "https://issuer.example";
+            const string subject = "sub-legacy";
+            var principal = CreateOidcPrincipal(
+                username: "legacyext",
+                issuer: issuer,
+                subject: subject,
+                role: AppRole.ProjectUser);
+
+            var app = CreateOidcService(dbPath, principal);
+            var current = app.GetCurrentUser();
+
+            Assert.Equal(legacyUserId, current.UserId);
+
+            var linked = ReadStoredUserExternalIdentity(dbPath, "legacyext");
+            Assert.Equal(issuer, linked.ExternalIssuer);
+            Assert.Equal(subject, linked.ExternalSubject);
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_BindsByIssuerAndSubject_NotUsername()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-bind-by-subject");
+        try
+        {
+            Guid externalUserId;
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                var created = seed.App.CreateUser(new CreateUserRequest
+                {
+                    Username = "oidc-alice",
+                    DisplayName = "OIDC Alice",
+                    Role = AppRole.ProjectUser,
+                    IsLocalAccount = false
+                });
+                externalUserId = created.UserId;
+            }
+
+            const string issuer = "https://issuer.example";
+            const string subject = "sub-alice";
+
+            var firstLogin = CreateOidcService(dbPath, CreateOidcPrincipal("oidc-alice", issuer, subject, AppRole.ProjectUser));
+            var current = firstLogin.GetCurrentUser();
+            Assert.Equal(externalUserId, current.UserId);
+
+            var renamedLogin = CreateOidcService(dbPath, CreateOidcPrincipal("alice.renamed", issuer, subject, AppRole.ProjectUser));
+            var renamedCurrent = renamedLogin.GetCurrentUser();
+
+            Assert.Equal(externalUserId, renamedCurrent.UserId);
+            Assert.Equal("oidc-alice", renamedCurrent.Username);
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_RejectsDifferentIssuerSubject_ForAlreadyLinkedExternalUsername()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-linked-mismatch");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                seed.App.CreateUser(new CreateUserRequest
+                {
+                    Username = "linkedext",
+                    DisplayName = "Linked External",
+                    Role = AppRole.ProjectUser,
+                    IsLocalAccount = false
+                });
+            }
+
+            var linkLogin = CreateOidcService(dbPath, CreateOidcPrincipal("linkedext", "https://issuer.example", "sub-1", AppRole.ProjectUser));
+            Assert.Equal("linkedext", linkLogin.GetCurrentUser().Username);
+
+            var mismatchLogin = CreateOidcService(dbPath, CreateOidcPrincipal("linkedext", "https://issuer.example", "sub-2", AppRole.ProjectUser));
+            Assert.False(mismatchLogin.HasCurrentUser());
+            Assert.Throws<UnauthorizedAccessException>(() => mismatchLogin.GetCurrentUser());
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void OidcLogin_PersistsExternalIdentityLink_AcrossServiceInstances()
+    {
+        var dbPath = BuildUniqueDatabasePath("oidc-persist-link");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                seed.App.CreateUser(new CreateUserRequest
+                {
+                    Username = "persistext",
+                    DisplayName = "Persist External",
+                    Role = AppRole.ProjectUser,
+                    IsLocalAccount = false
+                });
+            }
+
+            const string issuer = "https://issuer.example";
+            const string subject = "sub-persist";
+
+            var first = CreateOidcService(dbPath, CreateOidcPrincipal("persistext", issuer, subject, AppRole.ProjectUser));
+            Assert.Equal("persistext", first.GetCurrentUser().Username);
+
+            var second = CreateOidcService(dbPath, CreateOidcPrincipal("persistext-renamed", issuer, subject, AppRole.ProjectUser));
+            var current = second.GetCurrentUser();
+
+            Assert.Equal("persistext", current.Username);
+            var linked = ReadStoredUserExternalIdentity(dbPath, "persistext");
+            Assert.Equal(issuer, linked.ExternalIssuer);
+            Assert.Equal(subject, linked.ExternalSubject);
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void SqliteStore_AddsExternalIdentityColumns_OnExistingDatabase()
+    {
+        var dbPath = BuildUniqueDatabasePath("sqlite-schema-upgrade");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+            using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    CREATE TABLE app_users (
+                        user_id TEXT PRIMARY KEY,
+                        username TEXT NOT NULL UNIQUE,
+                        display_name TEXT NOT NULL,
+                        role INTEGER NOT NULL,
+                        is_local_account INTEGER NOT NULL,
+                        password_hash TEXT NULL
+                    );
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            var config = BuildConfiguration(dbPath, enableAspNetIdentity: false, enableOidc: false);
+            var store = new SqlitePrototypeStore(config);
+            store.Initialize();
+
+            using var verifyConnection = new SqliteConnection($"Data Source={dbPath}");
+            verifyConnection.Open();
+            using var pragma = verifyConnection.CreateCommand();
+            pragma.CommandText = "PRAGMA table_info(app_users);";
+            using var reader = pragma.ExecuteReader();
+
+            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            while (reader.Read())
+            {
+                columns.Add(reader.GetString(1));
+            }
+
+            Assert.Contains("external_issuer", columns);
+            Assert.Contains("external_subject", columns);
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    private static string BuildUniqueDatabasePath(string prefix)
+    {
+        var repoRoot = FindRepoRoot(AppContext.BaseDirectory);
+        var path = Path.Combine(repoRoot, ".artifacts", "tests", $"{prefix}-{Guid.NewGuid():N}.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        return path;
+    }
+
+    private static void DeleteFileQuietly(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Ignore cleanup failures in tests.
+        }
+    }
+
+    private static IConfiguration BuildConfiguration(string dbPath, bool enableAspNetIdentity, bool enableOidc)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:SecureJournalSqlite"] = $"Data Source={dbPath}",
+                ["Security:JournalEncryptionKey"] = "tests-journal-key",
+                ["Security:LocalPasswordMinLength"] = "8",
+                ["BootstrapAdmin:Username"] = "admin",
+                ["BootstrapAdmin:DisplayName"] = "Startup Admin",
+                ["BootstrapAdmin:Password"] = "AdminPass123!",
+                ["Authentication:EnableAspNetIdentity"] = enableAspNetIdentity.ToString(),
+                ["Authentication:EnableOidc"] = enableOidc.ToString()
+            })
+            .Build();
+
+    private static InMemorySecureJournalAppService CreateOidcService(string dbPath, ClaimsPrincipal principal)
+    {
+        var configuration = BuildConfiguration(dbPath, enableAspNetIdentity: true, enableOidc: true);
+        var accessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = principal
+            }
+        };
+
+        return new InMemorySecureJournalAppService(
+            new Sha256ChecksumService(),
+            new JournalFieldEncryptor(EncryptionKeyParser.GetKeyBytes(configuration["Security:JournalEncryptionKey"], "journal")),
+            new PlaintextAuditFieldEncryptor(),
+            new SqlitePrototypeStore(configuration),
+            new PrototypeSharedState(),
+            configuration,
+            NullLogger<InMemorySecureJournalAppService>.Instance,
+            accessor);
+    }
+
+    private static ClaimsPrincipal CreateOidcPrincipal(string username, string? issuer, string? subject, AppRole? role, string? displayName = null)
+    {
+        var claims = new List<Claim>
+        {
+            new("preferred_username", username),
+            new("name", displayName ?? username)
+        };
+
+        if (!string.IsNullOrWhiteSpace(issuer))
+        {
+            claims.Add(new Claim("iss", issuer));
+        }
+
+        if (!string.IsNullOrWhiteSpace(subject))
+        {
+            claims.Add(new Claim("sub", subject));
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, subject));
+        }
+
+        if (role.HasValue)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role.Value.ToString()));
+        }
+
+        var identity = new ClaimsIdentity(claims, authenticationType: "oidc");
+        return new ClaimsPrincipal(identity);
+    }
+
+    private static (string? ExternalIssuer, string? ExternalSubject) ReadStoredUserExternalIdentity(string dbPath, string username)
+    {
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT external_issuer, external_subject
+            FROM app_users
+            WHERE username = $username
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$username", username);
+
+        using var reader = command.ExecuteReader();
+        Assert.True(reader.Read(), $"Expected app_users row for username '{username}'.");
+
+        var issuer = reader.IsDBNull(0) ? null : reader.GetString(0);
+        var subject = reader.IsDBNull(1) ? null : reader.GetString(1);
+        return (issuer, subject);
     }
 
     private sealed class TestAppContext : IDisposable

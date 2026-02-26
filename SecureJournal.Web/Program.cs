@@ -1,10 +1,12 @@
 using SecureJournal.Web.Components;
 using SecureJournal.Web.Services;
 using SecureJournal.Web.Infrastructure;
+using SecureJournal.Web.Infrastructure.Logging;
 using SecureJournal.Core.Application;
 using SecureJournal.Core.Security;
 using Microsoft.Extensions.Logging;
 using SecureJournal.Web.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
@@ -19,6 +21,11 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
+var fileLoggingSettings = FileLoggingSettings.FromConfiguration(builder.Configuration);
+if (fileLoggingSettings.Enabled)
+{
+    builder.Logging.AddProvider(new SimpleFileLoggerProvider(builder.Environment.ContentRootPath, fileLoggingSettings));
+}
 
 var requestLoggingSettings = RequestLoggingSettings.FromConfiguration(builder.Configuration);
 var useProductionAppDatabase = bool.TryParse(builder.Configuration["Persistence:EnableProductionAppDatabase"], out var parsedProdAppDb)
@@ -160,8 +167,10 @@ app.UseAuthorization();
 
 if (enableAspNetIdentity)
 {
-    app.MapPost("/auth/local-login", async (HttpContext httpContext, ISecureJournalAppService journalApp, PrototypeSessionCookieCoordinator sessionCookies) =>
+    app.MapPost("/auth/local-login", async (HttpContext httpContext, IAntiforgery antiforgery, ISecureJournalAppService journalApp, PrototypeSessionCookieCoordinator sessionCookies) =>
     {
+        await antiforgery.ValidateRequestAsync(httpContext);
+
         var form = await httpContext.Request.ReadFormAsync();
         var username = (form["username"].ToString() ?? string.Empty).Trim();
         var password = form["password"].ToString() ?? string.Empty;
@@ -178,7 +187,7 @@ if (enableAspNetIdentity)
 
         try
         {
-            var result = journalApp.TryLocalLogin(username, password);
+            var result = await journalApp.TryLocalLoginAsync(username, password, httpContext.RequestAborted);
             if (result.Success)
             {
                 await sessionCookies.PersistCurrentLoginAsync();
@@ -194,10 +203,13 @@ if (enableAspNetIdentity)
             var encodedError = Uri.EscapeDataString("Login failed due to a server error.");
             return Results.Redirect($"{safeFailurePath}?error={encodedError}");
         }
-    }).DisableAntiforgery();
+    });
 
-    app.MapGet("/auth/logout", async (HttpContext httpContext, string? returnUrl) =>
+    app.MapPost("/auth/logout", async (HttpContext httpContext, IAntiforgery antiforgery) =>
     {
+        await antiforgery.ValidateRequestAsync(httpContext);
+        var form = await httpContext.Request.ReadFormAsync();
+        var returnUrl = form["returnUrl"].ToString();
         await httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         var safeReturnUrl = string.IsNullOrWhiteSpace(returnUrl) || !Uri.IsWellFormedUriString(returnUrl, UriKind.Relative)
             ? "/"
@@ -229,6 +241,8 @@ app.MapRazorComponents<App>()
 await app.InitializeProductionIdentityDatabaseAsync();
 
 app.Run();
+
+public partial class Program { }
 
 internal enum RequestLoggingMode
 {

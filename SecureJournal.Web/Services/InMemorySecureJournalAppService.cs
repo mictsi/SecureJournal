@@ -86,33 +86,57 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
     }
 
     public bool HasCurrentUser()
+        => HasCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<bool> HasCurrentUserAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_enableAspNetIdentity)
+        {
+            var principal = await GetCurrentPrincipalAsync(cancellationToken);
+            if (principal is not null)
+            {
+                lock (_sync)
+                {
+                    return TryResolveOrProvisionUserFromPrincipal(principal, out _);
+                }
+            }
+        }
+
         lock (_sync)
         {
-            if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
-            {
-                return TryResolveOrProvisionUserFromPrincipal(principal, out _);
-            }
-
             TryRestoreCurrentUserFromCookie();
             return _users.Any(u => u.UserId == _currentUserId);
         }
     }
 
     public UserContext GetCurrentUser()
+        => GetCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<UserContext> GetCurrentUserAsync(CancellationToken cancellationToken = default)
     {
-        lock (_sync)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_enableAspNetIdentity)
         {
-            if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
+            var principal = await GetCurrentPrincipalAsync(cancellationToken);
+            if (principal is not null)
             {
-                if (TryResolveOrProvisionUserFromPrincipal(principal, out var resolved))
+                lock (_sync)
                 {
-                    return ToUserContext(resolved);
+                    if (TryResolveOrProvisionUserFromPrincipal(principal, out var resolved))
+                    {
+                        return ToUserContext(resolved);
+                    }
                 }
 
                 throw new UnauthorizedAccessException("Authentication is required.");
             }
+        }
 
+        lock (_sync)
+        {
             TryRestoreCurrentUserFromCookie();
             return ToUserContext(GetCurrentUserInternal());
         }
@@ -170,32 +194,44 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
     }
 
     public void LogoutCurrentUser()
+        => LogoutCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task LogoutCurrentUserAsync(CancellationToken cancellationToken = default)
     {
-        lock (_sync)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_enableAspNetIdentity)
         {
-            if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
+            var principal = await GetCurrentPrincipalAsync(cancellationToken);
+            if (principal is not null)
             {
-                if (TryResolveOrProvisionUserFromPrincipal(principal, out var currentIdentityUser))
+                lock (_sync)
                 {
-                    _logger.LogInformation("Identity user logged out: {Username}", currentIdentityUser.Username);
-                    AppendAudit(
-                        currentIdentityUser,
-                        AuditActionType.Logout,
-                        AuditEntityType.Authentication,
-                        entityId: currentIdentityUser.UserId.ToString(),
-                        projectId: null,
-                        AuditOutcome.Success,
-                        $"User '{currentIdentityUser.Username}' logged out.");
+                    if (TryResolveOrProvisionUserFromPrincipal(principal, out var currentIdentityUser))
+                    {
+                        _logger.LogInformation("Identity user logged out: {Username}", currentIdentityUser.Username);
+                        AppendAudit(
+                            currentIdentityUser,
+                            AuditActionType.Logout,
+                            AuditEntityType.Authentication,
+                            entityId: currentIdentityUser.UserId.ToString(),
+                            projectId: null,
+                            AuditOutcome.Success,
+                            $"User '{currentIdentityUser.Username}' logged out.");
+                    }
                 }
 
                 if (_identitySignInManager is not null)
                 {
-                    _identitySignInManager.SignOutAsync().GetAwaiter().GetResult();
+                    await _identitySignInManager.SignOutAsync();
                 }
 
                 return;
             }
+        }
 
+        lock (_sync)
+        {
             TryRestoreCurrentUserFromCookie();
             var currentUser = _users.FirstOrDefault(u => u.UserId == _currentUserId);
             if (currentUser is null)
@@ -265,6 +301,93 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             _logger.LogInformation("Local login succeeded for user {Username}", localUser.Username);
             return new LoginResult(true, $"Logged in as {localUser.DisplayName}.", ToUserContext(localUser));
         }
+    }
+
+    public async Task<LoginResult> TryLocalLoginAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_enableAspNetIdentity)
+        {
+            return TryLocalLogin(username, password);
+        }
+
+        if (_identitySignInManager is null || _identityUserManager is null)
+        {
+            return new LoginResult(false, "ASP.NET Identity is enabled in config, but Identity services are unavailable.", null);
+        }
+
+        var normalizedUsername = InputNormalizer.NormalizeRequired(username, nameof(username), 100).ToLowerInvariant();
+        _logger.LogInformation("Local login attempt for username {Username}", normalizedUsername);
+
+        AppUser? appUser;
+        lock (_sync)
+        {
+            appUser = _users.FirstOrDefault(u =>
+                u.IsLocalAccount &&
+                string.Equals(u.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+
+            if (appUser is null)
+            {
+                AppendAudit(
+                    actor: null,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: null,
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Failed local login attempt for username '{normalizedUsername}'.");
+                return new LoginResult(false, "Invalid username or password.", null);
+            }
+        }
+
+        var signInResult = await _identitySignInManager.PasswordSignInAsync(
+            userName: normalizedUsername,
+            password: password ?? string.Empty,
+            isPersistent: false,
+            lockoutOnFailure: false);
+
+        if (!signInResult.Succeeded)
+        {
+            lock (_sync)
+            {
+                var currentAppUser = _users.FirstOrDefault(u => u.UserId == appUser.UserId) ?? appUser;
+                _logger.LogWarning("Local login failed for user {Username} via Identity", normalizedUsername);
+                AppendAudit(
+                    actor: currentAppUser,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: currentAppUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Failed local login attempt for user '{currentAppUser.Username}'.");
+            }
+
+            return new LoginResult(false, "Invalid username or password.", null);
+        }
+
+        var identityUser = await _identityUserManager.FindByNameAsync(normalizedUsername);
+        if (identityUser is not null)
+        {
+            await SyncAppUserMetadataFromIdentityAsync(identityUser, cancellationToken);
+        }
+
+        AppUser finalAppUser;
+        lock (_sync)
+        {
+            finalAppUser = _users.FirstOrDefault(u => u.UserId == appUser.UserId) ?? appUser;
+            _logger.LogInformation("Local login succeeded for user {Username} via Identity", normalizedUsername);
+            AppendAudit(
+                finalAppUser,
+                AuditActionType.Login,
+                AuditEntityType.Authentication,
+                entityId: finalAppUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{finalAppUser.Username}' logged in.");
+        }
+
+        return new LoginResult(true, $"Logged in as {finalAppUser.DisplayName}.", ToUserContext(finalAppUser));
     }
 
     public int GetLocalPasswordMinLength()
@@ -435,6 +558,108 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
     }
 
     public UserOverview CreateUser(CreateUserRequest request)
+        => CreateUserAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<UserOverview> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_enableAspNetIdentity)
+        {
+            return CreateUserSyncCore(request);
+        }
+
+        AppUser actor;
+        AppUser user;
+        string? localPassword = null;
+        var usesIdentity = false;
+
+        lock (_sync)
+        {
+            actor = RequireAdmin();
+            ValidateAdminRequest(request);
+
+            var username = InputNormalizer.NormalizeRequired(request.Username, nameof(request.Username), 100).ToLowerInvariant();
+            var displayName = InputNormalizer.NormalizeRequired(request.DisplayName, nameof(request.DisplayName), 100);
+
+            if (_users.Any(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException($"A user with username '{username}' already exists.");
+            }
+
+            if (request.IsLocalAccount && string.IsNullOrWhiteSpace(request.LocalPassword))
+            {
+                throw new InvalidOperationException("Local account password is required.");
+            }
+
+            user = new AppUser(Guid.NewGuid(), username, displayName, request.Role, request.IsLocalAccount);
+
+            if (request.IsLocalAccount)
+            {
+                EnsurePasswordMeetsPolicy(request.LocalPassword, "Local account password");
+                localPassword = request.LocalPassword ?? string.Empty;
+                usesIdentity = true;
+            }
+            else
+            {
+                usesIdentity = true;
+            }
+        }
+
+        if (user.IsLocalAccount)
+        {
+            await CreateOrUpdateIdentityLocalUserAsync(user, localPassword ?? string.Empty, cancellationToken);
+        }
+        else
+        {
+            await EnsureIdentityExternalUserAsync(user, cancellationToken);
+        }
+
+        lock (_sync)
+        {
+            if (_users.Any(u => string.Equals(u.Username, user.Username, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException($"A user with username '{user.Username}' already exists.");
+            }
+
+            _users.Add(user);
+            _userGroups[user.UserId] = new HashSet<Guid>();
+
+            string? passwordHash = null;
+            if (request.IsLocalAccount && !usesIdentity)
+            {
+                passwordHash = _passwordHasher.HashPassword(user, request.LocalPassword ?? string.Empty);
+                _localPasswordHashes[user.UserId] = passwordHash;
+            }
+
+            _sqliteStore.UpsertUser(ToStoredUserRow(user, passwordHash));
+            _logger.LogInformation(
+                "User created by {ActorUsername}: {Username} ({Role}) Local={IsLocal}",
+                actor.Username,
+                user.Username,
+                user.Role,
+                user.IsLocalAccount);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Create,
+                AuditEntityType.User,
+                entityId: user.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{user.Username}' created with role '{user.Role}' (Local={user.IsLocalAccount}).");
+
+            return new UserOverview(
+                user.UserId,
+                user.Username,
+                user.DisplayName,
+                user.Role,
+                user.IsLocalAccount,
+                Groups: Array.Empty<string>());
+        }
+    }
+
+    private UserOverview CreateUserSyncCore(CreateUserRequest request)
     {
         lock (_sync)
         {
@@ -462,28 +687,11 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             if (request.IsLocalAccount)
             {
                 EnsurePasswordMeetsPolicy(request.LocalPassword, "Local account password");
-                if (_enableAspNetIdentity)
-                {
-                    CreateOrUpdateIdentityLocalUser(user, request.LocalPassword ?? string.Empty);
-                }
-                else
-                {
-                    passwordHash = _passwordHasher.HashPassword(user, request.LocalPassword ?? string.Empty);
-                    _localPasswordHashes[user.UserId] = passwordHash;
-                }
-            }
-            else if (_enableAspNetIdentity)
-            {
-                EnsureIdentityExternalUser(user);
+                passwordHash = _passwordHasher.HashPassword(user, request.LocalPassword ?? string.Empty);
+                _localPasswordHashes[user.UserId] = passwordHash;
             }
 
-            _sqliteStore.UpsertUser(new StoredUserRow(
-                user.UserId,
-                user.Username,
-                user.DisplayName,
-                user.Role,
-                user.IsLocalAccount,
-                passwordHash));
+            _sqliteStore.UpsertUser(ToStoredUserRow(user, passwordHash));
             _logger.LogInformation(
                 "User created by {ActorUsername}: {Username} ({Role}) Local={IsLocal}",
                 actor.Username,
@@ -640,10 +848,16 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
     }
 
     public PasswordChangeResult ChangeCurrentUserPassword(ChangePasswordRequest request)
+        => ChangeCurrentUserPasswordAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<PasswordChangeResult> ChangeCurrentUserPasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        AppUser actor;
         lock (_sync)
         {
-            var actor = GetCurrentUserInternal();
+            actor = GetCurrentUserInternal();
             _logger.LogInformation("Password change requested for current user {Username}", actor.Username);
 
             var validationContext = new ValidationContext(request);
@@ -664,84 +878,29 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
             if (_enableAspNetIdentity)
             {
-                return ChangeCurrentUserPasswordWithIdentity(actor, request);
+                // Continue outside the global lock to avoid blocking while awaiting Identity/EF.
             }
-
-            if (!_localPasswordHashes.TryGetValue(actor.UserId, out var existingHash))
+            else
             {
-                AppendAudit(
-                    actor,
-                    AuditActionType.Update,
-                    AuditEntityType.Authentication,
-                    entityId: actor.UserId.ToString(),
-                    projectId: null,
-                    AuditOutcome.Failure,
-                    "Password change failed because no local password hash was found.");
-                return new PasswordChangeResult(false, "Current account does not have a local password configured.");
+                return ChangeCurrentUserPasswordLocalCore(actor, request);
             }
-
-            var currentPassword = request.CurrentPassword ?? string.Empty;
-            var newPassword = request.NewPassword ?? string.Empty;
-
-            var verification = _passwordHasher.VerifyHashedPassword(actor, existingHash, currentPassword);
-            if (verification is PasswordVerificationResult.Failed)
-            {
-                _logger.LogWarning("Password change failed for user {Username}: current password mismatch", actor.Username);
-                AppendAudit(
-                    actor,
-                    AuditActionType.Update,
-                    AuditEntityType.Authentication,
-                    entityId: actor.UserId.ToString(),
-                    projectId: null,
-                    AuditOutcome.Failure,
-                    "Password change failed because the current password did not match.");
-                return new PasswordChangeResult(false, "Current password is incorrect.");
-            }
-
-            if (string.IsNullOrWhiteSpace(newPassword))
-            {
-                return new PasswordChangeResult(false, "New password is required.");
-            }
-
-            if (TryGetPasswordPolicyViolationMessage(newPassword, "New password") is { } passwordPolicyError)
-            {
-                return new PasswordChangeResult(false, passwordPolicyError);
-            }
-
-            if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
-            {
-                return new PasswordChangeResult(false, "New password must be different from the current password.");
-            }
-
-            var newHash = _passwordHasher.HashPassword(actor, newPassword);
-            _localPasswordHashes[actor.UserId] = newHash;
-            _sqliteStore.UpsertUser(new StoredUserRow(
-                actor.UserId,
-                actor.Username,
-                actor.DisplayName,
-                actor.Role,
-                actor.IsLocalAccount,
-                newHash));
-            _logger.LogInformation("Password change succeeded for user {Username}", actor.Username);
-
-            AppendAudit(
-                actor,
-                AuditActionType.Update,
-                AuditEntityType.Authentication,
-                entityId: actor.UserId.ToString(),
-                projectId: null,
-                AuditOutcome.Success,
-                "Local password changed for current user.");
-
-            return new PasswordChangeResult(true, "Password changed successfully.");
         }
+
+        return await ChangeCurrentUserPasswordWithIdentityAsync(actor, request, cancellationToken);
     }
 
     public PasswordChangeResult ResetLocalUserPassword(AdminResetPasswordRequest request)
+        => ResetLocalUserPasswordAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<PasswordChangeResult> ResetLocalUserPasswordAsync(AdminResetPasswordRequest request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        AppUser actor;
+        AppUser targetUser;
         lock (_sync)
         {
-            var actor = RequireAdmin();
+            actor = RequireAdmin();
             ValidateAdminRequest(request);
 
             if (request.UserId == Guid.Empty)
@@ -749,7 +908,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 return new PasswordChangeResult(false, "A user must be selected.");
             }
 
-            var targetUser = _users.FirstOrDefault(u => u.UserId == request.UserId);
+            targetUser = _users.FirstOrDefault(u => u.UserId == request.UserId)!;
             if (targetUser is null)
             {
                 return new PasswordChangeResult(false, "Selected user was not found.");
@@ -772,35 +931,33 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
             if (_enableAspNetIdentity)
             {
-                return ResetLocalUserPasswordWithIdentity(actor, targetUser, request.NewPassword);
+                // Continue outside lock to avoid blocking on Identity APIs.
             }
+            else
+            {
+                var newHash = _passwordHasher.HashPassword(targetUser, request.NewPassword);
+                _localPasswordHashes[targetUser.UserId] = newHash;
+                _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, newHash));
 
-            var newHash = _passwordHasher.HashPassword(targetUser, request.NewPassword);
-            _localPasswordHashes[targetUser.UserId] = newHash;
-            _sqliteStore.UpsertUser(new StoredUserRow(
-                targetUser.UserId,
-                targetUser.Username,
-                targetUser.DisplayName,
-                targetUser.Role,
-                targetUser.IsLocalAccount,
-                newHash));
+                _logger.LogInformation(
+                    "Password reset by admin {ActorUsername} for user {TargetUsername}",
+                    actor.Username,
+                    targetUser.Username);
 
-            _logger.LogInformation(
-                "Password reset by admin {ActorUsername} for user {TargetUsername}",
-                actor.Username,
-                targetUser.Username);
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.Authentication,
+                    entityId: targetUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Success,
+                    $"Administrator '{actor.Username}' reset local password for user '{targetUser.Username}'.");
 
-            AppendAudit(
-                actor,
-                AuditActionType.Update,
-                AuditEntityType.Authentication,
-                entityId: targetUser.UserId.ToString(),
-                projectId: null,
-                AuditOutcome.Success,
-                $"Administrator '{actor.Username}' reset local password for user '{targetUser.Username}'.");
-
-            return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
+                return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
+            }
         }
+
+        return await ResetLocalUserPasswordWithIdentityAsync(actor, targetUser, request.NewPassword, cancellationToken);
     }
 
     public IReadOnlyList<JournalEntryView> GetJournalEntries(Guid? projectId = null, bool includeSoftDeleted = false)
@@ -1208,7 +1365,9 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 stored.Username,
                 stored.DisplayName,
                 stored.Role,
-                stored.IsLocalAccount);
+                stored.IsLocalAccount,
+                stored.ExternalIssuer,
+                stored.ExternalSubject);
 
             _users.Add(user);
             _userGroups[user.UserId] = new HashSet<Guid>();
@@ -1653,6 +1812,17 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             user.Role,
             _userGroups.TryGetValue(user.UserId, out var groups) ? groups.Order().ToList() : Array.Empty<Guid>());
 
+    private static StoredUserRow ToStoredUserRow(AppUser user, string? passwordHash)
+        => new(
+            user.UserId,
+            user.Username,
+            user.DisplayName,
+            user.Role,
+            user.IsLocalAccount,
+            passwordHash,
+            user.ExternalIssuer,
+            user.ExternalSubject);
+
     private AppUser GetCurrentUserInternal()
     {
         if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
@@ -1736,7 +1906,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             userName: normalizedUsername,
             password: password,
             isPersistent: false,
-            lockoutOnFailure: false).GetAwaiter().GetResult();
+            lockoutOnFailure: false).ConfigureAwait(false).GetAwaiter().GetResult();
 
         if (!signInResult.Succeeded)
         {
@@ -1752,7 +1922,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return new LoginResult(false, "Invalid username or password.", null);
         }
 
-        var identityUser = _identityUserManager.FindByNameAsync(normalizedUsername).GetAwaiter().GetResult();
+        var identityUser = _identityUserManager.FindByNameAsync(normalizedUsername).ConfigureAwait(false).GetAwaiter().GetResult();
         if (identityUser is not null)
         {
             SyncAppUserMetadataFromIdentity(identityUser);
@@ -1794,7 +1964,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return new PasswordChangeResult(false, "New password must be different from the current password.");
         }
 
-        var identityUser = _identityUserManager.FindByNameAsync(actor.Username).GetAwaiter().GetResult();
+        var identityUser = _identityUserManager.FindByNameAsync(actor.Username).ConfigureAwait(false).GetAwaiter().GetResult();
         if (identityUser is null)
         {
             AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Failure,
@@ -1802,7 +1972,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return new PasswordChangeResult(false, "Current account does not have a local password configured.");
         }
 
-        var result = _identityUserManager.ChangePasswordAsync(identityUser, currentPassword, newPassword).GetAwaiter().GetResult();
+        var result = _identityUserManager.ChangePasswordAsync(identityUser, currentPassword, newPassword).ConfigureAwait(false).GetAwaiter().GetResult();
         if (!result.Succeeded)
         {
             var error = string.Join("; ", result.Errors.Select(e => e.Description));
@@ -1814,17 +1984,140 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 : error);
         }
 
-        _sqliteStore.UpsertUser(new StoredUserRow(
-            actor.UserId,
-            actor.Username,
-            actor.DisplayName,
-            actor.Role,
-            actor.IsLocalAccount,
-            PasswordHash: null));
+        _sqliteStore.UpsertUser(ToStoredUserRow(actor, passwordHash: null));
 
         _logger.LogInformation("Password change succeeded for user {Username} via Identity", actor.Username);
         AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Success,
             "Local password changed for current user.");
+        return new PasswordChangeResult(true, "Password changed successfully.");
+    }
+
+    private PasswordChangeResult ChangeCurrentUserPasswordLocalCore(AppUser actor, ChangePasswordRequest request)
+    {
+        if (!_localPasswordHashes.TryGetValue(actor.UserId, out var existingHash))
+        {
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Authentication,
+                entityId: actor.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Failure,
+                "Password change failed because no local password hash was found.");
+            return new PasswordChangeResult(false, "Current account does not have a local password configured.");
+        }
+
+        var currentPassword = request.CurrentPassword ?? string.Empty;
+        var newPassword = request.NewPassword ?? string.Empty;
+
+        var verification = _passwordHasher.VerifyHashedPassword(actor, existingHash, currentPassword);
+        if (verification is PasswordVerificationResult.Failed)
+        {
+            _logger.LogWarning("Password change failed for user {Username}: current password mismatch", actor.Username);
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Authentication,
+                entityId: actor.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Failure,
+                "Password change failed because the current password did not match.");
+            return new PasswordChangeResult(false, "Current password is incorrect.");
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            return new PasswordChangeResult(false, "New password is required.");
+        }
+
+        if (TryGetPasswordPolicyViolationMessage(newPassword, "New password") is { } passwordPolicyError)
+        {
+            return new PasswordChangeResult(false, passwordPolicyError);
+        }
+
+        if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
+        {
+            return new PasswordChangeResult(false, "New password must be different from the current password.");
+        }
+
+        var newHash = _passwordHasher.HashPassword(actor, newPassword);
+        _localPasswordHashes[actor.UserId] = newHash;
+        _sqliteStore.UpsertUser(ToStoredUserRow(actor, newHash));
+        _logger.LogInformation("Password change succeeded for user {Username}", actor.Username);
+
+        AppendAudit(
+            actor,
+            AuditActionType.Update,
+            AuditEntityType.Authentication,
+            entityId: actor.UserId.ToString(),
+            projectId: null,
+            AuditOutcome.Success,
+            "Local password changed for current user.");
+
+        return new PasswordChangeResult(true, "Password changed successfully.");
+    }
+
+    private async Task<PasswordChangeResult> ChangeCurrentUserPasswordWithIdentityAsync(AppUser actor, ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            return new PasswordChangeResult(false, "Identity services are unavailable.");
+        }
+
+        var currentPassword = request.CurrentPassword ?? string.Empty;
+        var newPassword = request.NewPassword ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            return new PasswordChangeResult(false, "New password is required.");
+        }
+
+        if (TryGetPasswordPolicyViolationMessage(newPassword, "New password") is { } passwordPolicyError)
+        {
+            return new PasswordChangeResult(false, passwordPolicyError);
+        }
+
+        if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
+        {
+            return new PasswordChangeResult(false, "New password must be different from the current password.");
+        }
+
+        var identityUser = await _identityUserManager.FindByNameAsync(actor.Username);
+        if (identityUser is null)
+        {
+            lock (_sync)
+            {
+                AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Failure,
+                    "Password change failed because the Identity user record was not found.");
+            }
+            return new PasswordChangeResult(false, "Current account does not have a local password configured.");
+        }
+
+        var result = await _identityUserManager.ChangePasswordAsync(identityUser, currentPassword, newPassword);
+        if (!result.Succeeded)
+        {
+            var error = string.Join("; ", result.Errors.Select(e => e.Description));
+            lock (_sync)
+            {
+                _logger.LogWarning("Password change failed for user {Username} via Identity: {Error}", actor.Username, error);
+                AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Failure,
+                    "Password change failed because the current password did not match.");
+            }
+
+            return new PasswordChangeResult(false, error.Contains("Incorrect", StringComparison.OrdinalIgnoreCase)
+                ? "Current password is incorrect."
+                : error);
+        }
+
+        lock (_sync)
+        {
+            _sqliteStore.UpsertUser(ToStoredUserRow(actor, passwordHash: null));
+            _logger.LogInformation("Password change succeeded for user {Username} via Identity", actor.Username);
+            AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Success,
+                "Local password changed for current user.");
+        }
+
         return new PasswordChangeResult(true, "Password changed successfully.");
     }
 
@@ -1838,27 +2131,21 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         EnsurePasswordMeetsPolicy(newPassword, "Reset password");
         var candidatePassword = newPassword ?? string.Empty;
 
-        var identityUser = _identityUserManager.FindByNameAsync(targetUser.Username).GetAwaiter().GetResult();
+        var identityUser = _identityUserManager.FindByNameAsync(targetUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
         if (identityUser is null)
         {
             return new PasswordChangeResult(false, "Selected user does not have an Identity local account.");
         }
 
-        var resetToken = _identityUserManager.GeneratePasswordResetTokenAsync(identityUser).GetAwaiter().GetResult();
-        var result = _identityUserManager.ResetPasswordAsync(identityUser, resetToken, candidatePassword).GetAwaiter().GetResult();
+        var resetToken = _identityUserManager.GeneratePasswordResetTokenAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+        var result = _identityUserManager.ResetPasswordAsync(identityUser, resetToken, candidatePassword).ConfigureAwait(false).GetAwaiter().GetResult();
         if (!result.Succeeded)
         {
             var error = string.Join("; ", result.Errors.Select(e => e.Description));
             return new PasswordChangeResult(false, error);
         }
 
-        _sqliteStore.UpsertUser(new StoredUserRow(
-            targetUser.UserId,
-            targetUser.Username,
-            targetUser.DisplayName,
-            targetUser.Role,
-            targetUser.IsLocalAccount,
-            PasswordHash: null));
+        _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, passwordHash: null));
 
         _logger.LogInformation(
             "Password reset by admin {ActorUsername} for user {TargetUsername} via Identity",
@@ -1877,6 +2164,53 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
     }
 
+    private async Task<PasswordChangeResult> ResetLocalUserPasswordWithIdentityAsync(AppUser actor, AppUser targetUser, string? newPassword, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            return new PasswordChangeResult(false, "Identity services are unavailable.");
+        }
+
+        EnsurePasswordMeetsPolicy(newPassword, "Reset password");
+        var candidatePassword = newPassword ?? string.Empty;
+
+        var identityUser = await _identityUserManager.FindByNameAsync(targetUser.Username);
+        if (identityUser is null)
+        {
+            return new PasswordChangeResult(false, "Selected user does not have an Identity local account.");
+        }
+
+        var resetToken = await _identityUserManager.GeneratePasswordResetTokenAsync(identityUser);
+        var result = await _identityUserManager.ResetPasswordAsync(identityUser, resetToken, candidatePassword);
+        if (!result.Succeeded)
+        {
+            var error = string.Join("; ", result.Errors.Select(e => e.Description));
+            return new PasswordChangeResult(false, error);
+        }
+
+        lock (_sync)
+        {
+            _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, passwordHash: null));
+            _logger.LogInformation(
+                "Password reset by admin {ActorUsername} for user {TargetUsername} via Identity",
+                actor.Username,
+                targetUser.Username);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Authentication,
+                entityId: targetUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"Administrator '{actor.Username}' reset local password for user '{targetUser.Username}'.");
+        }
+
+        return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
+    }
+
     private void CreateOrUpdateIdentityLocalUser(AppUser appUser, string password)
     {
         if (_identityUserManager is null)
@@ -1884,7 +2218,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             throw new InvalidOperationException("ASP.NET Identity is enabled but UserManager is unavailable.");
         }
 
-        var existing = _identityUserManager.FindByNameAsync(appUser.Username).GetAwaiter().GetResult();
+        var existing = _identityUserManager.FindByNameAsync(appUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
         if (existing is not null)
         {
             throw new InvalidOperationException($"An Identity user with username '{appUser.Username}' already exists.");
@@ -1899,7 +2233,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             IsBootstrapAdmin = false
         };
 
-        var create = _identityUserManager.CreateAsync(identityUser, password).GetAwaiter().GetResult();
+        var create = _identityUserManager.CreateAsync(identityUser, password).ConfigureAwait(false).GetAwaiter().GetResult();
         if (!create.Succeeded)
         {
             var error = string.Join("; ", create.Errors.Select(e => e.Description));
@@ -1907,6 +2241,40 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
 
         SyncIdentityUserRoles(identityUser, appUser.Role);
+    }
+
+    private async Task CreateOrUpdateIdentityLocalUserAsync(AppUser appUser, string password, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            throw new InvalidOperationException("ASP.NET Identity is enabled but UserManager is unavailable.");
+        }
+
+        var existing = await _identityUserManager.FindByNameAsync(appUser.Username);
+        if (existing is not null)
+        {
+            throw new InvalidOperationException($"An Identity user with username '{appUser.Username}' already exists.");
+        }
+
+        var identityUser = new SecureJournalIdentityUser
+        {
+            UserName = appUser.Username,
+            Email = $"{appUser.Username}@local.invalid",
+            EmailConfirmed = true,
+            DisplayName = appUser.DisplayName,
+            IsBootstrapAdmin = false
+        };
+
+        var create = await _identityUserManager.CreateAsync(identityUser, password);
+        if (!create.Succeeded)
+        {
+            var error = string.Join("; ", create.Errors.Select(e => e.Description));
+            throw new InvalidOperationException($"Failed creating Identity user '{appUser.Username}': {error}");
+        }
+
+        await SyncIdentityUserRolesAsync(identityUser, appUser.Role, cancellationToken);
     }
 
     private void EnsureIdentityExternalUser(AppUser appUser)
@@ -1918,15 +2286,35 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return;
         }
 
-        var existing = _identityUserManager.FindByNameAsync(appUser.Username).GetAwaiter().GetResult();
+        var existing = _identityUserManager.FindByNameAsync(appUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
         if (existing is null)
         {
             return;
         }
 
         existing.DisplayName = appUser.DisplayName;
-        _identityUserManager.UpdateAsync(existing).GetAwaiter().GetResult();
+        _identityUserManager.UpdateAsync(existing).ConfigureAwait(false).GetAwaiter().GetResult();
         SyncIdentityUserRoles(existing, appUser.Role);
+    }
+
+    private async Task EnsureIdentityExternalUserAsync(AppUser appUser, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        var existing = await _identityUserManager.FindByNameAsync(appUser.Username);
+        if (existing is null)
+        {
+            return;
+        }
+
+        existing.DisplayName = appUser.DisplayName;
+        await _identityUserManager.UpdateAsync(existing);
+        await SyncIdentityUserRolesAsync(existing, appUser.Role, cancellationToken);
     }
 
     private void SyncIdentityUserRoles(SecureJournalIdentityUser identityUser, AppRole appRole)
@@ -1937,18 +2325,48 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
 
         var desiredRole = appRole.ToString();
-        var existingRoles = _identityUserManager.GetRolesAsync(identityUser).GetAwaiter().GetResult();
+        var existingRoles = _identityUserManager.GetRolesAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
         foreach (var role in existingRoles.Where(r => r is "Administrator" or "ProjectUser" or "Auditor"))
         {
             if (!string.Equals(role, desiredRole, StringComparison.OrdinalIgnoreCase))
             {
-                _identityUserManager.RemoveFromRoleAsync(identityUser, role).GetAwaiter().GetResult();
+                _identityUserManager.RemoveFromRoleAsync(identityUser, role).ConfigureAwait(false).GetAwaiter().GetResult();
             }
         }
 
         if (!existingRoles.Any(r => string.Equals(r, desiredRole, StringComparison.OrdinalIgnoreCase)))
         {
-            var addRole = _identityUserManager.AddToRoleAsync(identityUser, desiredRole).GetAwaiter().GetResult();
+            var addRole = _identityUserManager.AddToRoleAsync(identityUser, desiredRole).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (!addRole.Succeeded)
+            {
+                var error = string.Join("; ", addRole.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed assigning Identity role '{desiredRole}' to '{identityUser.UserName}': {error}");
+            }
+        }
+    }
+
+    private async Task SyncIdentityUserRolesAsync(SecureJournalIdentityUser identityUser, AppRole appRole, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        var desiredRole = appRole.ToString();
+        var existingRoles = await _identityUserManager.GetRolesAsync(identityUser);
+        foreach (var role in existingRoles.Where(r => r is "Administrator" or "ProjectUser" or "Auditor"))
+        {
+            if (!string.Equals(role, desiredRole, StringComparison.OrdinalIgnoreCase))
+            {
+                await _identityUserManager.RemoveFromRoleAsync(identityUser, role);
+            }
+        }
+
+        if (!existingRoles.Any(r => string.Equals(r, desiredRole, StringComparison.OrdinalIgnoreCase)))
+        {
+            var addRole = await _identityUserManager.AddToRoleAsync(identityUser, desiredRole);
             if (!addRole.Succeeded)
             {
                 var error = string.Join("; ", addRole.Errors.Select(e => e.Description));
@@ -1966,15 +2384,28 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return true;
         }
 
+        principal = new ClaimsPrincipal();
+        return false;
+    }
+
+    private async Task<ClaimsPrincipal?> GetCurrentPrincipalAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var httpContextUser = _httpContextAccessor?.HttpContext?.User;
+        if (httpContextUser?.Identity?.IsAuthenticated == true)
+        {
+            return httpContextUser;
+        }
+
         if (_authenticationStateProvider is not null)
         {
             try
             {
-                var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
+                var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
                 if (authState.User.Identity?.IsAuthenticated == true)
                 {
-                    principal = authState.User;
-                    return true;
+                    return authState.User;
                 }
             }
             catch (Exception ex)
@@ -1983,8 +2414,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             }
         }
 
-        principal = new ClaimsPrincipal();
-        return false;
+        return null;
     }
 
     private bool TryResolveOrProvisionUserFromPrincipal(ClaimsPrincipal principal, out AppUser user)
@@ -1996,17 +2426,147 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return false;
         }
 
-        var existing = _users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
-        var mappedRole = GetRoleFromPrincipal(principal, existing?.Role);
+        var isExternalOidcPrincipal = _enableOidc && LooksLikeOidcPrincipal(principal);
+        var existingByUsername = _users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
+        AppUser? existing = existingByUsername;
+        string? externalIssuer = null;
+        string? externalSubject = null;
+
+        if (isExternalOidcPrincipal)
+        {
+            if (!TryGetOidcIdentityKey(principal, out externalIssuer, out externalSubject))
+            {
+                _logger.LogWarning(
+                    "Rejected OIDC principal for username {Username} because issuer/subject claims were missing",
+                    username);
+                AppendAudit(
+                    actor: null,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: existingByUsername?.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Rejected OIDC login for username '{username}' because issuer/subject claims were missing.");
+                return false;
+            }
+
+            var existingByExternalIdentity = _users.FirstOrDefault(u =>
+                !u.IsLocalAccount &&
+                string.Equals(u.ExternalIssuer, externalIssuer, StringComparison.Ordinal) &&
+                string.Equals(u.ExternalSubject, externalSubject, StringComparison.Ordinal));
+
+            if (existingByExternalIdentity is not null)
+            {
+                if (existingByUsername is not null && existingByUsername.UserId != existingByExternalIdentity.UserId)
+                {
+                    _logger.LogWarning(
+                        "Rejected OIDC principal for subject {Subject} because username {Username} collides with another account",
+                        externalSubject,
+                        username);
+                    AppendAudit(
+                        actor: null,
+                        AuditActionType.Login,
+                        AuditEntityType.Authentication,
+                        entityId: existingByUsername.UserId.ToString(),
+                        projectId: null,
+                        AuditOutcome.Failure,
+                        $"Rejected OIDC login for username '{username}' because it collides with another account.");
+                    return false;
+                }
+
+                existing = existingByExternalIdentity;
+            }
+            else if (existingByUsername is not null)
+            {
+                if (existingByUsername.IsLocalAccount)
+                {
+                    _logger.LogWarning(
+                        "Rejected OIDC principal for username {Username} due to collision with local account",
+                        username);
+                    AppendAudit(
+                        actor: null,
+                        AuditActionType.Login,
+                        AuditEntityType.Authentication,
+                        entityId: existingByUsername.UserId.ToString(),
+                        projectId: null,
+                        AuditOutcome.Failure,
+                        $"Rejected OIDC login for username '{username}' because it collides with a local account.");
+                    return false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(existingByUsername.ExternalIssuer) ||
+                    !string.IsNullOrWhiteSpace(existingByUsername.ExternalSubject))
+                {
+                    _logger.LogWarning(
+                        "Rejected OIDC principal for username {Username} because an external account with a different identity is already linked",
+                        username);
+                    AppendAudit(
+                        actor: null,
+                        AuditActionType.Login,
+                        AuditEntityType.Authentication,
+                        entityId: existingByUsername.UserId.ToString(),
+                        projectId: null,
+                        AuditOutcome.Failure,
+                        $"Rejected OIDC login for username '{username}' because an external account with a different identity is already linked.");
+                    return false;
+                }
+
+                // Legacy upgrade path: bind an existing non-local username-only account to the stable OIDC identity.
+                existing = existingByUsername with
+                {
+                    ExternalIssuer = externalIssuer,
+                    ExternalSubject = externalSubject
+                };
+                var legacyIndex = _users.FindIndex(u => u.UserId == existingByUsername.UserId);
+                if (legacyIndex >= 0)
+                {
+                    _users[legacyIndex] = existing;
+                }
+
+                _sqliteStore.UpsertUser(ToStoredUserRow(existing, passwordHash: null));
+            }
+        }
+
+        AppRole mappedRole;
+        if (isExternalOidcPrincipal)
+        {
+            if (!TryGetExplicitRoleFromPrincipal(principal, out mappedRole))
+            {
+                _logger.LogWarning(
+                    "Rejected OIDC principal for username {Username} because no mapped application role was present",
+                    username);
+                AppendAudit(
+                    actor: null,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: existing?.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Rejected OIDC login for username '{username}' because no mapped application role was present.");
+                return false;
+            }
+        }
+        else
+        {
+            mappedRole = GetRoleFromPrincipal(principal, existing?.Role);
+        }
+
         var mappedDisplayName = GetDisplayNameFromPrincipal(principal, username);
-        var isLocalPrincipal = existing?.IsLocalAccount ?? IsLocalPrincipal(principal);
+        var isLocalPrincipal = existing?.IsLocalAccount ?? !isExternalOidcPrincipal;
 
         if (existing is null)
         {
-            var created = new AppUser(Guid.NewGuid(), username, mappedDisplayName, mappedRole, isLocalPrincipal);
+            var created = new AppUser(
+                Guid.NewGuid(),
+                username,
+                mappedDisplayName,
+                mappedRole,
+                isLocalPrincipal,
+                isLocalPrincipal ? null : externalIssuer,
+                isLocalPrincipal ? null : externalSubject);
             _users.Add(created);
             _userGroups[created.UserId] = new HashSet<Guid>();
-            _sqliteStore.UpsertUser(new StoredUserRow(created.UserId, created.Username, created.DisplayName, created.Role, created.IsLocalAccount, null));
+            _sqliteStore.UpsertUser(ToStoredUserRow(created, passwordHash: null));
             _logger.LogInformation("App user provisioned from authenticated principal: {Username} ({Role})", created.Username, created.Role);
             AppendAudit(
                 created,
@@ -2016,6 +2576,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 projectId: null,
                 AuditOutcome.Success,
                 "App user provisioned from authenticated Identity/OIDC principal.");
+            _currentUserId = created.UserId;
             user = created;
             return true;
         }
@@ -2023,22 +2584,33 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         var needsUpdate =
             !string.Equals(existing.DisplayName, mappedDisplayName, StringComparison.Ordinal) ||
             existing.Role != mappedRole ||
+            (isExternalOidcPrincipal && (
+                !string.Equals(existing.ExternalIssuer, externalIssuer, StringComparison.Ordinal) ||
+                !string.Equals(existing.ExternalSubject, externalSubject, StringComparison.Ordinal))) ||
             (existing.IsLocalAccount && !isLocalPrincipal && _enableOidc); // preserve local flag unless clearly external-only
 
         if (needsUpdate)
         {
-            var updated = existing with { DisplayName = mappedDisplayName, Role = mappedRole };
+            var updated = existing with
+            {
+                DisplayName = mappedDisplayName,
+                Role = mappedRole,
+                ExternalIssuer = isExternalOidcPrincipal ? externalIssuer : existing.ExternalIssuer,
+                ExternalSubject = isExternalOidcPrincipal ? externalSubject : existing.ExternalSubject
+            };
             var index = _users.FindIndex(u => u.UserId == existing.UserId);
             if (index >= 0)
             {
                 _users[index] = updated;
             }
 
-            _sqliteStore.UpsertUser(new StoredUserRow(updated.UserId, updated.Username, updated.DisplayName, updated.Role, updated.IsLocalAccount, existing.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updated.UserId) : null));
+            _sqliteStore.UpsertUser(ToStoredUserRow(updated, existing.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updated.UserId) : null));
+            _currentUserId = updated.UserId;
             user = updated;
             return true;
         }
 
+        _currentUserId = existing.UserId;
         user = existing;
         return true;
     }
@@ -2051,7 +2623,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return;
         }
 
-        var roles = _identityUserManager?.GetRolesAsync(identityUser).GetAwaiter().GetResult() ?? Array.Empty<string>();
+        var roles = _identityUserManager?.GetRolesAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult() ?? Array.Empty<string>();
         var role = roles.Any(r => string.Equals(r, nameof(AppRole.Administrator), StringComparison.OrdinalIgnoreCase))
             ? AppRole.Administrator
             : roles.Any(r => string.Equals(r, nameof(AppRole.Auditor), StringComparison.OrdinalIgnoreCase))
@@ -2071,17 +2643,66 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             _users[index] = updated;
         }
 
-        _sqliteStore.UpsertUser(new StoredUserRow(updated.UserId, updated.Username, updated.DisplayName, updated.Role, updated.IsLocalAccount, null));
+        _sqliteStore.UpsertUser(ToStoredUserRow(updated, passwordHash: null));
+    }
+
+    private async Task SyncAppUserMetadataFromIdentityAsync(SecureJournalIdentityUser identityUser, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        var roles = await _identityUserManager.GetRolesAsync(identityUser);
+        var resolvedRole = roles.Any(r => string.Equals(r, nameof(AppRole.Administrator), StringComparison.OrdinalIgnoreCase))
+            ? AppRole.Administrator
+            : roles.Any(r => string.Equals(r, nameof(AppRole.Auditor), StringComparison.OrdinalIgnoreCase))
+                ? AppRole.Auditor
+                : AppRole.ProjectUser;
+
+        lock (_sync)
+        {
+            var appUser = _users.FirstOrDefault(u => string.Equals(u.Username, identityUser.UserName, StringComparison.OrdinalIgnoreCase));
+            if (appUser is null)
+            {
+                return;
+            }
+
+            var displayName = string.IsNullOrWhiteSpace(identityUser.DisplayName) ? appUser.DisplayName : identityUser.DisplayName;
+            if (appUser.Role == resolvedRole && string.Equals(appUser.DisplayName, displayName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var updated = appUser with { Role = resolvedRole, DisplayName = displayName };
+            var index = _users.FindIndex(u => u.UserId == appUser.UserId);
+            if (index >= 0)
+            {
+                _users[index] = updated;
+            }
+
+            _sqliteStore.UpsertUser(ToStoredUserRow(updated, passwordHash: null));
+        }
     }
 
     private static string? GetNormalizedPrincipalUsername(ClaimsPrincipal principal)
     {
-        var raw = principal.FindFirstValue("preferred_username")
-                  ?? principal.FindFirstValue(ClaimTypes.Upn)
-                  ?? principal.FindFirstValue(ClaimTypes.Email)
-                  ?? principal.FindFirstValue("email")
-                  ?? principal.Identity?.Name
-                  ?? principal.FindFirstValue(ClaimTypes.Name);
+        var isOidcPrincipal = LooksLikeOidcPrincipal(principal);
+        var raw = isOidcPrincipal
+            ? principal.FindFirstValue("preferred_username")
+              ?? principal.FindFirstValue(ClaimTypes.Upn)
+              ?? principal.FindFirstValue(ClaimTypes.Email)
+              ?? principal.FindFirstValue("email")
+              ?? principal.Identity?.Name
+              ?? principal.FindFirstValue(ClaimTypes.Name)
+            : principal.Identity?.Name
+              ?? principal.FindFirstValue(ClaimTypes.Name)
+              ?? principal.FindFirstValue("preferred_username")
+              ?? principal.FindFirstValue(ClaimTypes.Upn)
+              ?? principal.FindFirstValue(ClaimTypes.Email)
+              ?? principal.FindFirstValue("email");
 
         if (string.IsNullOrWhiteSpace(raw))
         {
@@ -2116,20 +2737,63 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         return fallbackRole ?? AppRole.ProjectUser;
     }
 
+    private static bool TryGetExplicitRoleFromPrincipal(ClaimsPrincipal principal, out AppRole role)
+    {
+        if (principal.IsInRole(nameof(AppRole.Administrator)))
+        {
+            role = AppRole.Administrator;
+            return true;
+        }
+
+        if (principal.IsInRole(nameof(AppRole.Auditor)))
+        {
+            role = AppRole.Auditor;
+            return true;
+        }
+
+        if (principal.IsInRole(nameof(AppRole.ProjectUser)))
+        {
+            role = AppRole.ProjectUser;
+            return true;
+        }
+
+        role = default;
+        return false;
+    }
+
+    private static bool LooksLikeOidcPrincipal(ClaimsPrincipal principal)
+        => principal.Claims.Any(c =>
+            string.Equals(c.Type, "sub", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(c.Type, "iss", StringComparison.OrdinalIgnoreCase));
+
+    private static bool TryGetOidcIdentityKey(ClaimsPrincipal principal, out string issuer, out string subject)
+    {
+        issuer = (principal.FindFirstValue("iss") ?? string.Empty).Trim();
+        subject = (principal.FindFirstValue("sub") ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(subject))
+        {
+            issuer = string.Empty;
+            subject = string.Empty;
+            return false;
+        }
+
+        return true;
+    }
+
     private bool IsLocalPrincipal(ClaimsPrincipal principal)
     {
-        var username = GetNormalizedPrincipalUsername(principal);
-        if (string.IsNullOrWhiteSpace(username))
+        if (principal.Identity?.IsAuthenticated != true)
         {
             return false;
         }
 
-        if (_identityUserManager is null)
+        if (_enableOidc && LooksLikeOidcPrincipal(principal))
         {
             return false;
         }
 
-        return _identityUserManager.FindByNameAsync(username).GetAwaiter().GetResult() is not null;
+        return true;
     }
 
     private void EnsurePasswordMeetsPolicy(string? password, string passwordLabel)
@@ -2275,13 +2939,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             var passwordHash = _passwordHasher.HashPassword(bootstrapUser, _bootstrapAdmin.Password);
             _localPasswordHashes[bootstrapUser.UserId] = passwordHash;
 
-            _sqliteStore.UpsertUser(new StoredUserRow(
-                bootstrapUser.UserId,
-                bootstrapUser.Username,
-                bootstrapUser.DisplayName,
-                bootstrapUser.Role,
-                bootstrapUser.IsLocalAccount,
-                passwordHash));
+            _sqliteStore.UpsertUser(ToStoredUserRow(bootstrapUser, passwordHash));
 
             _logger.LogInformation("Bootstrap administrator {Username} created from appsettings", bootstrapUser.Username);
 
@@ -2348,13 +3006,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
         if (metadataUpdated || passwordUpdated)
         {
-            _sqliteStore.UpsertUser(new StoredUserRow(
-                updatedBootstrapUser.UserId,
-                updatedBootstrapUser.Username,
-                updatedBootstrapUser.DisplayName,
-                updatedBootstrapUser.Role,
-                updatedBootstrapUser.IsLocalAccount,
-                passwordHashToPersist));
+            _sqliteStore.UpsertUser(ToStoredUserRow(updatedBootstrapUser, passwordHashToPersist));
 
             AppendAudit(
                 updatedBootstrapUser,

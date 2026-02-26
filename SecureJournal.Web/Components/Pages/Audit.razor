@@ -266,9 +266,9 @@
     private int TotalPages
         => Math.Max(1, (int)Math.Ceiling(_rows.Count / (double)_pageSize));
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;

@@ -105,24 +105,24 @@ else
     private string? _message;
     private string? _error;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (!JournalApp.HasCurrentUser())
+        if (!await JournalApp.HasCurrentUserAsync())
         {
             Navigation.NavigateTo("/", forceLoad: false);
             return;
         }
 
-        LoadData();
+        await LoadDataAsync();
     }
 
-    private void LoadData()
+    private async Task LoadDataAsync()
     {
-        _currentUser = JournalApp.GetCurrentUser();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
         _groups = JournalApp.GetGroups().ToList();
     }
 
-    private Task CreateGroupAsync()
+    private async Task CreateGroupAsync()
     {
         ClearMessages();
         Logger.LogInformation("Admin group form submit: CreateGroup {GroupName}", GroupDraft.Name);
@@ -132,7 +132,7 @@ else
             var group = JournalApp.CreateGroup(GroupDraft);
             _message = $"Group '{group.Name}' created.";
             ResetGroupForm();
-            LoadData();
+            await LoadDataAsync();
         }
         catch (Exception ex)
         {
@@ -140,7 +140,6 @@ else
             _error = ex.Message;
         }
 
-        return Task.CompletedTask;
     }
 
     private void ResetGroupForm()

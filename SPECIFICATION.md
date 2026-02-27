@@ -1,4 +1,4 @@
-# Secure Journal Application Specification (Draft v1.0)
+# Secure Journal Application Specification (Draft v1.1)
 
 ## 1. Purpose
 
@@ -40,10 +40,11 @@ The application supports:
 ### 5.1 Administrator
 
 - Create/manage projects
-- Create/manage groups
-- Assign users to groups
-- Assign groups to one or more projects
+- Create/manage/delete groups
+- Add/remove users to/from groups
+- Add/remove groups to/from one or more projects
 - Create/manage users (including local accounts)
+- Manage multi-role assignments per user
 - Enable/disable user accounts
 - Delete user accounts
 - Reset passwords for local users
@@ -75,13 +76,19 @@ The application supports:
 
 - The system shall support creation of multiple projects.
 - The system shall support creation of groups.
-- The system shall support assigning users to groups.
-- The system shall support assigning groups to one or multiple projects.
+- The system shall support adding and removing users from groups.
+- The system shall support adding and removing groups from projects.
+- The system shall support deleting groups.
 - A user's project access shall be derived from group membership (except administrators who have global access).
 
 ### 6.2 User Management
 
 - Administrators shall create local users.
+- User account creation shall be available on a dedicated administrator page (`/admin/user-accounts`).
+- Membership and role management shall be available on a dedicated administrator page (`/admin/users`).
+- Users shall support membership in multiple groups.
+- Users shall support assignment of multiple roles.
+- Group/role edits shall support a batched "Save" operation (checkbox selection + explicit save), not immediate per-toggle persistence.
 - Administrators shall be able to disable and re-enable users.
 - Administrators shall be able to delete users.
 - Local-password reset shall be available only for local accounts.
@@ -89,6 +96,9 @@ The application supports:
 - The system shall support generic OIDC login.
 - Users authenticated via OIDC shall be mapped to application users and roles/groups.
 - OIDC user identity binding shall use stable provider identifiers (`iss` + `sub`) and not rely on username/email alone.
+- OIDC diagnostics shall support optional claim/token logging when `iss`/`sub` are missing:
+  - `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing`
+  - `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing`
 - OIDC configuration shall support role mapping by external group membership, where each application role can be configured with one or more external groups.
 - Role assignment shall be managed by administrators only.
 
@@ -202,6 +212,7 @@ Each audit log entry should include:
   - Outcome
 - Exportable audit results shall preserve filter criteria metadata.
 - Audit results shall present checksum values and checksum-validation actions in a dedicated integrity area/column for clarity.
+- Checksum validation status shall be shown inline next to the validation action with explicit valid/invalid indicators.
 
 ## 9. Export Requirements
 
@@ -229,11 +240,13 @@ Each audit log entry should include:
 
 - Common reads/searches should return paged results.
 - Audit search shall support pagination and filtering to avoid loading full datasets.
+- Project list and project-entry list views should support pagination and configurable page size.
 
 ### 10.2 Reliability
 
 - All writes (journal + audit) should be transactional where possible.
 - Failure to write audit logs for sensitive operations should fail the operation or trigger a clear error policy (recommended: fail closed for security-sensitive actions).
+- Interactive-server reconnect behavior shall expose visible, readable retry/reload controls when connection is interrupted.
 
 ### 10.3 Portability
 
@@ -285,11 +298,18 @@ Each audit log entry should include:
 
 ## 15. UI
 1. UI should be WCAG compatible
-2. Dark mode support
-3. Include basic formatting tools for notes and description fields
-4. Project entry list should show consistent column headers with one row per entry (without repeating field-name prefixes in each row)
-5. List and table views should use alternating row backgrounds to improve readability
-6. Single-entry details view should include clear Back navigation to the prior project context
+2. The application shall support dark mode and light mode
+3. Theme contrast must keep primary actions readable in both themes (including login/OIDC actions)
+4. Include basic formatting tools for notes and description fields
+5. Project entry list should show consistent column headers with one row per entry (without repeating field-name prefixes in each row)
+6. List and table views should use alternating row backgrounds to improve readability
+7. Single-entry details view should include clear Back navigation to the prior project context
+8. Admin pages should use flex/grid layouts that keep primary selection lists and editors visible without page jumps
+9. User management UX should be user-centric: select a user, then manage groups/roles via checkboxes and save changes in one operation
+10. Project group access UX should be project-centric: select a project, then manage group access via checkboxes and save changes in one operation
+11. Multi-assigned groups in project and admin tables should render as per-group tags/chips (not collapsed into unreadable overflow text)
+12. Audit/group/project table cells should be top-aligned for multi-line readability
+13. Reconnection and Blazor error UX must remain readable and actionable in both themes (`Retry`, `Reload`, and dismissal controls visible)
 
 ## 16. Code testing and security best practises
 1. Always test the codes, Use TDD principles
@@ -310,14 +330,12 @@ Install/setup/run instructions have been moved to:
 
 Configuration policy for the current project (current repository state):
 
-- The local sample/development setup uses appsettings files for runtime settings.
-- For shared/staging/production environments, sensitive values should be overridden via environment variables, user-secrets, or a secret manager.
-- Primary files:
-  - `SecureJournal.Web/appsettings.json`
-  - `SecureJournal.Web/appsettings.Development.json`
-- Sanitized template files are also maintained for replication/setup:
+- Runtime settings may come from appsettings files and/or environment variables.
+- In the current repository state, sanitized template files are source-controlled:
   - `SecureJournal.Web/appsettings.template.json`
   - `SecureJournal.Web/appsettings.Development.template.json`
+- Active runtime files (`appsettings.json`, `appsettings.Development.json`) are environment-local and may be absent from source control.
+- For shared/staging/production environments, sensitive values should be overridden via environment variables, user-secrets, or a secret manager.
 - Secrets currently stored in appsettings include (at minimum):
   - `Security:JournalEncryptionKey`
   - `Authentication:Oidc:ClientSecret`
@@ -330,6 +348,9 @@ Configuration policy for the current project (current repository state):
   - `Authentication:Oidc:RoleGroupMappings:Administrator[]`
   - `Authentication:Oidc:RoleGroupMappings:Auditor[]`
   - `Authentication:Oidc:RoleGroupMappings:ProjectUser[]`
+- Optional OIDC diagnostics settings (supported by current implementation):
+  - `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing`
+  - `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing`
 - Optional direct persistence connection-string overrides are supported:
   - `Persistence:AppConnectionString`
   - `Persistence:IdentityConnectionString`
@@ -349,7 +370,7 @@ This section documents what is needed to reproduce the current working implement
 - `SecureJournal.Core/` - core domain models, validation, security, application contracts
 - `SecureJournal.Web/` - Blazor Server UI, application services, EF Core persistence, ASP.NET Identity/OIDC integration, and legacy fallback paths
 - `SecureJournal.Tests/` - xUnit tests for core service behavior and regression coverage
-- `scripts/` - local start scripts (`start.ps1`, `start-clean.ps1`)
+- `scripts/` - local start scripts plus Azure deploy/provision helpers and SQL cleanup utility
 - `.artifacts/` - local build/test outputs (including `verify-build` workaround output)
 
 ### 19.2 SDK / Runtime Assumptions
@@ -393,18 +414,22 @@ dotnet test SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "consol
 
 ### 19.4 Required Configuration Files (Current)
 
-- `SecureJournal.Web/appsettings.json`
-- `SecureJournal.Web/appsettings.Development.json`
 - `SecureJournal.Web/appsettings.template.json` (sanitized template)
 - `SecureJournal.Web/appsettings.Development.template.json` (sanitized template)
+- Optional runtime-local active files:
+  - `SecureJournal.Web/appsettings.json`
+  - `SecureJournal.Web/appsettings.Development.json`
 
-The current implementation expects these files to contain:
+The current implementation expects effective runtime configuration (from files and/or environment variables) to contain:
 
 - connection strings (`SQLite`, plus placeholder `SQL Server` / `PostgreSQL`)
 - journal encryption key
 - local password policy and complexity settings
 - session cookie settings
 - local/OIDC authentication toggles and OIDC placeholders
+- optional OIDC diagnostics toggles:
+  - `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing`
+  - `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing`
 - bootstrap administrator credentials
 - logging configuration (including request logging mode/level)
 - optional buffered file logging (`Logging:File:Enabled`, `Logging:File:Path`, `Logging:File:MinimumLevel`)
@@ -435,14 +460,24 @@ The current implementation expects these files to contain:
 - `/audit` = audit search with linked journal evidence display
 - `/exports` = CSV/JSON export generation + download
 - `/admin/projects`, `/admin/groups`, `/admin/users`, `/admin/user-accounts` = admin management pages
+- Current admin information architecture:
+  - `/admin/user-accounts` = create users (local/external, initial roles)
+  - `/admin/users` = manage selected user memberships, roles, enabled/disabled state, delete user, reset local password
+  - `/admin/projects` = project list with paging + selected-project group access editor (checkbox + save)
+  - `/admin/groups` = create and delete groups, with member/project mapping overview
 
 ### 19.6.1 Production Foundation Feature Flags (Current)
 
 - `Authentication:EnableAspNetIdentity`
+- `Authentication:EnableLocalLogin`
+- `Authentication:EnableOidc`
 - `Persistence:EnableProductionAppDatabase`
 - `Persistence:EnableProductionIdentityDatabase`
 - `Persistence:Provider` (`Sqlite`, `SqlServer`, `PostgreSql`)
 - `Persistence:AutoMigrateOnStartup`
+- Optional OIDC diagnostics:
+  - `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing`
+  - `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing`
 
 When enabled, the app initializes:
 

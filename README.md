@@ -1,5 +1,7 @@
 # Secure Journal
 
+[![Tag Build](https://github.com/mictsi/SecureJournal/actions/workflows/tag-build.yml/badge.svg)](https://github.com/mictsi/SecureJournal/actions/workflows/tag-build.yml)
+
 Secure Journal is a role-based project event journaling application for a single organization with multiple projects.
 
 It is designed for:
@@ -50,6 +52,30 @@ Recent UI behavior highlights:
 - `/journal` redirects back to `/projects?projectId=...` after successful entry creation
 - `My Projects` uses an inline columnar entry list with alternating row colors for readability
 - `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
+
+## Container / Cloud Configuration
+
+The app supports environment-based configuration for Docker and Azure App Service:
+
+- Standard .NET hierarchical env vars (for example `Security__JournalEncryptionKey`, `ConnectionStrings__SecureJournalSqlite`).
+- Azure App Service connection-string env vars (for example `SQLCONNSTR_SecureJournalSqlServer`, `POSTGRESQLCONNSTR_SecureJournalPostgres`, `CUSTOMCONNSTR_*`).
+- Optional shorthand env vars:
+  - `SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY`
+  - `SECUREJOURNAL_APP_CONNECTION_STRING`
+  - `SECUREJOURNAL_IDENTITY_CONNECTION_STRING`
+  - `SECUREJOURNAL_BOOTSTRAP_ADMIN_PASSWORD`
+
+Container assets included:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `.dockerignore`
+- `scripts/generate-env-from-appsettings.ps1` (generate env vars from `appsettings*.json`)
+
+Container runtime security:
+
+- The image runs as a non-root user (`UID/GID 10001`) by default.
+- `docker-compose.yml` also pins the runtime user to `10001:10001`.
 
 ## Documentation
 

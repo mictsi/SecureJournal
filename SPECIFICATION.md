@@ -231,6 +231,7 @@ Each audit log entry should include:
 ### 10.3 Portability
 
 - Database provider abstraction shall support SQLite, SQL Server, and PostgreSQL with minimal code changes.
+- Runtime configuration should support environment-variable deployment patterns for containerized and cloud-hosted environments (including .NET hierarchical keys and provider-specific connection-string injection).
 
 ### 10.4 Time Handling
 
@@ -322,6 +323,9 @@ Configuration policy for the current project (current repository state):
   - `Authentication:Oidc:RoleGroupMappings:Administrator[]`
   - `Authentication:Oidc:RoleGroupMappings:Auditor[]`
   - `Authentication:Oidc:RoleGroupMappings:ProjectUser[]`
+- Optional direct persistence connection-string overrides are supported:
+  - `Persistence:AppConnectionString`
+  - `Persistence:IdentityConnectionString`
 
 Current implementation bootstrap behavior:
 

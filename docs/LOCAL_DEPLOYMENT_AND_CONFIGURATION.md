@@ -40,6 +40,8 @@ Recommended workflow:
 - `Persistence:EnableProductionAppDatabase`
 - `Persistence:EnableProductionIdentityDatabase`
 - `Persistence:AutoMigrateOnStartup`
+- `Persistence:AppConnectionString` (optional direct app-db connection string override)
+- `Persistence:IdentityConnectionString` (optional direct identity-db connection string override)
 
 ### Security
 
@@ -61,6 +63,46 @@ Recommended workflow:
 - `Authentication:Oidc:*`
 - `Authentication:Oidc:GroupClaimType`
 - `Authentication:Oidc:RoleGroupMappings:*`
+
+## 2.1 Environment Variable Configuration (Docker / Azure App Service)
+
+The app can be configured fully through environment variables.
+
+Recommended standard format (works in Docker, App Service, and most orchestrators):
+
+- `Security__JournalEncryptionKey`
+- `Persistence__Provider`
+- `Persistence__AppConnectionString`
+- `Persistence__IdentityConnectionString`
+- `ConnectionStrings__SecureJournalSqlite` (or other provider-specific names)
+- `BootstrapAdmin__Username`
+- `BootstrapAdmin__DisplayName`
+- `BootstrapAdmin__Password`
+
+Azure App Service connection-string prefixes are also supported:
+
+- `SQLCONNSTR_*`
+- `SQLAZURECONNSTR_*`
+- `POSTGRESQLCONNSTR_*`
+- `MYSQLCONNSTR_*`
+- `CUSTOMCONNSTR_*`
+
+Examples:
+
+- `SQLCONNSTR_SecureJournalSqlServer`
+- `POSTGRESQLCONNSTR_SecureJournalPostgres`
+- `CUSTOMCONNSTR_SecureJournalSqlite`
+
+Optional shorthand variables are also supported:
+
+- `SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY`
+- `SECUREJOURNAL_APP_CONNECTION_STRING`
+- `SECUREJOURNAL_IDENTITY_CONNECTION_STRING`
+- `SECUREJOURNAL_BOOTSTRAP_ADMIN_PASSWORD`
+
+Helper script:
+
+- `scripts/generate-env-from-appsettings.ps1` can generate `.env` or PowerShell env exports from `appsettings*.json`.
 
 ### Logging
 
@@ -219,6 +261,19 @@ Manual run:
 ```powershell
 dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
 ```
+
+Docker Compose run:
+
+```powershell
+docker compose up --build
+```
+
+The provided `docker-compose.yml` maps:
+
+- app HTTP port: `8080`
+- persistent DB data volume: `securejournal-data`
+- logs volume: `securejournal-logs`
+- non-root runtime user: `10001:10001` (rootless app process)
 
 Login/logout behavior:
 

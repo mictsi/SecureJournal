@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 - 2026-02-27
+
+### DevOps and Deployment
+
+- Added GitHub Actions tag-build workflow (`.github/workflows/tag-build.yml`) that runs on new `v*` tags and uploads published web artifacts
+- Added Docker support (`Dockerfile`, `docker-compose.yml`, `.dockerignore`)
+- Updated Docker runtime to run as non-root user (`10001:10001`)
+- Added README workflow badge for tag-build status
+- Added environment-variable-first configuration support for Docker/Azure App Service deployment, including App Service connection-string prefix fallbacks
+- Added `scripts/generate-env-from-appsettings.ps1` to generate `.env` or PowerShell env exports from `appsettings*.json`
+
+### Documentation
+
+- Updated README, build/install, and local deployment docs with CI, container, rootless runtime, and environment-variable guidance
+- Updated release notes for `v0.4.0`
+
 ## 0.3.0 - 2026-02-27
 
 ### UI / UX

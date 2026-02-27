@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+EnvironmentConfigurationOverrides.Apply(builder.Configuration);
+EnvironmentConfigurationOverrides.ApplyWebHostPortOverride(builder);
+
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.AddServerHeader = false;

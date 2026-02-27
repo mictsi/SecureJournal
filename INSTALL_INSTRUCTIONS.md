@@ -41,6 +41,13 @@ dotnet --version
 dotnet --list-sdks
 ```
 
+Optional (for containerized deployment):
+
+```powershell
+docker --version
+docker compose version
+```
+
 ## 3. Configure Settings (AppSettings Files)
 
 The current local-development setup uses appsettings files for runtime configuration. For shared or production environments, prefer environment variables, `dotnet user-secrets`, or a secret manager for sensitive values.
@@ -82,6 +89,13 @@ Default local behavior (current repository settings):
 - On first run with a clean database, the app seeds only the startup administrator from `BootstrapAdmin` in appsettings.
 - In `Development`, `BootstrapAdmin:SyncPasswordOnStartup=true` can resync the bootstrap admin password from appsettings on each startup (helpful if an old local DB has a stale admin password).
 - No demo projects/users/journal records are seeded anymore.
+
+Environment-variable deployment is also supported (Docker / Azure App Service):
+
+- Hierarchical keys, for example `Security__JournalEncryptionKey`, `BootstrapAdmin__Password`, `ConnectionStrings__SecureJournalSqlite`
+- Azure App Service connection-string prefixes (`SQLCONNSTR_*`, `POSTGRESQLCONNSTR_*`, `CUSTOMCONNSTR_*`)
+- Optional shorthand keys such as `SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY`
+- Helper script available: `scripts/generate-env-from-appsettings.ps1`
 
 Clean database reset (manual):
 
@@ -135,6 +149,16 @@ Hot reload during development:
 ```powershell
 dotnet watch --project SecureJournal.Web run
 ```
+
+Run with Docker Compose:
+
+```powershell
+docker compose up --build
+```
+
+Container security note:
+
+- The container runs as non-root user `10001:10001` (rootless app process).
 
 ## 5. Known Local SDK Issue (Observed in This Environment)
 

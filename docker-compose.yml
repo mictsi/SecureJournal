@@ -1,0 +1,33 @@
+services:
+  securejournal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: securejournal:local
+    container_name: securejournal
+    user: "10001:10001"
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      Persistence__Provider: "Sqlite"
+      Persistence__EnableProductionAppDatabase: "true"
+      Persistence__EnableProductionIdentityDatabase: "true"
+      Persistence__AutoMigrateOnStartup: "true"
+      ConnectionStrings__SecureJournalSqlite: "Data Source=/data/securejournal.db"
+      ConnectionStrings__SecureJournalIdentitySqlite: "Data Source=/data/securejournal.identity.db"
+      Security__JournalEncryptionKey: "${SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY:-replace-with-strong-key}"
+      BootstrapAdmin__Username: "${SECUREJOURNAL_BOOTSTRAP_ADMIN_USERNAME:-admin}"
+      BootstrapAdmin__DisplayName: "${SECUREJOURNAL_BOOTSTRAP_ADMIN_DISPLAYNAME:-Startup Administrator}"
+      BootstrapAdmin__Password: "${SECUREJOURNAL_BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe123!}"
+      BootstrapAdmin__SyncPasswordOnStartup: "${SECUREJOURNAL_BOOTSTRAP_SYNC_PASSWORD:-false}"
+      Authentication__EnableOidc: "${SECUREJOURNAL_ENABLE_OIDC:-false}"
+    volumes:
+      - securejournal-data:/data
+      - securejournal-logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  securejournal-data:
+  securejournal-logs:

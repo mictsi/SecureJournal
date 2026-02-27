@@ -1,0 +1,40 @@
+name: Tag Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore web project
+        run: dotnet restore SecureJournal.Web/SecureJournal.Web.csproj
+
+      - name: Build web project (Debug for tests)
+        run: dotnet build SecureJournal.Web/SecureJournal.Web.csproj -c Debug --no-restore
+
+      - name: Run tests
+        run: dotnet test SecureJournal.Tests/SecureJournal.Tests.csproj -c Debug --no-build --logger "console;verbosity=minimal"
+
+      - name: Publish web artifact (Release)
+        run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release -o .artifacts/publish/web --no-restore
+
+      - name: Upload published web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: securejournal-web-${{ github.ref_name }}
+          path: .artifacts/publish/web

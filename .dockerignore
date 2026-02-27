@@ -1,0 +1,13 @@
+.git
+.github
+.artifacts
+**/bin
+**/obj
+**/.vs
+**/*.user
+**/*.suo
+**/*.db
+**/*.db-shm
+**/*.db-wal
+*.md
+LICENSE

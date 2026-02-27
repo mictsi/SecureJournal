@@ -39,16 +39,24 @@ public sealed record ProductionPersistenceOptions(
             _ => "SecureJournalIdentitySqlite"
         };
 
-        var appConnectionString = configuration.GetConnectionString(appConnectionStringName) ?? string.Empty;
+        var appConnectionString = ResolveConnectionString(
+            configuration,
+            configuredConnectionString: configuration["Persistence:AppConnectionString"],
+            namedConnectionString: appConnectionStringName);
         if (enableApp && string.IsNullOrWhiteSpace(appConnectionString))
         {
-            throw new InvalidOperationException($"Missing connection string '{appConnectionStringName}' for Persistence:Provider={provider}.");
+            throw new InvalidOperationException(
+                $"Missing app connection string. Set 'Persistence:AppConnectionString' or 'ConnectionStrings:{appConnectionStringName}'.");
         }
 
-        var identityConnectionString = configuration.GetConnectionString(identityConnectionStringName) ?? string.Empty;
+        var identityConnectionString = ResolveConnectionString(
+            configuration,
+            configuredConnectionString: configuration["Persistence:IdentityConnectionString"],
+            namedConnectionString: identityConnectionStringName);
         if (enableIdentity && string.IsNullOrWhiteSpace(identityConnectionString))
         {
-            throw new InvalidOperationException($"Missing connection string '{identityConnectionStringName}' for Persistence:Provider={provider}.");
+            throw new InvalidOperationException(
+                $"Missing identity connection string. Set 'Persistence:IdentityConnectionString' or 'ConnectionStrings:{identityConnectionStringName}'.");
         }
 
         return new ProductionPersistenceOptions(
@@ -58,5 +66,39 @@ public sealed record ProductionPersistenceOptions(
             Provider: provider,
             AppConnectionString: appConnectionString,
             IdentityConnectionString: identityConnectionString);
+    }
+
+    private static string ResolveConnectionString(
+        IConfiguration configuration,
+        string? configuredConnectionString,
+        string namedConnectionString)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredConnectionString))
+        {
+            return configuredConnectionString;
+        }
+
+        var fromConfig = configuration.GetConnectionString(namedConnectionString);
+        if (!string.IsNullOrWhiteSpace(fromConfig))
+        {
+            return fromConfig;
+        }
+
+        var fromHierarchicalEnv = Environment.GetEnvironmentVariable($"ConnectionStrings__{namedConnectionString}");
+        if (!string.IsNullOrWhiteSpace(fromHierarchicalEnv))
+        {
+            return fromHierarchicalEnv;
+        }
+
+        foreach (var prefix in new[] { "SQLCONNSTR_", "SQLAZURECONNSTR_", "MYSQLCONNSTR_", "POSTGRESQLCONNSTR_", "CUSTOMCONNSTR_" })
+        {
+            var fromAppService = Environment.GetEnvironmentVariable($"{prefix}{namedConnectionString}");
+            if (!string.IsNullOrWhiteSpace(fromAppService))
+            {
+                return fromAppService;
+            }
+        }
+
+        return string.Empty;
     }
 }

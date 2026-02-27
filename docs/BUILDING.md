@@ -93,6 +93,64 @@ You can enable buffered file logging for local troubleshooting:
 
 The logger writes asynchronously using a buffered queue and periodic flushes to reduce request-path I/O overhead.
 
+## CI Tag Build Workflow
+
+This repository includes a GitHub Actions workflow:
+
+- `.github/workflows/tag-build.yml`
+
+Trigger:
+
+- Push of a new git tag matching `v*` (for example `v0.4.0`)
+
+Workflow behavior:
+
+- Restore + build web project
+- Run tests
+- Publish web output
+- Upload published output as a workflow artifact
+
+## Docker Build
+
+Build image from repository root:
+
+```powershell
+docker build -t securejournal:local .
+```
+
+Run with explicit environment values:
+
+```powershell
+docker run --rm -p 8080:8080 `
+  -e Security__JournalEncryptionKey="replace-with-strong-key" `
+  -e BootstrapAdmin__Password="ChangeMe123!" `
+  securejournal:local
+```
+
+Rootless container runtime:
+
+- The image runs as non-root user `10001:10001`.
+- For custom host bind-mounts, ensure the target directories are writable by `UID/GID 10001`.
+
+## Generate Env Vars From AppSettings
+
+Use the helper script to flatten `appsettings*.json` into environment variables:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-env-from-appsettings.ps1 `
+  -AppSettingsPath SecureJournal.Web\appsettings.template.json `
+  -Format dotenv `
+  -OutputPath .artifacts\generated\securejournal.env
+```
+
+PowerShell export format:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-env-from-appsettings.ps1 `
+  -Format powershell `
+  -OutputPath .artifacts\generated\securejournal.env.ps1
+```
+
 ## Release Artifact (Local)
 
 You can produce a local release artifact zip from the repository root:

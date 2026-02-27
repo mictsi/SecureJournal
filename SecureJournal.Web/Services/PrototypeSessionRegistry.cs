@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 namespace SecureJournal.Web.Services;
 
@@ -10,7 +11,7 @@ public sealed class PrototypeSessionRegistry
     {
         CleanupExpiredSessions();
 
-        var token = Convert.ToHexString(Guid.NewGuid().ToByteArray()) + Convert.ToHexString(Guid.NewGuid().ToByteArray());
+        var token = CreateSessionToken();
         var expiresAtUtc = DateTimeOffset.UtcNow.Add(lifetime);
 
         _sessions[token] = new SessionEntry(userId, expiresAtUtc);
@@ -60,6 +61,13 @@ public sealed class PrototypeSessionRegistry
                 _sessions.TryRemove(pair.Key, out _);
             }
         }
+    }
+
+    private static string CreateSessionToken()
+    {
+        Span<byte> randomBytes = stackalloc byte[32];
+        RandomNumberGenerator.Fill(randomBytes);
+        return Convert.ToHexString(randomBytes);
     }
 
     private sealed record SessionEntry(Guid UserId, DateTimeOffset ExpiresAtUtc);

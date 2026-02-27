@@ -40,6 +40,69 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public void ProductionEnvironment_MissingBootstrapPassword_FailsFast()
+    {
+        var dbPath = BuildUniqueDatabasePath("prod-bootstrap-missing-password");
+        try
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:SecureJournalSqlite"] = $"Data Source={dbPath}",
+                    ["Security:JournalEncryptionKey"] = "tests-journal-key",
+                    ["Security:LocalPasswordMinLength"] = "8",
+                    ["BootstrapAdmin:Username"] = "admin",
+                    ["BootstrapAdmin:DisplayName"] = "Startup Admin",
+                    ["ASPNETCORE_ENVIRONMENT"] = "Production"
+                })
+                .Build();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                CreateService(
+                    configuration,
+                    new SqlitePrototypeStore(configuration),
+                    new PrototypeSharedState(),
+                    NullLogger<SecureJournalAppService>.Instance));
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void ProductionEnvironment_DefaultBootstrapPassword_FailsFast()
+    {
+        var dbPath = BuildUniqueDatabasePath("prod-bootstrap-default-password");
+        try
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:SecureJournalSqlite"] = $"Data Source={dbPath}",
+                    ["Security:JournalEncryptionKey"] = "tests-journal-key",
+                    ["Security:LocalPasswordMinLength"] = "8",
+                    ["BootstrapAdmin:Username"] = "admin",
+                    ["BootstrapAdmin:DisplayName"] = "Startup Admin",
+                    ["BootstrapAdmin:Password"] = "ChangeMe123!",
+                    ["ASPNETCORE_ENVIRONMENT"] = "Production"
+                })
+                .Build();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                CreateService(
+                    configuration,
+                    new SqlitePrototypeStore(configuration),
+                    new PrototypeSharedState(),
+                    NullLogger<SecureJournalAppService>.Instance));
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
     public void AdminCanCreateUsersProjectsGroupsAndAssignments_AndProjectUserGetsAccess()
     {
         using var ctx = TestAppContext.Create();
@@ -225,6 +288,30 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public async Task AdminCanManageUserState_WithAsyncApis()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+
+        var user = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "async-state-user",
+            DisplayName = "Async State User",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "AsyncState123!"
+        });
+
+        Assert.True(await ctx.App.DisableUserAsync(user.UserId));
+        Assert.False(await ctx.App.DisableUserAsync(user.UserId));
+
+        Assert.True(await ctx.App.EnableUserAsync(user.UserId));
+        Assert.False(await ctx.App.EnableUserAsync(user.UserId));
+
+        Assert.True(await ctx.App.DeleteUserAsync(user.UserId));
+    }
+
+    [Fact]
     public void AdminCanDeleteUser_AndDeletedUserCannotSignIn()
     {
         using var ctx = TestAppContext.Create();
@@ -380,6 +467,21 @@ public sealed class SecureJournalAppServiceTests
         {
             DeleteFileQuietly(dbPath);
         }
+    }
+
+    [Fact]
+    public void SessionRegistry_GeneratesStrongHexSessionTokens()
+    {
+        var sessions = new PrototypeSessionRegistry();
+
+        var tokenA = sessions.CreateSession(Guid.NewGuid(), TimeSpan.FromMinutes(30));
+        var tokenB = sessions.CreateSession(Guid.NewGuid(), TimeSpan.FromMinutes(30));
+
+        Assert.Equal(64, tokenA.Length);
+        Assert.Equal(64, tokenB.Length);
+        Assert.NotEqual(tokenA, tokenB);
+        Assert.All(tokenA, c => Assert.True(Uri.IsHexDigit(c)));
+        Assert.All(tokenB, c => Assert.True(Uri.IsHexDigit(c)));
     }
 
     [Fact]

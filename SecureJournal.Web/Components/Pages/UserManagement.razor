@@ -466,8 +466,8 @@ else
             _error = null;
 
             var changed = shouldEnable
-                ? JournalApp.EnableUser(selectedUser.UserId)
-                : JournalApp.DisableUser(selectedUser.UserId);
+                ? await JournalApp.EnableUserAsync(selectedUser.UserId)
+                : await JournalApp.DisableUserAsync(selectedUser.UserId);
             await LoadDataAsync();
             _message = changed
                 ? $"User '{selectedUser.Username}' was {actionVerb}d."
@@ -507,7 +507,7 @@ else
             _message = null;
             _error = null;
 
-            JournalApp.DeleteUser(selectedUser.UserId);
+            await JournalApp.DeleteUserAsync(selectedUser.UserId);
             await LoadDataAsync();
             _message = $"User '{selectedUser.Username}' was deleted.";
         }

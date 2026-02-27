@@ -28,8 +28,11 @@ public interface ISecureJournalAppService
     bool RemoveUserFromRole(UserRoleMembershipRequest request);
     bool AssignUserToGroup(AssignUserToGroupRequest request);
     bool RemoveUserFromGroup(AssignUserToGroupRequest request);
+    Task<bool> EnableUserAsync(Guid userId, CancellationToken cancellationToken = default);
     bool EnableUser(Guid userId);
+    Task<bool> DisableUserAsync(Guid userId, CancellationToken cancellationToken = default);
     bool DisableUser(Guid userId);
+    Task<bool> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
     bool DeleteUser(Guid userId);
     bool AssignGroupToProject(AssignGroupToProjectRequest request);
     bool RemoveGroupFromProject(AssignGroupToProjectRequest request);

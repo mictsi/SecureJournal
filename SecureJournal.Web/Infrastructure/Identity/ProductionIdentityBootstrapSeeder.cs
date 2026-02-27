@@ -6,15 +6,18 @@ public sealed class ProductionIdentityBootstrapSeeder
 {
     private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<ProductionIdentityBootstrapSeeder> _logger;
 
     public ProductionIdentityBootstrapSeeder(
         IServiceProvider services,
         IConfiguration configuration,
+        IHostEnvironment hostEnvironment,
         ILogger<ProductionIdentityBootstrapSeeder> logger)
     {
         _services = services;
         _configuration = configuration;
+        _hostEnvironment = hostEnvironment;
         _logger = logger;
     }
 
@@ -39,11 +42,29 @@ public sealed class ProductionIdentityBootstrapSeeder
 
         var bootstrapUsername = (_configuration["BootstrapAdmin:Username"] ?? "admin").Trim();
         var bootstrapDisplayName = (_configuration["BootstrapAdmin:DisplayName"] ?? "Startup Administrator").Trim();
-        var bootstrapPassword = _configuration["BootstrapAdmin:Password"] ?? "ChangeMe123!";
+        var bootstrapPassword = _configuration["BootstrapAdmin:Password"]?.Trim();
 
         if (string.IsNullOrWhiteSpace(bootstrapUsername))
         {
             bootstrapUsername = "admin";
+        }
+
+        if (string.IsNullOrWhiteSpace(bootstrapPassword))
+        {
+            if (_hostEnvironment.IsProduction())
+            {
+                throw new InvalidOperationException("BootstrapAdmin:Password is required in Production and cannot be empty.");
+            }
+
+            bootstrapPassword = "ChangeMe123!";
+        }
+
+        if (_hostEnvironment.IsProduction() &&
+            (string.Equals(bootstrapPassword, "ChangeMe123!", StringComparison.Ordinal) ||
+             bootstrapPassword.Contains("<bootstrap-admin", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                "BootstrapAdmin:Password uses a default/placeholder value. Set a strong production password.");
         }
 
         var normalizedUsername = bootstrapUsername.ToLowerInvariant();

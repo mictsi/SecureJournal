@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.6.3 - 2026-02-27
+
+### Highlights
+
+- Fixed admin-side hangs in user enable/disable/delete flows by replacing fire-and-forget background work with awaited async identity synchronization.
+- Added Production fail-fast checks for bootstrap admin password configuration to prevent startup with missing/default/placeholder credentials.
+- Strengthened session/cookie ticket secret generation using cryptographic random values and added expired ticket eviction in the in-memory ticket store.
+
+### Technical Notes
+
+- Service/API changes:
+  - added `EnableUserAsync(Guid)`, `DisableUserAsync(Guid)`, `DeleteUserAsync(Guid)` in `ISecureJournalAppService`
+  - implemented async user-state flows in `SecureJournalAppService`
+  - `UserManagement.razor` now awaits async user-state methods.
+- Security/runtime changes:
+  - `SecureJournal.Web/Infrastructure/Identity/ProductionIdentityBootstrapSeeder.cs` now validates bootstrap password strictly in Production
+  - `SecureJournal.Web/Services/SecureJournalAppService.cs` bootstrap settings parser now rejects missing/default/placeholder bootstrap password in Production
+  - `SecureJournal.Web/Services/PrototypeSessionRegistry.cs` now uses `RandomNumberGenerator` for session token creation
+  - `SecureJournal.Web/Infrastructure/Identity/InMemoryAuthenticationTicketStore.cs` now uses `RandomNumberGenerator` for key generation and performs periodic expired-entry cleanup.
+- Test coverage:
+  - expanded `SecureJournal.Tests/SecureJournalAppServiceTests.cs`
+  - added `SecureJournal.Tests/InMemoryAuthenticationTicketStoreTests.cs`.
+
 ## v0.6.2 - 2026-02-27
 
 ### Highlights

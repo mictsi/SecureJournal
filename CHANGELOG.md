@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.3 - 2026-02-27
+
+### Reliability and Async Fixes
+
+- Replaced fire-and-forget identity operations in user enable/disable/delete flows with awaited async calls to prevent hung admin operations.
+- Added async user-state APIs (`EnableUserAsync`, `DisableUserAsync`, `DeleteUserAsync`) and updated `User management` UI handlers to await these operations.
+- Improved identity user lockout/delete synchronization error handling by executing it inline in the same awaited control flow.
+
+### Security Hardening
+
+- Added fail-fast validation for `BootstrapAdmin:Password` in Production:
+  - missing/empty password now throws during startup
+  - default/placeholder bootstrap password values are rejected in Production.
+- Switched session token generation to `RandomNumberGenerator` in `PrototypeSessionRegistry`.
+- Switched cookie ticket store key generation to `RandomNumberGenerator` in `InMemoryAuthenticationTicketStore`.
+- Added periodic/on-access expired-ticket eviction in `InMemoryAuthenticationTicketStore` to reduce stale ticket accumulation.
+
+### Testing
+
+- Added regression tests for Production bootstrap password fail-fast behavior.
+- Added tests for async user-state APIs and secure session token characteristics.
+- Added tests for in-memory ticket-store key format and expired-entry cleanup behavior.
+
 ## 0.6.2 - 2026-02-27
 
 ### UI and Theme Fixes

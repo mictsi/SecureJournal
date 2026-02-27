@@ -1173,7 +1173,12 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public bool DisableUser(Guid userId)
+        => DisableUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<bool> DisableUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         string? identityUsernameToDisable = null;
         bool changed;
 
@@ -1239,14 +1244,19 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         if (!string.IsNullOrWhiteSpace(identityUsernameToDisable))
         {
-            _ = Task.Run(() => TryDisableIdentityUserByUsername(identityUsernameToDisable));
+            await TryDisableIdentityUserByUsernameAsync(identityUsernameToDisable, cancellationToken);
         }
 
         return changed;
     }
 
     public bool EnableUser(Guid userId)
+        => EnableUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<bool> EnableUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         string? identityUsernameToEnable = null;
         bool changed;
 
@@ -1302,14 +1312,19 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         if (!string.IsNullOrWhiteSpace(identityUsernameToEnable))
         {
-            _ = Task.Run(() => TryEnableIdentityUserByUsername(identityUsernameToEnable));
+            await TryEnableIdentityUserByUsernameAsync(identityUsernameToEnable, cancellationToken);
         }
 
         return changed;
     }
 
     public bool DeleteUser(Guid userId)
+        => DeleteUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+
+    public async Task<bool> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         string? identityUsernameToDelete = null;
 
         lock (_sync)
@@ -1363,7 +1378,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         if (!string.IsNullOrWhiteSpace(identityUsernameToDelete))
         {
-            _ = Task.Run(() => TryDeleteIdentityUserByUsername(identityUsernameToDelete));
+            await TryDeleteIdentityUserByUsernameAsync(identityUsernameToDelete, cancellationToken);
         }
 
         return true;
@@ -3331,8 +3346,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
-    private void TryDeleteIdentityUserByUsername(string username)
+    private async Task TryDeleteIdentityUserByUsernameAsync(string username, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (_identityUserManager is null)
         {
             return;
@@ -3340,13 +3357,13 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         try
         {
-            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            var identityUser = await _identityUserManager.FindByNameAsync(username);
             if (identityUser is null)
             {
                 return;
             }
 
-            var result = _identityUserManager.DeleteAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+            var result = await _identityUserManager.DeleteAsync(identityUser);
             if (!result.Succeeded)
             {
                 var errors = string.Join("; ", result.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -3359,8 +3376,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
-    private void TryDisableIdentityUserByUsername(string username)
+    private async Task TryDisableIdentityUserByUsernameAsync(string username, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (_identityUserManager is null)
         {
             return;
@@ -3368,7 +3387,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         try
         {
-            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            var identityUser = await _identityUserManager.FindByNameAsync(username);
             if (identityUser is null)
             {
                 return;
@@ -3377,7 +3396,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             if (!identityUser.LockoutEnabled)
             {
                 identityUser.LockoutEnabled = true;
-                var updateResult = _identityUserManager.UpdateAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+                var updateResult = await _identityUserManager.UpdateAsync(identityUser);
                 if (!updateResult.Succeeded)
                 {
                     var updateErrors = string.Join("; ", updateResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -3386,7 +3405,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 }
             }
 
-            var lockoutResult = _identityUserManager.SetLockoutEndDateAsync(identityUser, DateTimeOffset.MaxValue).ConfigureAwait(false).GetAwaiter().GetResult();
+            var lockoutResult = await _identityUserManager.SetLockoutEndDateAsync(identityUser, DateTimeOffset.MaxValue);
             if (!lockoutResult.Succeeded)
             {
                 var lockoutErrors = string.Join("; ", lockoutResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -3399,8 +3418,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
-    private void TryEnableIdentityUserByUsername(string username)
+    private async Task TryEnableIdentityUserByUsernameAsync(string username, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (_identityUserManager is null)
         {
             return;
@@ -3408,7 +3429,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         try
         {
-            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            var identityUser = await _identityUserManager.FindByNameAsync(username);
             if (identityUser is null)
             {
                 return;
@@ -3417,7 +3438,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             if (!identityUser.LockoutEnabled)
             {
                 identityUser.LockoutEnabled = true;
-                var updateResult = _identityUserManager.UpdateAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+                var updateResult = await _identityUserManager.UpdateAsync(identityUser);
                 if (!updateResult.Succeeded)
                 {
                     var updateErrors = string.Join("; ", updateResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -3426,7 +3447,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 }
             }
 
-            var unlockResult = _identityUserManager.SetLockoutEndDateAsync(identityUser, null).ConfigureAwait(false).GetAwaiter().GetResult();
+            var unlockResult = await _identityUserManager.SetLockoutEndDateAsync(identityUser, null);
             if (!unlockResult.Succeeded)
             {
                 var unlockErrors = string.Join("; ", unlockResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -3434,7 +3455,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 return;
             }
 
-            _identityUserManager.ResetAccessFailedCountAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+            await _identityUserManager.ResetAccessFailedCountAsync(identityUser);
         }
         catch (Exception ex)
         {
@@ -3659,7 +3680,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         {
             var username = (configuration["BootstrapAdmin:Username"] ?? "admin").Trim().ToLowerInvariant();
             var displayName = (configuration["BootstrapAdmin:DisplayName"] ?? "Startup Admin").Trim();
-            var password = configuration["BootstrapAdmin:Password"] ?? "ChangeMe123!";
+            var password = configuration["BootstrapAdmin:Password"]?.Trim();
             var syncPasswordOnStartup = bool.TryParse(configuration["BootstrapAdmin:SyncPasswordOnStartup"], out var parsedSync)
                 ? parsedSync
                 : false;
@@ -3676,10 +3697,34 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             if (string.IsNullOrWhiteSpace(password))
             {
+                if (IsProductionEnvironment(configuration))
+                {
+                    throw new InvalidOperationException(
+                        "BootstrapAdmin:Password is required in Production and cannot be empty.");
+                }
+
                 password = "ChangeMe123!";
             }
 
+            if (IsProductionEnvironment(configuration) &&
+                (string.Equals(password, "ChangeMe123!", StringComparison.Ordinal) ||
+                 password.Contains("<bootstrap-admin", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException(
+                    "BootstrapAdmin:Password uses a default/placeholder value. Set a strong production password.");
+            }
+
             return new BootstrapAdminSettings(username, displayName, password, syncPasswordOnStartup);
+        }
+
+        private static bool IsProductionEnvironment(IConfiguration configuration)
+        {
+            var configuredEnvironment = configuration["ASPNETCORE_ENVIRONMENT"]
+                ?? configuration["DOTNET_ENVIRONMENT"]
+                ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+
+            return string.Equals(configuredEnvironment, "Production", StringComparison.OrdinalIgnoreCase);
         }
     }
 

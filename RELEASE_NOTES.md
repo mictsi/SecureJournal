@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.6.1 - 2026-02-27
+
+### Highlights
+
+- Fixed low-contrast OIDC sign-in button rendering in light mode on both login entry points.
+- Added a dedicated theme-aware OIDC button style so sign-in actions remain visible and accessible across themes.
+
+### Technical Notes
+
+- Updated OIDC button class usage in:
+  - `SecureJournal.Web/Components/Pages/Home.razor`
+  - `SecureJournal.Web/Components/Pages/Login.razor`
+- Added `btn-oidc` styles and light/dark variants in `SecureJournal.Web/wwwroot/app.css`.
+
 ## v0.6.0 - 2026-02-27
 
 ### Highlights

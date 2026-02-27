@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 - 2026-02-27
+
+### UI Fixes
+
+- Fixed login and home OIDC sign-in button visibility in light theme by replacing low-contrast button styling with a dedicated `btn-oidc` style.
+- Added theme-aware `btn-oidc` CSS for consistent contrast and readable hover/focus states in both light and dark modes.
+
 ## 0.6.0 - 2026-02-27
 
 ### User Management and Access Control

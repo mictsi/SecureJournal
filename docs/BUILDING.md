@@ -12,7 +12,7 @@
 - `SecureJournal.Core/` - shared domain/application contracts
 - `SecureJournal.Web/` - Blazor Server app
 - `SecureJournal.Tests/` - xUnit tests (service tests + integration tests)
-- `scripts/` - local startup helpers
+- `scripts/` - local startup + deployment helpers
 
 ## Configuration Templates
 
@@ -106,6 +106,7 @@ Workflow behavior:
 
 - Restore + build web project
 - Run tests
+- Build Docker image from repository root (`docker build`)
 - Publish web output
 - Upload published output as a workflow artifact
 
@@ -130,6 +131,32 @@ Rootless container runtime:
 
 - The image runs as non-root user `10001:10001`.
 - For custom host bind-mounts, ensure the target directories are writable by `UID/GID 10001`.
+
+## Azure App Service Scripts
+
+Provision Azure resources and Entra app registrations:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-azure.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -NamePrefix "securejournal" `
+  -OidcGroupMembershipClaims "SecurityGroup"
+```
+
+Deploy application package to App Service:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-appservice.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -AppServicePlanName "securejournal-asp-prod" `
+  -WebAppName "securejournal-web-prod" `
+  -JournalEncryptionKey "<strong-encryption-key>" `
+  -AdminPassword "<bootstrap-admin-password>"
+```
 
 ## Generate Env Vars From AppSettings
 

@@ -33,6 +33,7 @@ It is designed for:
 - Local login/logout endpoints use antiforgery protection (logout is POST-only)
 - OIDC users are bound to stable external identity (`iss` + `sub`) instead of username-only matching
 - OIDC username collisions with local users are rejected; unmapped external roles are denied
+- Entra ID app registration provisioning can enforce group claims in ID tokens (`groupMembershipClaims`)
 - Role and project access enforced server-side
 - Optional buffered file logging can be enabled via `Logging:File:*` settings for troubleshooting
 - Console provider logging can be toggled via `Logging:Console:Enabled`
@@ -73,6 +74,8 @@ Container assets included:
 - `docker-compose.yml`
 - `.dockerignore`
 - `scripts/generate-env-from-appsettings.ps1` (generate env vars from `appsettings*.json`)
+- `scripts/provision-azure.ps1` (provision RG + storage + key vault + App Service + Entra app registrations)
+- `scripts/deploy-appservice.ps1` (publish/deploy SecureJournal to Azure App Service with app settings)
 
 Container runtime security:
 

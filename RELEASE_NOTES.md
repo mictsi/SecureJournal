@@ -1,5 +1,24 @@
 # Release Notes
 
+## v0.4.4 - 2026-02-27
+
+### Highlights
+
+- Added Azure automation scripts:
+  - `scripts/provision-azure.ps1` for provisioning App Service prerequisites and Entra app registrations.
+  - `scripts/deploy-appservice.ps1` for publish + zip deployment to Azure App Service.
+- Added support in provisioning flow to configure Entra `groupMembershipClaims` for OIDC app registrations so group claims are emitted in ID tokens.
+- Added Docker image build validation to the GitHub tagged-release workflow.
+
+### Technical Notes
+
+- `provision-azure.ps1` now outputs App Service metadata (`appServicePlanName`, `webAppName`, app URL) and current-style OIDC env keys (`Authentication__Oidc__*`).
+- `deploy-appservice.ps1` now uses current SecureJournal configuration keys (`Authentication__*`, `Security__*`, `BootstrapAdmin__*`, `Logging__*`) and supports OIDC role-group mapping env keys:
+  - `Authentication__Oidc__RoleGroupMappings__Administrator__*`
+  - `Authentication__Oidc__RoleGroupMappings__Auditor__*`
+  - `Authentication__Oidc__RoleGroupMappings__ProjectUser__*`
+- Tag-build workflow now includes `docker build -t securejournal:${{ github.ref_name }} .`.
+
 ## v0.4.2 - 2026-02-27
 
 ### Highlights

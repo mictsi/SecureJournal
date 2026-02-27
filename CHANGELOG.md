@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.4 - 2026-02-27
+
+### DevOps and Deployment
+
+- Added `scripts/provision-azure.ps1` to provision Azure dependencies for App Service deployments, including:
+  - resource group, storage/table, key vault, App Service plan/web app
+  - optional Entra app registrations for app access + OIDC
+  - OIDC app `groupMembershipClaims` configuration for group claims in ID tokens
+- Added `scripts/deploy-appservice.ps1` to publish and deploy `SecureJournal.Web` to Azure App Service with current `Authentication:*`, `BootstrapAdmin:*`, `Security:*`, and `Logging:*` settings.
+- Updated GitHub `Tag Build` workflow to include Docker image build validation (`docker build`) on tagged releases.
+
+### Documentation
+
+- Updated README and deployment/build/install docs to cover Azure provisioning/deployment scripts and Entra ID token group-claim configuration.
+
 ## 0.4.2 - 2026-02-27
 
 ### Hotfix

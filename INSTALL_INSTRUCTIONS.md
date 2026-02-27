@@ -99,6 +99,15 @@ Environment-variable deployment is also supported (Docker / Azure App Service):
 - Optional shorthand keys such as `SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY`
 - Helper script available: `scripts/generate-env-from-appsettings.ps1`
 
+Azure App Service automation scripts are included:
+
+- `scripts/provision-azure.ps1` to provision Azure resources and optional Entra OIDC app registration.
+- `scripts/deploy-appservice.ps1` to publish and deploy `SecureJournal.Web` to App Service.
+
+If you are using Entra group-to-role mapping, configure group claims in ID tokens during provisioning:
+
+- `-OidcGroupMembershipClaims SecurityGroup`
+
 Clean database reset (manual):
 
 ```powershell
@@ -161,6 +170,26 @@ docker compose up --build
 Container security note:
 
 - The container runs as non-root user `10001:10001` (rootless app process).
+
+Example Azure script usage:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-azure.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -NamePrefix "securejournal" `
+  -OidcGroupMembershipClaims "SecurityGroup"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-appservice.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -AppServicePlanName "securejournal-asp-prod" `
+  -WebAppName "securejournal-web-prod" `
+  -JournalEncryptionKey "<strong-encryption-key>" `
+  -AdminPassword "<bootstrap-admin-password>"
+```
 
 ## 5. Known Local SDK Issue (Observed in This Environment)
 

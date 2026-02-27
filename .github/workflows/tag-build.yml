@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: dotnet test SecureJournal.Tests/SecureJournal.Tests.csproj -c Debug --no-restore --logger "console;verbosity=minimal"
 
+      - name: Build Docker image
+        run: docker build -t securejournal:${{ github.ref_name }} .
+
       - name: Publish web artifact (Release)
         run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release -o .artifacts/publish/web --no-restore
 

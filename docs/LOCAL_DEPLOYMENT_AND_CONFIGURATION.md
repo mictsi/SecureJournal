@@ -142,8 +142,46 @@ Notes:
 - Values are one or more external group identifiers (name or object ID depending on your OIDC provider/claims setup).
 - `GroupClaimType` defaults to `groups`.
 - This configuration is used by the OIDC claims transformation to grant application roles from external group claims.
+- For Microsoft Entra ID, configure the app registration to emit group claims in ID tokens (`groupMembershipClaims`), otherwise group-based role mapping may not resolve as expected.
 - OIDC sign-in now requires stable external identity claims (`iss` + `sub`) and an explicit mapped application role.
 - Username collisions with local accounts are rejected (no username-based role inheritance).
+
+## 2.2 Azure App Service Automation Scripts
+
+The repository includes deployment scripts for Azure App Service:
+
+- `scripts/provision-azure.ps1`
+- `scripts/deploy-appservice.ps1`
+
+`provision-azure.ps1` provisions resource group dependencies and can create App Service + Entra app registrations in one run. It also supports Entra OIDC group-claim configuration via:
+
+- `-OidcGroupMembershipClaims SecurityGroup` (or `All`, `DirectoryRole`, `ApplicationGroup`, `None`)
+
+Example:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-azure.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -NamePrefix "securejournal" `
+  -OidcGroupMembershipClaims "SecurityGroup"
+```
+
+`deploy-appservice.ps1` publishes `SecureJournal.Web`, sets App Service application settings using current configuration keys (`Authentication__*`, `Security__*`, `BootstrapAdmin__*`, `Logging__*`), and deploys a zip package.
+
+Example:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-appservice.ps1 `
+  -SubscriptionId "<subscription-guid>" `
+  -ResourceGroupName "rg-securejournal-prod" `
+  -Location "eastus" `
+  -AppServicePlanName "securejournal-asp-prod" `
+  -WebAppName "securejournal-web-prod" `
+  -JournalEncryptionKey "<strong-encryption-key>" `
+  -AdminPassword "<bootstrap-admin-password>"
+```
 
 ### Bootstrap Admin
 

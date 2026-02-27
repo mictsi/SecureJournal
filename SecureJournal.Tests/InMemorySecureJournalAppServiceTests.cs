@@ -196,17 +196,7 @@ public sealed class InMemorySecureJournalAppServiceTests
         }
         finally
         {
-            try
-            {
-                if (File.Exists(dbPath))
-                {
-                    File.Delete(dbPath);
-                }
-            }
-            catch
-            {
-                // ignore cleanup failure in test
-            }
+            DeleteFileQuietly(dbPath);
         }
     }
 
@@ -291,17 +281,7 @@ public sealed class InMemorySecureJournalAppServiceTests
         }
         finally
         {
-            try
-            {
-                if (File.Exists(dbPath))
-                {
-                    File.Delete(dbPath);
-                }
-            }
-            catch
-            {
-                // ignore cleanup failure in test
-            }
+            DeleteFileQuietly(dbPath);
         }
     }
 
@@ -486,7 +466,7 @@ public sealed class InMemorySecureJournalAppServiceTests
     [Fact]
     public void StatePersistsAcrossServiceInstances()
     {
-        using var ctx = TestAppContext.Create();
+        using var ctx = TestAppContext.Create(deleteOnDispose: false);
         ctx.LoginAsAdmin();
         var setup = ctx.CreateProjectUserWithAccess("erin", "Erin User", "PRJ4", "Project Four", "Team Erin", "ErinPass123!");
 
@@ -884,16 +864,19 @@ public sealed class InMemorySecureJournalAppServiceTests
 
     private static void DeleteFileQuietly(string path)
     {
-        try
+        foreach (var candidate in new[] { path, $"{path}-wal", $"{path}-shm" })
         {
-            if (File.Exists(path))
+            try
             {
-                File.Delete(path);
+                if (File.Exists(candidate))
+                {
+                    File.Delete(candidate);
+                }
             }
-        }
-        catch
-        {
-            // Ignore cleanup failures in tests.
+            catch
+            {
+                // Ignore cleanup failures in tests.
+            }
         }
     }
 
@@ -1094,10 +1077,7 @@ public sealed class InMemorySecureJournalAppServiceTests
 
             try
             {
-                if (File.Exists(DatabasePath))
-                {
-                    File.Delete(DatabasePath);
-                }
+                DeleteFileQuietly(DatabasePath);
             }
             catch
             {
@@ -1144,3 +1124,4 @@ public sealed class InMemorySecureJournalAppServiceTests
         throw new InvalidOperationException("Could not locate repository root.");
     }
 }
+

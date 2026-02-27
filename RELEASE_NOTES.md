@@ -1,5 +1,21 @@
 # Release Notes
 
+## v0.4.5 - 2026-02-27
+
+### Highlights
+
+- Improved authentication endpoint resiliency with explicit antiforgery-failure handling and user-safe redirect behavior.
+- Added stronger OIDC startup/runtime hardening for configuration validation and remote/auth failure paths.
+- Improved SQLite operational resilience under transient lock/busy conditions.
+- Hardened reconnect modal client script against missing DOM/Blazor runtime assumptions.
+
+### Technical Notes
+
+- `Program.cs` now handles `AntiforgeryValidationException` for local login/logout and logs startup DB initialization failures at critical level.
+- `ProductionInfrastructureRegistration.cs` now validates required OIDC settings when enabled, applies `RequireHttpsMetadata`, supports `SignedOutCallbackPath`, and defines `OpenIdConnectEvents` failure handlers.
+- `SqlitePrototypeStore.cs` now applies `PRAGMA busy_timeout=5000` and retries transient SQLite connection-open failures.
+- `ReconnectModal.razor.js` now guards event hookup and reconnect/resume calls when UI elements or `window.Blazor` methods are unavailable.
+
 ## v0.4.4 - 2026-02-27
 
 ### Highlights

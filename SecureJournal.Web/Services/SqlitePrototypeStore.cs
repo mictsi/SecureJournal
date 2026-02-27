@@ -35,6 +35,8 @@ public sealed record StoredProjectGroupRow(
 
 public sealed class SqlitePrototypeStore : IPrototypeDataStore
 {
+    private const int SqliteBusyTimeoutMs = 5000;
+    private const int ConnectionOpenRetryCount = 3;
     private readonly string _connectionString;
     private bool _initialized;
     private readonly object _initLock = new();
@@ -583,9 +585,26 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
 
     private SqliteConnection OpenConnectionInternal()
     {
-        var connection = new SqliteConnection(_connectionString);
-        connection.Open();
-        return connection;
+        for (var attempt = 1; attempt <= ConnectionOpenRetryCount; attempt++)
+        {
+            try
+            {
+                var connection = new SqliteConnection(_connectionString);
+                connection.Open();
+
+                using var pragma = connection.CreateCommand();
+                pragma.CommandText = $"PRAGMA busy_timeout = {SqliteBusyTimeoutMs};";
+                pragma.ExecuteNonQuery();
+
+                return connection;
+            }
+            catch (SqliteException ex) when (attempt < ConnectionOpenRetryCount && IsTransientConnectionFailure(ex))
+            {
+                Thread.Sleep(attempt * 100);
+            }
+        }
+
+        throw new InvalidOperationException("Failed to open SQLite connection after retry attempts.");
     }
 
     private void EnsureDatabaseDirectory()
@@ -637,4 +656,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             cmd.ExecuteNonQuery();
         }
     }
+
+    private static bool IsTransientConnectionFailure(SqliteException ex)
+        => ex.SqliteErrorCode is 5 or 6 or 261;
 }

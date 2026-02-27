@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using SecureJournal.Web.Infrastructure.Identity;
 using SecureJournal.Web.Infrastructure.Persistence;
@@ -91,19 +92,82 @@ public static class ProductionInfrastructureRegistration
         var enableOidc = bool.TryParse(configuration["Authentication:EnableOidc"], out var parsedEnableOidc) && parsedEnableOidc;
         if (enableOidc)
         {
+            var authority = configuration["Authentication:Oidc:Authority"]?.Trim();
+            var clientId = configuration["Authentication:Oidc:ClientId"]?.Trim();
+            var clientSecret = configuration["Authentication:Oidc:ClientSecret"];
+            if (string.IsNullOrWhiteSpace(authority))
+            {
+                throw new InvalidOperationException("Authentication:EnableOidc=true requires Authentication:Oidc:Authority.");
+            }
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                throw new InvalidOperationException("Authentication:EnableOidc=true requires Authentication:Oidc:ClientId.");
+            }
+
+            var callbackPath = (configuration["Authentication:Oidc:CallbackPath"] ?? "/signin-oidc").Trim();
+            if (!callbackPath.StartsWith('/'))
+            {
+                callbackPath = "/signin-oidc";
+            }
+
+            var signedOutCallbackPath = (configuration["Authentication:Oidc:SignedOutCallbackPath"] ?? "/signout-callback-oidc").Trim();
+            if (!signedOutCallbackPath.StartsWith('/'))
+            {
+                signedOutCallbackPath = "/signout-callback-oidc";
+            }
+
+            var requireHttpsMetadata = !bool.TryParse(configuration["Authentication:Oidc:RequireHttpsMetadata"], out var parsedRequireHttps)
+                || parsedRequireHttps;
+
             authBuilder.AddOpenIdConnect("oidc", options =>
                 {
                     options.SignInScheme = IdentityConstants.ExternalScheme;
-                    options.Authority = configuration["Authentication:Oidc:Authority"];
-                    options.ClientId = configuration["Authentication:Oidc:ClientId"];
-                    options.ClientSecret = configuration["Authentication:Oidc:ClientSecret"];
-                    options.CallbackPath = configuration["Authentication:Oidc:CallbackPath"] ?? "/signin-oidc";
+                    options.Authority = authority;
+                    options.ClientId = clientId;
+                    options.ClientSecret = clientSecret;
+                    options.CallbackPath = callbackPath;
+                    options.SignedOutCallbackPath = signedOutCallbackPath;
+                    options.RequireHttpsMetadata = requireHttpsMetadata;
                     options.ResponseType = OpenIdConnectResponseType.Code;
                     options.SaveTokens = true;
                     options.GetClaimsFromUserInfoEndpoint = true;
                     options.MapInboundClaims = false;
                     options.TokenValidationParameters.NameClaimType = "name";
                     options.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+                    options.Events = new OpenIdConnectEvents
+                    {
+                        OnRemoteFailure = context =>
+                        {
+                            var logger = context.HttpContext.RequestServices
+                                .GetRequiredService<ILoggerFactory>()
+                                .CreateLogger("SecureJournal.Oidc");
+                            logger.LogWarning(
+                                context.Failure,
+                                "OIDC remote failure for path {Path}",
+                                context.Request.Path);
+
+                            context.HandleResponse();
+                            var encodedError = Uri.EscapeDataString("Single sign-on failed. Please try again.");
+                            context.Response.Redirect($"/login?error={encodedError}");
+                            return Task.CompletedTask;
+                        },
+                        OnAuthenticationFailed = context =>
+                        {
+                            var logger = context.HttpContext.RequestServices
+                                .GetRequiredService<ILoggerFactory>()
+                                .CreateLogger("SecureJournal.Oidc");
+                            logger.LogWarning(
+                                context.Exception,
+                                "OIDC authentication failed for path {Path}",
+                                context.Request.Path);
+
+                            context.HandleResponse();
+                            var encodedError = Uri.EscapeDataString("Single sign-on authentication failed. Please try again.");
+                            context.Response.Redirect($"/login?error={encodedError}");
+                            return Task.CompletedTask;
+                        }
+                    };
                 });
         }
 

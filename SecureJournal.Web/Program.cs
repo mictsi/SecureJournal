@@ -179,26 +179,36 @@ app.UseAuthorization();
 
 if (enableAspNetIdentity)
 {
+    static string SafeRelative(string? path, string fallback)
+        => !string.IsNullOrWhiteSpace(path) && Uri.IsWellFormedUriString(path, UriKind.Relative)
+            ? path
+            : fallback;
+
+    static IResult RedirectWithError(string path, string message)
+    {
+        var safePath = SafeRelative(path, "/login");
+        var separator = safePath.Contains('?') ? '&' : '?';
+        var encodedError = Uri.EscapeDataString(message);
+        return Results.Redirect($"{safePath}{separator}error={encodedError}");
+    }
+
     app.MapPost("/auth/local-login", async (HttpContext httpContext, IAntiforgery antiforgery, ISecureJournalAppService journalApp, PrototypeSessionCookieCoordinator sessionCookies) =>
     {
-        await antiforgery.ValidateRequestAsync(httpContext);
-
-        var form = await httpContext.Request.ReadFormAsync();
-        var username = (form["username"].ToString() ?? string.Empty).Trim();
-        var password = form["password"].ToString() ?? string.Empty;
-        var returnUrl = form["returnUrl"].ToString();
-        var failurePath = form["failurePath"].ToString();
-
-        static string SafeRelative(string? path, string fallback)
-            => !string.IsNullOrWhiteSpace(path) && Uri.IsWellFormedUriString(path, UriKind.Relative)
-                ? path
-                : fallback;
-
-        var safeReturnUrl = SafeRelative(returnUrl, "/projects");
-        var safeFailurePath = SafeRelative(failurePath, "/");
+        var username = string.Empty;
+        var safeFailurePath = "/login";
 
         try
         {
+            await antiforgery.ValidateRequestAsync(httpContext);
+
+            var form = await httpContext.Request.ReadFormAsync();
+            username = (form["username"].ToString() ?? string.Empty).Trim();
+            var password = form["password"].ToString() ?? string.Empty;
+            var returnUrl = form["returnUrl"].ToString();
+            var failurePath = form["failurePath"].ToString();
+            var safeReturnUrl = SafeRelative(returnUrl, "/projects");
+            safeFailurePath = SafeRelative(failurePath, "/login");
+
             var result = await journalApp.TryLocalLoginAsync(username, password, httpContext.RequestAborted);
             if (result.Success)
             {
@@ -206,27 +216,41 @@ if (enableAspNetIdentity)
                 return Results.Redirect(safeReturnUrl);
             }
 
-            var encodedError = Uri.EscapeDataString(result.Message ?? "Login failed.");
-            return Results.Redirect($"{safeFailurePath}?error={encodedError}");
+            return RedirectWithError(safeFailurePath, result.Message ?? "Login failed.");
+        }
+        catch (AntiforgeryValidationException ex)
+        {
+            app.Logger.LogWarning(ex, "Local login rejected due to invalid antiforgery token");
+            return RedirectWithError("/login", "Your session expired. Please sign in again.");
         }
         catch (Exception ex)
         {
             app.Logger.LogError(ex, "Local login endpoint failed for username {Username}", username);
-            var encodedError = Uri.EscapeDataString("Login failed due to a server error.");
-            return Results.Redirect($"{safeFailurePath}?error={encodedError}");
+            return RedirectWithError(safeFailurePath, "Login failed due to a server error.");
         }
     });
 
     app.MapPost("/auth/logout", async (HttpContext httpContext, IAntiforgery antiforgery) =>
     {
-        await antiforgery.ValidateRequestAsync(httpContext);
-        var form = await httpContext.Request.ReadFormAsync();
-        var returnUrl = form["returnUrl"].ToString();
-        await httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
-        var safeReturnUrl = string.IsNullOrWhiteSpace(returnUrl) || !Uri.IsWellFormedUriString(returnUrl, UriKind.Relative)
-            ? "/"
-            : returnUrl;
-        return Results.Redirect(safeReturnUrl);
+        try
+        {
+            await antiforgery.ValidateRequestAsync(httpContext);
+            var form = await httpContext.Request.ReadFormAsync();
+            var returnUrl = form["returnUrl"].ToString();
+            await httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            var safeReturnUrl = SafeRelative(returnUrl, "/");
+            return Results.Redirect(safeReturnUrl);
+        }
+        catch (AntiforgeryValidationException ex)
+        {
+            app.Logger.LogWarning(ex, "Logout rejected due to invalid antiforgery token");
+            return RedirectWithError("/login", "Your session expired. Please sign in again.");
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Logout endpoint failed");
+            return RedirectWithError("/login", "Sign out failed. Please retry.");
+        }
     });
 
     app.MapGet("/auth/oidc-login", (HttpContext httpContext, string? returnUrl) =>
@@ -250,7 +274,15 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-await app.InitializeProductionIdentityDatabaseAsync();
+try
+{
+    await app.InitializeProductionIdentityDatabaseAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogCritical(ex, "Application startup failed while initializing databases.");
+    throw;
+}
 
 app.Run();
 

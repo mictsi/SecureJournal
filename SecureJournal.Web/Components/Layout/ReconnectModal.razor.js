@@ -1,12 +1,13 @@
-// Set up event handlers
+// Set up event handlers only if reconnect UI is present.
 const reconnectModal = document.getElementById("components-reconnect-modal");
-reconnectModal.addEventListener("components-reconnect-state-changed", handleReconnectStateChanged);
-
 const retryButton = document.getElementById("components-reconnect-button");
-retryButton.addEventListener("click", retry);
-
 const resumeButton = document.getElementById("components-resume-button");
-resumeButton.addEventListener("click", resume);
+
+if (reconnectModal && retryButton && resumeButton) {
+    reconnectModal.addEventListener("components-reconnect-state-changed", handleReconnectStateChanged);
+    retryButton.addEventListener("click", retry);
+    resumeButton.addEventListener("click", resume);
+}
 
 function handleReconnectStateChanged(event) {
     if (event.detail.state === "show") {
@@ -21,9 +22,18 @@ function handleReconnectStateChanged(event) {
 }
 
 async function retry() {
+    if (!reconnectModal) {
+        return;
+    }
+
     document.removeEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
 
     try {
+        if (!window.Blazor || typeof Blazor.reconnect !== "function") {
+            location.reload();
+            return;
+        }
+
         // Reconnect will asynchronously return:
         // - true to mean success
         // - false to mean we reached the server, but it rejected the connection (e.g., unknown circuit ID)
@@ -46,7 +56,16 @@ async function retry() {
 }
 
 async function resume() {
+    if (!reconnectModal) {
+        return;
+    }
+
     try {
+        if (!window.Blazor || typeof Blazor.resumeCircuit !== "function") {
+            location.reload();
+            return;
+        }
+
         const successful = await Blazor.resumeCircuit();
         if (!successful) {
             location.reload();

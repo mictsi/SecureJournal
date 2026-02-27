@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.5 - 2026-02-27
+
+### Reliability and Error Handling
+
+- Hardened local auth endpoints (`/auth/local-login`, `/auth/logout`) to gracefully handle antiforgery validation failures and return user-safe redirects instead of surfacing server errors.
+- Added startup critical logging for production database initialization failures to improve diagnosis during boot failures.
+- Hardened OIDC setup and runtime behavior:
+  - fail-fast validation for required OIDC configuration when `Authentication:EnableOidc=true`
+  - support for `Authentication:Oidc:RequireHttpsMetadata` and `SignedOutCallbackPath`
+  - explicit OIDC remote/authentication failure handlers with safe redirects and structured logging
+- Improved SQLite resiliency under contention by adding `busy_timeout` plus transient connection open retries for lock/busy scenarios.
+- Hardened reconnect modal JavaScript against missing DOM elements and unavailable `window.Blazor` runtime methods.
+
 ## 0.4.4 - 2026-02-27
 
 ### DevOps and Deployment

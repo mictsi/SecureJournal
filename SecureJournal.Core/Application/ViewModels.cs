@@ -29,7 +29,8 @@ public sealed record UserOverview(
     string DisplayName,
     AppRole Role,
     bool IsLocalAccount,
-    IReadOnlyList<string> Groups);
+    IReadOnlyList<string> Groups,
+    IReadOnlyList<AppRole> Roles);
 
 public sealed record JournalEntryView(
     Guid RecordId,

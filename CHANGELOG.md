@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.0 - 2026-02-27
+
+### User and Access Management
+
+- Reworked administration UX by splitting local account lifecycle into a dedicated `User Accounts` page and keeping access governance (roles/groups) focused in `User Management`.
+- Added batch-style save flow for role/group membership updates to avoid per-click async navigation instability for OIDC/Entra users.
+- Simplified role and group assignment experience with user-centric selection and checkbox-driven membership editing.
+- Added support for assigning/removing multiple roles per user and removing users from groups through the unified management workflow.
+
+### Reliability and Diagnostics
+
+- Fixed `EditForm` model initialization issues that could crash `/admin/user-accounts` rendering.
+- Improved Blazor reconnect/lost-connection UI styling for readability and clearer retry behavior.
+- Added/expanded OIDC diagnostics toggles to log claims/tokens when issuer/subject mapping fails.
+- Improved checksum validation UX by surfacing validity status inline next to the action control.
+
+### Persistence and Data Operations
+
+- Extended persistence/store logic and tests for multi-role and group membership updates across in-memory, SQLite, and EF-backed flows.
+- Added SQL Server utility script `scripts/cleanup-sqlserver.sql` for controlled app-data cleanup (with optional Identity data cleanup mode).
+- Added deployment guardrails so App Service deployments fail fast if no usable journal encryption key is available.
+
+### DevOps and Deployment
+
+- Simplified Azure provisioning/deployment scripts around SecureJournal runtime needs:
+  - deterministic web app naming in `provision-azure.ps1` (no random suffixes for app name)
+  - appsettings flattening/override cleanup in `deploy-appservice.ps1`
+  - improved safety validation before apply/deploy.
+
 ## 0.4.5 - 2026-02-27
 
 ### Reliability and Error Handling

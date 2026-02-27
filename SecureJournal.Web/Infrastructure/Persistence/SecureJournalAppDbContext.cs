@@ -12,6 +12,7 @@ public sealed class SecureJournalAppDbContext : DbContext
     public DbSet<AppUserEntity> AppUsers => Set<AppUserEntity>();
     public DbSet<ProjectEntity> Projects => Set<ProjectEntity>();
     public DbSet<GroupEntity> Groups => Set<GroupEntity>();
+    public DbSet<UserRoleEntity> UserRoles => Set<UserRoleEntity>();
     public DbSet<UserGroupEntity> UserGroups => Set<UserGroupEntity>();
     public DbSet<ProjectGroupEntity> ProjectGroups => Set<ProjectGroupEntity>();
     public DbSet<JournalEntryEntity> JournalEntries => Set<JournalEntryEntity>();
@@ -63,6 +64,14 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasKey(x => new { x.UserId, x.GroupId });
             entity.Property(x => x.UserId).HasColumnName("user_id");
             entity.Property(x => x.GroupId).HasColumnName("group_id");
+        });
+
+        builder.Entity<UserRoleEntity>(entity =>
+        {
+            entity.ToTable("user_roles");
+            entity.HasKey(x => new { x.UserId, x.Role });
+            entity.Property(x => x.UserId).HasColumnName("user_id");
+            entity.Property(x => x.Role).HasColumnName("role");
         });
 
         builder.Entity<ProjectGroupEntity>(entity =>
@@ -149,6 +158,12 @@ public sealed class UserGroupEntity
 {
     public Guid UserId { get; set; }
     public Guid GroupId { get; set; }
+}
+
+public sealed class UserRoleEntity
+{
+    public Guid UserId { get; set; }
+    public int Role { get; set; }
 }
 
 public sealed class ProjectGroupEntity

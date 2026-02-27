@@ -200,9 +200,12 @@ If you see a restore/build error similar to:
 Use this temporary build/run workaround:
 
 ```powershell
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
-dotnet run --project SecureJournal.Web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true
+dotnet run --project SecureJournal.Web -p:RestoreIgnoreFailedSources=true
 ```
+
+Note:
+- `-p:RequiresAspNetWebAssets=false` can break Blazor framework asset routing (`/_framework/*.js`) and should only be used as a last-resort troubleshooting flag.
 
 Recommended permanent fix:
 

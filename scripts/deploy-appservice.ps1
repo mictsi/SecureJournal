@@ -1,387 +1,315 @@
 param(
-	[Parameter(Mandatory = $true)]
-	[string]$SubscriptionId,
+    [Parameter(Mandatory = $true)]
+    [string]$SubscriptionId,
 
-	[Parameter(Mandatory = $true)]
-	[string]$ResourceGroupName,
+    [Parameter(Mandatory = $true)]
+    [string]$ResourceGroupName,
 
-	[Parameter(Mandatory = $true)]
-	[string]$Location,
+    [Parameter(Mandatory = $true)]
+    [string]$WebAppName,
 
-	[Parameter(Mandatory = $true)]
-	[string]$AppServicePlanName,
+    [string]$SettingsFile = "",
+    [string]$ProjectPath = "./SecureJournal.Web/SecureJournal.Web.csproj",
+    [string]$Configuration = "Release",
+    [string]$OutputDirectory = "./.artifacts/deploy/appservice",
+    [string]$AppEnvironment = "Production",
 
-	[Parameter(Mandatory = $true)]
-	[string]$WebAppName,
-
-	[string]$SettingsFile = "./SecureJournal.Web/appsettings.template.json",
-
-	[string]$AdminPassword,
-
-	[string]$ProjectPath = "./SecureJournal.Web/SecureJournal.Web.csproj",
-	[string]$Configuration = "Release",
-	[string]$OutputDirectory = "./.artifacts/deploy/appservice",
-	[string]$Sku = "B1",
-	[string]$Runtime = "DOTNETCORE:10.0",
-	[string]$AppEnvironment = "Production",
-
-	[string]$AdminUsername = "admin",
-	[string]$AdminDisplayName = "Startup Administrator",
-	[string]$JournalEncryptionKey = "",
-
-	[bool]$OidcEnabled = $false,
-	[string]$OidcAuthority = "",
-	[string]$OidcClientId = "",
-	[string]$OidcClientSecret = "",
-	[bool]$OidcRequireHttpsMetadata = $true,
-	[string]$OidcCallbackPath = "/signin-oidc",
-	[string]$OidcGroupClaimType = "groups",
-	[string[]]$OidcAdminGroups = @(),
-	[string[]]$OidcAuditorGroups = @(),
-	[string[]]$OidcProjectUserGroups = @(),
-
-	[bool]$EnableLocalLogin = $true,
-	[bool]$EnableAspNetIdentity = $true,
-	[bool]$ConsoleAuditLoggingEnabled = $true,
-	[bool]$SqlQueryLoggingEnabled = $false,
-	[string]$LoggingDefaultLevel = "Information",
-	[string]$LoggingMicrosoftAspNetCoreLevel = "Warning"
+    # Optional additional overrides: KEY=VALUE
+    [string[]]$AdditionalSettings = @()
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Invoke-Az {
-	param(
-		[Parameter(Mandatory = $true)]
-		[string[]]$Args
-	)
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Args
+    )
 
-	$output = & az @Args
-	$code = $LASTEXITCODE
-	if ($code -ne 0) {
-		throw "Azure CLI failed (exit $code): az $($Args -join ' ')"
-	}
+    $output = & az @Args
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        throw "Azure CLI failed (exit $code): az $($Args -join ' ')"
+    }
 
-	return $output
+    return $output
 }
 
-function Invoke-CommandStrict {
-	param(
-		[Parameter(Mandatory = $true)]
-		[string]$FileName,
+function Invoke-External {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FileName,
 
-		[Parameter(Mandatory = $true)]
-		[string[]]$Arguments
-	)
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
 
-	& $FileName @Arguments
-	$code = $LASTEXITCODE
-	if ($code -ne 0) {
-		throw "Command failed (exit $code): $FileName $($Arguments -join ' ')"
-	}
+    & $FileName @Arguments
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        throw "Command failed (exit $code): $FileName $($Arguments -join ' ')"
+    }
 }
 
-function Get-JsonValue {
-	param(
-		[Parameter(Mandatory = $true)]
-		[object]$Root,
-		[Parameter(Mandatory = $true)]
-		[string]$Path
-	)
+function Convert-ToLeafString {
+    param([AllowNull()][object]$Value)
 
-	$current = $Root
-	foreach ($segment in $Path.Split('.')) {
-		if ($null -eq $current) {
-			return $null
-		}
+    if ($null -eq $Value) { return "" }
+    if ($Value -is [bool]) { return $Value.ToString().ToLowerInvariant() }
+    if ($Value -is [datetime]) { return $Value.ToString("o", [System.Globalization.CultureInfo]::InvariantCulture) }
 
-		$property = $current.PSObject.Properties[$segment]
-		if ($null -eq $property) {
-			return $null
-		}
+    if ($Value -is [byte] -or
+        $Value -is [sbyte] -or
+        $Value -is [int16] -or
+        $Value -is [uint16] -or
+        $Value -is [int32] -or
+        $Value -is [uint32] -or
+        $Value -is [int64] -or
+        $Value -is [uint64] -or
+        $Value -is [single] -or
+        $Value -is [double] -or
+        $Value -is [decimal]) {
+        return [Convert]::ToString($Value, [System.Globalization.CultureInfo]::InvariantCulture)
+    }
 
-		$current = $property.Value
-	}
+    return [string]$Value
+}
 
-	return $current
+function Add-FlattenedSettings {
+    param(
+        [AllowNull()][object]$Node,
+        [string]$PathPrefix,
+        [hashtable]$Target
+    )
+
+    if ($null -eq $Node) {
+        return
+    }
+
+    if ($Node -is [System.Collections.IDictionary]) {
+        foreach ($key in $Node.Keys) {
+            $segment = [string]$key
+            $nextPrefix = if ([string]::IsNullOrWhiteSpace($PathPrefix)) { $segment } else { "$PathPrefix`__$segment" }
+            Add-FlattenedSettings -Node $Node[$key] -PathPrefix $nextPrefix -Target $Target
+        }
+        return
+    }
+
+    if ($Node -is [System.Collections.IEnumerable] -and -not ($Node -is [string])) {
+        $index = 0
+        foreach ($item in $Node) {
+            $nextPrefix = if ([string]::IsNullOrWhiteSpace($PathPrefix)) { "$index" } else { "$PathPrefix`__$index" }
+            Add-FlattenedSettings -Node $item -PathPrefix $nextPrefix -Target $Target
+            $index++
+        }
+        return
+    }
+
+    $properties = @($Node.PSObject.Properties | Where-Object { $_.MemberType -eq "NoteProperty" })
+    if ($properties.Count -gt 0) {
+        foreach ($property in $properties) {
+            $segment = [string]$property.Name
+            $nextPrefix = if ([string]::IsNullOrWhiteSpace($PathPrefix)) { $segment } else { "$PathPrefix`__$segment" }
+            Add-FlattenedSettings -Node $property.Value -PathPrefix $nextPrefix -Target $Target
+        }
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($PathPrefix)) {
+        return
+    }
+
+    $Target[$PathPrefix] = Convert-ToLeafString -Value $Node
+}
+
+function Test-PlaceholderValue {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $true
+    }
+
+    $trimmed = $Value.Trim()
+    return $trimmed -match "^<.+>$"
+}
+
+function Test-UsableSettingValue {
+    param([AllowNull()][string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    return -not (Test-PlaceholderValue -Value $Value)
+}
+
+function Test-AnyUsableSettingPresent {
+    param(
+        [hashtable]$SettingsMap,
+        [string[]]$Keys
+    )
+
+    foreach ($key in $Keys) {
+        if ($SettingsMap.ContainsKey($key)) {
+            $value = [string]$SettingsMap[$key]
+            if (Test-UsableSettingValue -Value $value) {
+                return $true
+            }
+        }
+    }
+
+    return $false
+}
+
+function Resolve-SettingsFilePath {
+    param([string]$ConfiguredPath)
+
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredPath)) {
+        if ([System.IO.Path]::IsPathRooted($ConfiguredPath)) {
+            return $ConfiguredPath
+        }
+        return Join-Path $repoRoot $ConfiguredPath
+    }
+
+    $candidates = @(
+        (Join-Path $repoRoot "SecureJournal.Web\appsettings.Production.json"),
+        (Join-Path $repoRoot "SecureJournal.Web\appsettings.json"),
+        (Join-Path $repoRoot "SecureJournal.Web\appsettings.template.json")
+    )
+
+    return $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
-	throw "Azure CLI is not installed. Install it first: https://aka.ms/installazurecliwindows"
+    throw "Azure CLI is not installed. Install it first: https://aka.ms/installazurecliwindows"
 }
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-	throw "dotnet SDK is not installed or not available in PATH."
-}
-
-$settingsJson = $null
-if (-not [string]::IsNullOrWhiteSpace($SettingsFile) -and (Test-Path $SettingsFile)) {
-	$settingsPath = (Resolve-Path $SettingsFile).Path
-	Write-Host "Loading settings from '$settingsPath'..." -ForegroundColor Cyan
-	$settingsJson = Get-Content -Path $settingsPath -Raw | ConvertFrom-Json
-
-	$bootstrapUsername = Get-JsonValue -Root $settingsJson -Path "BootstrapAdmin.Username"
-	$bootstrapDisplayName = Get-JsonValue -Root $settingsJson -Path "BootstrapAdmin.DisplayName"
-	$bootstrapPassword = Get-JsonValue -Root $settingsJson -Path "BootstrapAdmin.Password"
-	$legacyAdminUsername = Get-JsonValue -Root $settingsJson -Path "AdminAuth.Username"
-	$legacyAdminPassword = Get-JsonValue -Root $settingsJson -Path "AdminAuth.Password"
-	$journalEncryptionKey = Get-JsonValue -Root $settingsJson -Path "Security.JournalEncryptionKey"
-	$legacyEncryptionPassphrase = Get-JsonValue -Root $settingsJson -Path "Encryption.Passphrase"
-	$enableLocalLoginSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.EnableLocalLogin"
-	$enableAspNetIdentitySetting = Get-JsonValue -Root $settingsJson -Path "Authentication.EnableAspNetIdentity"
-	$enableOidcSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.EnableOidc"
-	$legacyEnableOidcSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.Enabled"
-	$oidcAuthoritySetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.Authority"
-	$legacyOidcAuthoritySetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.Authority"
-	$oidcClientIdSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.ClientId"
-	$legacyOidcClientIdSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.ClientId"
-	$oidcClientSecretSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.ClientSecret"
-	$legacyOidcClientSecretSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.ClientSecret"
-	$oidcCallbackPathSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.CallbackPath"
-	$legacyOidcCallbackPathSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.CallbackPath"
-	$oidcRequireHttpsMetadataSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.RequireHttpsMetadata"
-	$legacyOidcRequireHttpsMetadataSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.RequireHttpsMetadata"
-	$oidcGroupClaimTypeSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.GroupClaimType"
-	$legacyOidcGroupClaimTypeSetting = Get-JsonValue -Root $settingsJson -Path "OidcAuth.GroupClaimType"
-	$oidcAdminGroupsSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.RoleGroupMappings.Administrator"
-	$oidcAuditorGroupsSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.RoleGroupMappings.Auditor"
-	$oidcProjectUserGroupsSetting = Get-JsonValue -Root $settingsJson -Path "Authentication.Oidc.RoleGroupMappings.ProjectUser"
-	$consoleLoggingEnabledSetting = Get-JsonValue -Root $settingsJson -Path "Logging.Console.Enabled"
-	$sqlQueryLoggingEnabledSetting = Get-JsonValue -Root $settingsJson -Path "Logging.SqlQueries.Enabled"
-	$loggingDefaultLevelSetting = Get-JsonValue -Root $settingsJson -Path "Logging.LogLevel.Default"
-	$loggingAspNetCoreLevelSetting = Get-JsonValue -Root $settingsJson -Path "Logging.LogLevel.Microsoft.AspNetCore"
-
-	if (-not $PSBoundParameters.ContainsKey("AdminUsername")) {
-		if ($bootstrapUsername) { $AdminUsername = [string]$bootstrapUsername }
-		elseif ($legacyAdminUsername) { $AdminUsername = [string]$legacyAdminUsername }
-	}
-	if (-not $PSBoundParameters.ContainsKey("AdminDisplayName") -and $bootstrapDisplayName) {
-		$AdminDisplayName = [string]$bootstrapDisplayName
-	}
-	if (-not $PSBoundParameters.ContainsKey("AdminPassword")) {
-		if ($bootstrapPassword) { $AdminPassword = [string]$bootstrapPassword }
-		elseif ($legacyAdminPassword) { $AdminPassword = [string]$legacyAdminPassword }
-	}
-	if (-not $PSBoundParameters.ContainsKey("JournalEncryptionKey")) {
-		if ($journalEncryptionKey) { $JournalEncryptionKey = [string]$journalEncryptionKey }
-		elseif ($legacyEncryptionPassphrase) { $JournalEncryptionKey = [string]$legacyEncryptionPassphrase }
-	}
-
-	if (-not $PSBoundParameters.ContainsKey("EnableLocalLogin") -and $enableLocalLoginSetting -ne $null) {
-		$EnableLocalLogin = [bool]$enableLocalLoginSetting
-	}
-	if (-not $PSBoundParameters.ContainsKey("EnableAspNetIdentity") -and $enableAspNetIdentitySetting -ne $null) {
-		$EnableAspNetIdentity = [bool]$enableAspNetIdentitySetting
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcEnabled")) {
-		if ($enableOidcSetting -ne $null) { $OidcEnabled = [bool]$enableOidcSetting }
-		elseif ($legacyEnableOidcSetting -ne $null) { $OidcEnabled = [bool]$legacyEnableOidcSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcAuthority")) {
-		if ($oidcAuthoritySetting) { $OidcAuthority = [string]$oidcAuthoritySetting }
-		elseif ($legacyOidcAuthoritySetting) { $OidcAuthority = [string]$legacyOidcAuthoritySetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcClientId")) {
-		if ($oidcClientIdSetting) { $OidcClientId = [string]$oidcClientIdSetting }
-		elseif ($legacyOidcClientIdSetting) { $OidcClientId = [string]$legacyOidcClientIdSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcClientSecret")) {
-		if ($oidcClientSecretSetting) { $OidcClientSecret = [string]$oidcClientSecretSetting }
-		elseif ($legacyOidcClientSecretSetting) { $OidcClientSecret = [string]$legacyOidcClientSecretSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcCallbackPath")) {
-		if ($oidcCallbackPathSetting) { $OidcCallbackPath = [string]$oidcCallbackPathSetting }
-		elseif ($legacyOidcCallbackPathSetting) { $OidcCallbackPath = [string]$legacyOidcCallbackPathSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcRequireHttpsMetadata")) {
-		if ($oidcRequireHttpsMetadataSetting -ne $null) { $OidcRequireHttpsMetadata = [bool]$oidcRequireHttpsMetadataSetting }
-		elseif ($legacyOidcRequireHttpsMetadataSetting -ne $null) { $OidcRequireHttpsMetadata = [bool]$legacyOidcRequireHttpsMetadataSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcGroupClaimType")) {
-		if ($oidcGroupClaimTypeSetting) { $OidcGroupClaimType = [string]$oidcGroupClaimTypeSetting }
-		elseif ($legacyOidcGroupClaimTypeSetting) { $OidcGroupClaimType = [string]$legacyOidcGroupClaimTypeSetting }
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcAdminGroups") -and $oidcAdminGroupsSetting) {
-		$OidcAdminGroups = @($oidcAdminGroupsSetting | ForEach-Object { [string]$_ })
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcAuditorGroups") -and $oidcAuditorGroupsSetting) {
-		$OidcAuditorGroups = @($oidcAuditorGroupsSetting | ForEach-Object { [string]$_ })
-	}
-	if (-not $PSBoundParameters.ContainsKey("OidcProjectUserGroups") -and $oidcProjectUserGroupsSetting) {
-		$OidcProjectUserGroups = @($oidcProjectUserGroupsSetting | ForEach-Object { [string]$_ })
-	}
-
-	if (-not $PSBoundParameters.ContainsKey("ConsoleAuditLoggingEnabled") -and $consoleLoggingEnabledSetting -ne $null) {
-		$ConsoleAuditLoggingEnabled = [bool]$consoleLoggingEnabledSetting
-	}
-	if (-not $PSBoundParameters.ContainsKey("SqlQueryLoggingEnabled") -and $sqlQueryLoggingEnabledSetting -ne $null) {
-		$SqlQueryLoggingEnabled = [bool]$sqlQueryLoggingEnabledSetting
-	}
-	if (-not $PSBoundParameters.ContainsKey("LoggingDefaultLevel") -and $loggingDefaultLevelSetting) { $LoggingDefaultLevel = [string]$loggingDefaultLevelSetting }
-	if (-not $PSBoundParameters.ContainsKey("LoggingMicrosoftAspNetCoreLevel") -and $loggingAspNetCoreLevelSetting) { $LoggingMicrosoftAspNetCoreLevel = [string]$loggingAspNetCoreLevelSetting }
-}
-
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-	throw "AdminPassword is required. Provide -AdminPassword or set BootstrapAdmin:Password in the settings file."
-}
-
-if ([string]::IsNullOrWhiteSpace($JournalEncryptionKey)) {
-	throw "JournalEncryptionKey is required. Provide -JournalEncryptionKey or set Security:JournalEncryptionKey in the settings file."
+    throw "dotnet SDK is not installed or not available in PATH."
 }
 
 try {
-	Invoke-Az -Args @("account", "show", "--output", "none") | Out-Null
+    Invoke-Az -Args @("account", "show", "--output", "none") | Out-Null
 }
 catch {
-	throw "Azure CLI is not authenticated. Run 'az login' first."
+    throw "Azure CLI is not authenticated. Run 'az login' first."
 }
 
 Invoke-Az -Args @("account", "set", "--subscription", $SubscriptionId) | Out-Null
 
+$resolvedSettingsFile = Resolve-SettingsFilePath -ConfiguredPath $SettingsFile
+if ([string]::IsNullOrWhiteSpace($resolvedSettingsFile) -or -not (Test-Path $resolvedSettingsFile)) {
+    throw "No appsettings file found. Pass -SettingsFile explicitly."
+}
+
 $projectFile = (Resolve-Path $ProjectPath).Path
-$outputRoot = (Resolve-Path ".").Path
-$deployRoot = Join-Path $outputRoot $OutputDirectory
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$deployRoot = Join-Path $repoRoot $OutputDirectory
 $publishDir = Join-Path $deployRoot "publish"
 $zipPath = Join-Path $deployRoot "$WebAppName.zip"
 
-if (Test-Path $deployRoot) {
-	Remove-Item -Path $deployRoot -Recurse -Force
+Write-Host "Using appsettings: $resolvedSettingsFile" -ForegroundColor Cyan
+$settingsJson = Get-Content -Path $resolvedSettingsFile -Raw | ConvertFrom-Json
+
+$settings = @{}
+Add-FlattenedSettings -Node $settingsJson -PathPrefix "" -Target $settings
+
+# Remove empty/placeholder values from source config to avoid pushing invalid placeholders.
+foreach ($key in @($settings.Keys)) {
+    $value = [string]$settings[$key]
+    if (Test-PlaceholderValue -Value $value) {
+        $settings.Remove($key) | Out-Null
+    }
 }
 
+# Required runtime settings for App Service.
+$settings["ASPNETCORE_ENVIRONMENT"] = $AppEnvironment
+$settings["Kestrel__Endpoints__Http__Url"] = "http://+:8080"
+
+foreach ($override in $AdditionalSettings) {
+    if ([string]::IsNullOrWhiteSpace($override)) {
+        continue
+    }
+
+    $separatorIndex = $override.IndexOf("=")
+    if ($separatorIndex -le 0) {
+        throw "Invalid AdditionalSettings item '$override'. Expected KEY=VALUE."
+    }
+
+    $key = $override.Substring(0, $separatorIndex).Trim()
+    $value = $override.Substring($separatorIndex + 1)
+    if ([string]::IsNullOrWhiteSpace($key)) {
+        throw "Invalid AdditionalSettings item '$override'. Key cannot be empty."
+    }
+
+    $settings[$key] = $value
+}
+
+Write-Host "Verifying web app '$WebAppName' exists..." -ForegroundColor Cyan
+Invoke-Az -Args @(
+    "webapp", "show",
+    "--resource-group", $ResourceGroupName,
+    "--name", $WebAppName,
+    "--output", "none"
+) | Out-Null
+
+$existingAppSettingsRaw = Invoke-Az -Args @(
+    "webapp", "config", "appsettings", "list",
+    "--resource-group", $ResourceGroupName,
+    "--name", $WebAppName,
+    "--output", "json"
+)
+$existingAppSettingsText = [string]::Join([Environment]::NewLine, @($existingAppSettingsRaw))
+$existingAppSettings = @{}
+if (-not [string]::IsNullOrWhiteSpace($existingAppSettingsText)) {
+    $existingEntries = @($existingAppSettingsText | ConvertFrom-Json)
+    foreach ($entry in $existingEntries) {
+        if ($null -eq $entry -or [string]::IsNullOrWhiteSpace([string]$entry.name)) {
+            continue
+        }
+
+        $existingAppSettings[[string]$entry.name] = Convert-ToLeafString -Value $entry.value
+    }
+}
+
+# Prevent accidental key drift: encrypted journal rows require the exact same key used at write time.
+$journalKeyAliases = @(
+    "Security__JournalEncryptionKey",
+    "SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY",
+    "JOURNAL_ENCRYPTION_KEY"
+)
+$journalKeyProvided = Test-AnyUsableSettingPresent -SettingsMap $settings -Keys $journalKeyAliases
+$journalKeyAlreadyPresent = Test-AnyUsableSettingPresent -SettingsMap $existingAppSettings -Keys $journalKeyAliases
+if (-not $journalKeyProvided -and -not $journalKeyAlreadyPresent) {
+    throw "Missing journal encryption key. Set Security__JournalEncryptionKey in your settings file or pass -AdditionalSettings 'Security__JournalEncryptionKey=<your-key>' before deployment."
+}
+
+if (Test-Path $deployRoot) {
+    Remove-Item -Path $deployRoot -Recurse -Force
+}
 New-Item -Path $deployRoot -ItemType Directory -Force | Out-Null
 
-Write-Host "Creating/updating resource group '$ResourceGroupName' in '$Location'..." -ForegroundColor Cyan
-Invoke-Az -Args @("group", "create", "--name", $ResourceGroupName, "--location", $Location, "--output", "none") | Out-Null
-
-Write-Host "Creating/updating App Service plan '$AppServicePlanName' (SKU: $Sku, Linux)..." -ForegroundColor Cyan
-Invoke-Az -Args @(
-	"appservice", "plan", "create",
-	"--name", $AppServicePlanName,
-	"--resource-group", $ResourceGroupName,
-	"--location", $Location,
-	"--sku", $Sku,
-	"--is-linux",
-	"--output", "none"
-) | Out-Null
-
-$webAppExists = $false
-try {
-	$existingName = (Invoke-Az -Args @("webapp", "show", "--resource-group", $ResourceGroupName, "--name", $WebAppName, "--query", "name", "--output", "tsv")).Trim()
-	$webAppExists = -not [string]::IsNullOrWhiteSpace($existingName)
-}
-catch {
-	$webAppExists = $false
-}
-
-if (-not $webAppExists) {
-	Write-Host "Creating web app '$WebAppName'..." -ForegroundColor Cyan
-	Invoke-Az -Args @(
-		"webapp", "create",
-		"--resource-group", $ResourceGroupName,
-		"--plan", $AppServicePlanName,
-		"--name", $WebAppName,
-		"--runtime", $Runtime,
-		"--https-only", "true",
-		"--output", "none"
-	) | Out-Null
-}
-else {
-	Write-Host "Web app '$WebAppName' already exists. Reusing existing app." -ForegroundColor Yellow
-}
-
-Write-Host "Applying secure web app defaults..." -ForegroundColor Cyan
-Invoke-Az -Args @(
-	"webapp", "config", "set",
-	"--resource-group", $ResourceGroupName,
-	"--name", $WebAppName,
-	"--always-on", "true",
-	"--http20-enabled", "true",
-	"--min-tls-version", "1.2",
-	"--ftps-state", "Disabled",
-	"--output", "none"
-) | Out-Null
-
-$oidcEnabledValue = if ($OidcEnabled) { "true" } else { "false" }
-$oidcRequireHttpsMetadataValue = if ($OidcRequireHttpsMetadata) { "true" } else { "false" }
-$localLoginEnabledValue = if ($EnableLocalLogin) { "true" } else { "false" }
-$aspNetIdentityEnabledValue = if ($EnableAspNetIdentity) { "true" } else { "false" }
-$consoleLoggingEnabledValue = if ($ConsoleAuditLoggingEnabled) { "true" } else { "false" }
-$sqlQueryLoggingEnabledValue = if ($SqlQueryLoggingEnabled) { "true" } else { "false" }
-
-$settings = @(
-	"ASPNETCORE_ENVIRONMENT=$AppEnvironment",
-	"Kestrel__Endpoints__Http__Url=http://+:8080",
-	"Persistence__Provider=Sqlite",
-	"Persistence__EnableProductionAppDatabase=true",
-	"Persistence__EnableProductionIdentityDatabase=true",
-	"Persistence__AutoMigrateOnStartup=true",
-	"ConnectionStrings__SecureJournalSqlite=Data Source=/home/site/wwwroot/securejournal.db",
-	"ConnectionStrings__SecureJournalIdentitySqlite=Data Source=/home/site/wwwroot/securejournal.identity.db",
-	"Security__JournalEncryptionKey=$JournalEncryptionKey",
-	"BootstrapAdmin__Username=$AdminUsername",
-	"BootstrapAdmin__DisplayName=$AdminDisplayName",
-	"BootstrapAdmin__Password=$AdminPassword",
-	"BootstrapAdmin__SyncPasswordOnStartup=true",
-	"Authentication__EnableLocalLogin=$localLoginEnabledValue",
-	"Authentication__EnableAspNetIdentity=$aspNetIdentityEnabledValue",
-	"Authentication__EnableOidc=$oidcEnabledValue",
-	"Authentication__OidcProviderName=Microsoft Entra ID",
-	"Authentication__Oidc__Authority=$OidcAuthority",
-	"Authentication__Oidc__ClientId=$OidcClientId",
-	"Authentication__Oidc__ClientSecret=$OidcClientSecret",
-	"Authentication__Oidc__CallbackPath=$OidcCallbackPath",
-	"Authentication__Oidc__RequireHttpsMetadata=$oidcRequireHttpsMetadataValue",
-	"Authentication__Oidc__GroupClaimType=$OidcGroupClaimType",
-	"Logging__Console__Enabled=$consoleLoggingEnabledValue",
-	"Logging__SqlQueries__Enabled=$sqlQueryLoggingEnabledValue",
-	"Logging__LogLevel__Default=$LoggingDefaultLevel",
-	"Logging__LogLevel__Microsoft__AspNetCore=$LoggingMicrosoftAspNetCoreLevel",
-	"AllowedHosts=*"
-)
-
-for ($i = 0; $i -lt $OidcAdminGroups.Count; $i++) {
-	$settings += "Authentication__Oidc__RoleGroupMappings__Administrator__$i=$($OidcAdminGroups[$i])"
-}
-
-for ($i = 0; $i -lt $OidcAuditorGroups.Count; $i++) {
-	$settings += "Authentication__Oidc__RoleGroupMappings__Auditor__$i=$($OidcAuditorGroups[$i])"
-}
-
-for ($i = 0; $i -lt $OidcProjectUserGroups.Count; $i++) {
-	$settings += "Authentication__Oidc__RoleGroupMappings__ProjectUser__$i=$($OidcProjectUserGroups[$i])"
-}
-
-Write-Host "Configuring App Service application settings..." -ForegroundColor Cyan
-$settingsObject = [ordered]@{}
-foreach ($setting in $settings) {
-	$separatorIndex = $setting.IndexOf('=')
-	if ($separatorIndex -lt 0) {
-		continue
-	}
-
-	$key = $setting.Substring(0, $separatorIndex)
-	$value = $setting.Substring($separatorIndex + 1)
-	$settingsObject[$key] = $value
-}
-
 $settingsFilePath = Join-Path $deployRoot "appsettings.deploy.json"
-$settingsObject | ConvertTo-Json -Compress | Set-Content -Path $settingsFilePath -Encoding utf8
+$settings | ConvertTo-Json -Compress | Set-Content -Path $settingsFilePath -Encoding utf8
 
+Write-Host "Applying $($settings.Keys.Count) App Service app settings..." -ForegroundColor Cyan
 Invoke-Az -Args @(
-	"webapp", "config", "appsettings", "set",
-	"--resource-group", $ResourceGroupName,
-	"--name", $WebAppName,
-	"--settings", "@$settingsFilePath",
-	"--output", "none"
+    "webapp", "config", "appsettings", "set",
+    "--resource-group", $ResourceGroupName,
+    "--name", $WebAppName,
+    "--settings", "@$settingsFilePath",
+    "--output", "none"
 ) | Out-Null
 
 Write-Host "Publishing app from '$projectFile' ($Configuration)..." -ForegroundColor Cyan
-Invoke-CommandStrict -FileName "dotnet" -Arguments @(
-	"publish", $projectFile,
-	"-c", $Configuration,
-	"-o", $publishDir,
-	"--nologo"
+Invoke-External -FileName "dotnet" -Arguments @(
+    "publish", $projectFile,
+    "-c", $Configuration,
+    "-o", $publishDir,
+    "--nologo"
 )
 
 Write-Host "Packaging deployment artifact..." -ForegroundColor Cyan
@@ -389,15 +317,22 @@ Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath -Fo
 
 Write-Host "Deploying package to App Service..." -ForegroundColor Cyan
 Invoke-Az -Args @(
-	"webapp", "deploy",
-	"--resource-group", $ResourceGroupName,
-	"--name", $WebAppName,
-	"--src-path", $zipPath,
-	"--type", "zip",
-	"--output", "none"
+    "webapp", "deploy",
+    "--resource-group", $ResourceGroupName,
+    "--name", $WebAppName,
+    "--src-path", $zipPath,
+    "--type", "zip",
+    "--output", "none"
 ) | Out-Null
 
-$defaultHostName = (Invoke-Az -Args @("webapp", "show", "--resource-group", $ResourceGroupName, "--name", $WebAppName, "--query", "defaultHostName", "--output", "tsv")).Trim()
+$defaultHostName = (Invoke-Az -Args @(
+    "webapp", "show",
+    "--resource-group", $ResourceGroupName,
+    "--name", $WebAppName,
+    "--query", "defaultHostName",
+    "--output", "tsv"
+)).Trim()
+
 $appUrl = "https://$defaultHostName"
 $portalUrl = "https://portal.azure.com/#view/WebsitesExtension/WebsiteOverviewBlade/id/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Web/sites/$WebAppName"
 

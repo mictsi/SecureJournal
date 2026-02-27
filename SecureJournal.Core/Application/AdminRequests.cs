@@ -48,6 +48,12 @@ public sealed class AssignUserToGroupRequest
     public Guid GroupId { get; set; }
 }
 
+public sealed class UserRoleMembershipRequest
+{
+    public Guid UserId { get; set; }
+    public AppRole Role { get; set; } = AppRole.ProjectUser;
+}
+
 public sealed class AssignGroupToProjectRequest
 {
     public Guid GroupId { get; set; }

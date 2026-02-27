@@ -363,7 +363,7 @@ dotnet build SecureJournal.Web\SecureJournal.Web.csproj
 Build (workaround for the local web-assets issue observed in this environment):
 
 ```powershell
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -o .artifacts\verify-build
+dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -o .artifacts\verify-build
 ```
 
 Run (script, recommended):
@@ -375,7 +375,7 @@ Run (script, recommended):
 Run (manual, workaround flags):
 
 ```powershell
-dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true
 ```
 
 Tests:

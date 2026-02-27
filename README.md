@@ -76,6 +76,7 @@ Container assets included:
 - `scripts/generate-env-from-appsettings.ps1` (generate env vars from `appsettings*.json`)
 - `scripts/provision-azure.ps1` (provision RG + storage + key vault + App Service + Entra app registrations)
 - `scripts/deploy-appservice.ps1` (publish/deploy SecureJournal to Azure App Service with app settings)
+- `scripts/cleanup-sqlserver.sql` (clean app data in SQL Server; optional Identity data cleanup mode)
 
 Container runtime security:
 

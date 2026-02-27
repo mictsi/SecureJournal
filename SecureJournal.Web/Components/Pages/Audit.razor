@@ -196,19 +196,22 @@
                                 <div class="audit-integrity-cell">
                                     <small class="text-muted">Checksum</small>
                                     <code class="audit-checksum">@row.DetailsChecksum</code>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
-                                        Validate checksum
-                                    </button>
-                                    @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
-                                    {
-                                        <small class="@(validation.IsValid ? "text-success" : "text-danger")">
-                                            @validation.Message
-                                        </small>
-                                        @if (!validation.IsValid)
+                                    <div class="audit-integrity-actions">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
+                                            Validate checksum
+                                        </button>
+                                        @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
                                         {
-                                            <small class="text-muted">Computed: <code class="audit-checksum">@validation.ComputedChecksum</code></small>
+                                            @if (validation.IsValid)
+                                            {
+                                                <span class="checksum-status checksum-status-valid">☑ Valid</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="checksum-status checksum-status-invalid" title="@($"Computed: {validation.ComputedChecksum}")">☒ Invalid</span>
+                                            }
                                         }
-                                    }
+                                    </div>
                                 </div>
                             </td>
                         </tr>

@@ -21,27 +21,29 @@
 
 
 #components-reconnect-modal {
-    background-color: white;
-    width: 20rem;
+    width: min(28rem, calc(100vw - 2rem));
     margin: 20vh auto;
-    padding: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
+    padding: 1.6rem;
+    border: 1px solid var(--sj-panel-border);
+    border-radius: 0.8rem;
+    background: var(--sj-card);
+    color: var(--sj-ink);
+    box-shadow: var(--sj-shadow);
     opacity: 0;
     transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
     animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
-    &[open]
+}
 
-{
+#components-reconnect-modal[open] {
     animation: components-reconnect-modal-slideUp 1.5s cubic-bezier(.05, .89, .25, 1.02) 0.3s, components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
     animation-fill-mode: both;
 }
 
-}
-
 #components-reconnect-modal::backdrop {
-    background-color: rgba(0, 0, 0, 0.4);
+    background:
+        radial-gradient(circle at 15% 15%, rgba(120, 174, 252, 0.16), transparent 45%),
+        radial-gradient(circle at 85% 10%, rgba(88, 217, 177, 0.09), transparent 42%),
+        rgba(2, 6, 13, 0.6);
     animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
     opacity: 1;
 }
@@ -86,22 +88,26 @@
 #components-reconnect-modal p {
     margin: 0;
     text-align: center;
+    color: var(--sj-ink);
+    font-weight: 500;
 }
 
 #components-reconnect-modal button {
     border: 0;
-    background-color: #6b9ed2;
-    color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
+    background-color: var(--sj-accent);
+    color: #fff;
+    min-width: 6.5rem;
+    padding: 0.35rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
 }
 
     #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
+        background-color: #1a58b2;
     }
 
     #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
+        background-color: #174a95;
     }
 
 .components-rejoining-animation {

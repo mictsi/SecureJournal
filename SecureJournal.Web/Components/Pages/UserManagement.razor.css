@@ -1,0 +1,92 @@
+.user-admin-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.user-list-column {
+    flex: 0 0 22rem;
+}
+
+.user-detail-column {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 72vh;
+    overflow: auto;
+}
+
+.user-list-item {
+    width: 100%;
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.5rem;
+    background: rgba(0, 0, 0, 0.15);
+    color: inherit;
+    padding: 0.6rem 0.75rem;
+}
+
+.user-list-item:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.user-list-item.is-selected {
+    border-color: rgba(99, 173, 255, 0.9);
+    background: rgba(99, 173, 255, 0.12);
+}
+
+.user-list-item-top {
+    margin-bottom: 0.2rem;
+}
+
+.user-list-item-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    opacity: 0.9;
+}
+
+.membership-grid {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.membership-grid > div {
+    flex: 1 1 16rem;
+    min-width: 14rem;
+}
+
+.membership-title {
+    font-size: 1rem;
+    margin-bottom: 0.6rem;
+}
+
+.membership-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.membership-item {
+    margin: 0;
+}
+
+@media (max-width: 1100px) {
+    .user-admin-layout {
+        flex-direction: column;
+    }
+
+    .user-list-column {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}

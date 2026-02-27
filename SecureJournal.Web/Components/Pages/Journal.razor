@@ -39,6 +39,7 @@
     else
     {
         <EditForm Model="DraftModel" OnValidSubmit="CreateEntry" FormName="journal-create-entry">
+            <AntiforgeryToken />
             <DataAnnotationsValidator />
             <ValidationSummary />
 

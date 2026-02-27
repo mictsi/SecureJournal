@@ -1,0 +1,334 @@
+@page "/admin/user-accounts"
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<UserAccounts> Logger
+
+<PageTitle>User Account Management</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>User Account Management</h2>
+        <p>Create users and reset local passwords. Manage role/group memberships from User Memberships.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <div class="user-tools-row">
+        <section class="panel-card tool-card">
+            <div class="panel-card-header">
+                <h3>Create User</h3>
+            </div>
+
+            <EditForm Model="_createUserDraft" OnValidSubmit="CreateUserAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="username">Username</label>
+                        <InputText id="username" class="form-control" maxlength="100" @bind-Value="_createUserDraft.Username" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="displayName">Display Name</label>
+                        <InputText id="displayName" class="form-control" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
+                    </div>
+                </div>
+
+                <div class="mt-3 form-check">
+                    <InputCheckbox id="localAccount" class="form-check-input" @bind-Value="_createUserDraft.IsLocalAccount" />
+                    <label class="form-check-label" for="localAccount">Local account</label>
+                </div>
+
+                @if (_createUserDraft.IsLocalAccount)
+                {
+                    <div class="mt-3">
+                        <label class="form-label" for="localPassword">Local Password</label>
+                        <InputText id="localPassword" type="password" class="form-control" @bind-Value="_createUserDraft.LocalPassword" />
+                        <div class="form-text">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
+                    </div>
+                }
+
+                <div class="mt-3">
+                    <label class="form-label d-block">Initial Roles</label>
+                    <div class="role-checklist">
+                        @foreach (var role in _roles)
+                        {
+                            <label class="form-check role-check-item">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_createUserRoles.Contains(role)"
+                                       @onchange="args => ToggleCreateRole(role, args)" />
+                                <span class="form-check-label">@role</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetCreateUserForm">Reset</button>
+                </div>
+            </EditForm>
+        </section>
+
+        <section class="panel-card tool-card">
+            <div class="panel-card-header">
+                <h3>Reset Local Password</h3>
+            </div>
+
+            <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetLocalPasswordAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="resetUser">User</label>
+                        <InputSelect id="resetUser" class="form-select" @bind-Value="_resetPasswordRequest.UserId">
+                            @foreach (var user in LocalUsers)
+                            {
+                                <option value="@user.UserId">@user.DisplayName (@user.Username)</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="newPassword">New Password</label>
+                        <InputText id="newPassword" type="password" class="form-control" @bind-Value="_resetPasswordRequest.NewPassword" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="confirmPassword">Confirm New Password</label>
+                        <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_confirmResetPassword" />
+                    </div>
+                </div>
+
+                <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-warning" disabled="@(!LocalUsers.Any())">Reset Password</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetResetPasswordForm">Reset</button>
+                </div>
+            </EditForm>
+        </section>
+    </div>
+}
+
+@code {
+    private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
+
+    private UserContext? _currentUser;
+    private List<UserOverview> _users = new();
+    private CreateUserRequest _createUserDraft = new()
+    {
+        IsLocalAccount = true,
+        Role = AppRole.ProjectUser
+    };
+    private HashSet<AppRole> _createUserRoles = [AppRole.ProjectUser];
+    private AdminResetPasswordRequest _resetPasswordRequest = new();
+    private string _confirmResetPassword = string.Empty;
+    private int _localPasswordMinLength = 8;
+    private string? _message;
+    private string? _error;
+
+    private IEnumerable<UserOverview> LocalUsers
+        => _users
+            .Where(u => u.IsLocalAccount)
+            .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!await JournalApp.HasCurrentUserAsync())
+            {
+                Navigation.NavigateTo("/", forceLoad: false);
+                return;
+            }
+
+            _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "User account page initialization failed");
+            _error = $"Failed to load user account page: {ex.Message}";
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+        _users = JournalApp.GetUsers().ToList();
+        EnsureResetUserSelection();
+    }
+
+    private async Task CreateUserAsync()
+    {
+        ClearMessages();
+
+        try
+        {
+            if (_createUserRoles.Count == 0)
+            {
+                _createUserRoles.Add(AppRole.ProjectUser);
+            }
+
+            var effectiveRole = ResolveEffectiveRole(_createUserRoles);
+            _createUserDraft.Role = effectiveRole;
+
+            var created = await JournalApp.CreateUserAsync(_createUserDraft);
+
+            foreach (var additionalRole in _createUserRoles.Where(r => r != effectiveRole))
+            {
+                JournalApp.AddUserToRole(new UserRoleMembershipRequest
+                {
+                    UserId = created.UserId,
+                    Role = additionalRole
+                });
+            }
+
+            Logger.LogInformation("Admin user create submitted: {Username}", _createUserDraft.Username);
+
+            _users = JournalApp.GetUsers().ToList();
+            EnsureResetUserSelection();
+            _message = $"User '{created.Username}' created.";
+            ResetCreateUserForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin user create failed");
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ResetLocalPasswordAsync()
+    {
+        ClearMessages();
+
+        try
+        {
+            if (_resetPasswordRequest.UserId == Guid.Empty)
+            {
+                _error = "Select a local user first.";
+                return;
+            }
+
+            if (_resetPasswordRequest.NewPassword != _confirmResetPassword)
+            {
+                _error = "New password and confirm password must match.";
+                return;
+            }
+
+            Logger.LogInformation("Admin password reset submitted for user id {UserId}", _resetPasswordRequest.UserId);
+            var result = await JournalApp.ResetLocalUserPasswordAsync(_resetPasswordRequest);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            _message = result.Message;
+            ResetResetPasswordForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin password reset failed");
+            _error = ex.Message;
+        }
+    }
+
+    private void ToggleCreateRole(AppRole role, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked)
+        {
+            _createUserRoles.Add(role);
+            return;
+        }
+
+        _createUserRoles.Remove(role);
+    }
+
+    private void ResetCreateUserForm()
+    {
+        _createUserDraft = new CreateUserRequest
+        {
+            IsLocalAccount = true,
+            Role = AppRole.ProjectUser
+        };
+        _createUserRoles = [AppRole.ProjectUser];
+    }
+
+    private void ResetResetPasswordForm()
+    {
+        _resetPasswordRequest.NewPassword = string.Empty;
+        _confirmResetPassword = string.Empty;
+        EnsureResetUserSelection();
+    }
+
+    private void EnsureResetUserSelection()
+    {
+        if (_resetPasswordRequest.UserId != Guid.Empty && _users.Any(u => u.UserId == _resetPasswordRequest.UserId && u.IsLocalAccount))
+        {
+            return;
+        }
+
+        _resetPasswordRequest.UserId = LocalUsers.FirstOrDefault()?.UserId ?? Guid.Empty;
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+
+    private static AppRole ResolveEffectiveRole(IReadOnlyCollection<AppRole> roles)
+    {
+        if (roles.Contains(AppRole.Administrator))
+        {
+            return AppRole.Administrator;
+        }
+
+        if (roles.Contains(AppRole.ProjectUser))
+        {
+            return AppRole.ProjectUser;
+        }
+
+        if (roles.Contains(AppRole.Auditor))
+        {
+            return AppRole.Auditor;
+        }
+
+        return AppRole.ProjectUser;
+    }
+
+    private static bool ParseCheckboxValue(ChangeEventArgs args)
+    {
+        if (args.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
+    }
+}

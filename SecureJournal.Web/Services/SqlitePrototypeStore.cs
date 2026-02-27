@@ -21,6 +21,10 @@ public sealed record StoredProjectRow(
     string Name,
     string Description);
 
+public sealed record StoredUserRoleRow(
+    Guid UserId,
+    AppRole Role);
+
 public sealed record StoredGroupRow(
     Guid GroupId,
     string Name);
@@ -43,8 +47,15 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
 
     public SqlitePrototypeStore(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("SecureJournalSqlite")
+        var configuredConnectionString = configuration.GetConnectionString("SecureJournalSqlite")
             ?? "Data Source=securejournal.db";
+        var builder = new SqliteConnectionStringBuilder(configuredConnectionString)
+        {
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Cache = SqliteCacheMode.Shared,
+            Pooling = true
+        };
+        _connectionString = builder.ToString();
     }
 
     public void Initialize()
@@ -65,6 +76,17 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             EnsureDatabaseDirectory();
 
             using var connection = OpenConnectionInternal();
+            using (var pragma = connection.CreateCommand())
+            {
+                pragma.CommandText =
+                    """
+                    PRAGMA journal_mode = WAL;
+                    PRAGMA synchronous = NORMAL;
+                    PRAGMA busy_timeout = 5000;
+                    """;
+                pragma.ExecuteNonQuery();
+            }
+
             using var command = connection.CreateCommand();
             command.CommandText =
                 """
@@ -95,6 +117,12 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     user_id TEXT NOT NULL,
                     group_id TEXT NOT NULL,
                     PRIMARY KEY (user_id, group_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS user_roles (
+                    user_id TEXT NOT NULL,
+                    role INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, role)
                 );
 
                 CREATE TABLE IF NOT EXISTS project_groups (
@@ -201,6 +229,31 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 Code: reader.GetString(1),
                 Name: reader.GetString(2),
                 Description: reader.GetString(3)));
+        }
+
+        return rows;
+    }
+
+    public IReadOnlyList<StoredUserRoleRow> LoadUserRoles()
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT user_id, role
+            FROM user_roles
+            ORDER BY user_id, role;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredUserRoleRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredUserRoleRow(
+                UserId: Guid.Parse(reader.GetString(0)),
+                Role: (AppRole)reader.GetInt32(1)));
         }
 
         return rows;
@@ -493,6 +546,41 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.ExecuteNonQuery();
     }
 
+    public void AddUserRole(Guid userId, AppRole role)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO user_roles (user_id, role)
+            VALUES ($user_id, $role);
+            """;
+
+        command.Parameters.AddWithValue("$user_id", userId.ToString("D"));
+        command.Parameters.AddWithValue("$role", (int)role);
+        command.ExecuteNonQuery();
+    }
+
+    public void RemoveUserRole(Guid userId, AppRole role)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM user_roles
+            WHERE user_id = $user_id
+              AND role = $role;
+            """;
+
+        command.Parameters.AddWithValue("$user_id", userId.ToString("D"));
+        command.Parameters.AddWithValue("$role", (int)role);
+        command.ExecuteNonQuery();
+    }
+
     public void AddUserToGroup(Guid userId, Guid groupId)
     {
         Initialize();
@@ -503,6 +591,24 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             """
             INSERT OR IGNORE INTO user_groups (user_id, group_id)
             VALUES ($user_id, $group_id);
+            """;
+
+        command.Parameters.AddWithValue("$user_id", userId.ToString("D"));
+        command.Parameters.AddWithValue("$group_id", groupId.ToString("D"));
+        command.ExecuteNonQuery();
+    }
+
+    public void RemoveUserFromGroup(Guid userId, Guid groupId)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM user_groups
+            WHERE user_id = $user_id
+              AND group_id = $group_id;
             """;
 
         command.Parameters.AddWithValue("$user_id", userId.ToString("D"));
@@ -593,7 +699,12 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 connection.Open();
 
                 using var pragma = connection.CreateCommand();
-                pragma.CommandText = $"PRAGMA busy_timeout = {SqliteBusyTimeoutMs};";
+                pragma.CommandText =
+                    $$"""
+                    PRAGMA journal_mode = WAL;
+                    PRAGMA synchronous = NORMAL;
+                    PRAGMA busy_timeout = {{SqliteBusyTimeoutMs}};
+                    """;
                 pragma.ExecuteNonQuery();
 
                 return connection;

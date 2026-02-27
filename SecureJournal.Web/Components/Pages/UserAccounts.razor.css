@@ -1,0 +1,27 @@
+.user-tools-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.tool-card {
+    flex: 1 1 28rem;
+    min-width: 0;
+}
+
+.role-checklist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+}
+
+.role-check-item {
+    margin: 0;
+}
+
+@media (max-width: 1100px) {
+    .user-tools-row {
+        flex-direction: column;
+    }
+}

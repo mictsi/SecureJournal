@@ -37,7 +37,7 @@ dotnet build SecureJournal.Web\SecureJournal.Web.csproj
 If you hit the local `.NET 10` web assets issue (`Microsoft.AspNetCore.App.Internal.Assets`), use:
 
 ```powershell
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -o .artifacts\verify-build
+dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -o .artifacts\verify-build
 ```
 
 ## Tests
@@ -182,7 +182,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-env-from-
 You can produce a local release artifact zip from the repository root:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true
 Compress-Archive -Path .artifacts\publish\web\* -DestinationPath .artifacts\releases\securejournal-web-v0.3.0.zip -Force
 ```
 

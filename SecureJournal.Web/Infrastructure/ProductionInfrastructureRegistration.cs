@@ -41,6 +41,11 @@ public static class ProductionInfrastructureRegistration
 
         if (persistenceOptions.EnableProductionIdentityDatabase)
         {
+            var cookieHours = int.TryParse(configuration["Security:SessionCookieHours"], out var parsedHours)
+                ? Math.Max(1, parsedHours)
+                : 8;
+            var cookieTicketStore = new InMemoryAuthenticationTicketStore(TimeSpan.FromHours(cookieHours));
+
             services.AddDbContext<SecureJournalIdentityDbContext>(options =>
                 ConfigureProvider(options, persistenceOptions.Provider, persistenceOptions.IdentityConnectionString));
 
@@ -61,15 +66,13 @@ public static class ProductionInfrastructureRegistration
 
             services.ConfigureApplicationCookie(options =>
             {
-                var cookieHours = int.TryParse(configuration["Security:SessionCookieHours"], out var parsedHours)
-                    ? Math.Max(1, parsedHours)
-                    : 8;
                 var cookieName = configuration["Security:SessionCookieName"];
                 if (!string.IsNullOrWhiteSpace(cookieName))
                 {
                     options.Cookie.Name = cookieName;
                 }
 
+                options.SessionStore = cookieTicketStore;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
@@ -77,6 +80,11 @@ public static class ProductionInfrastructureRegistration
                 options.SlidingExpiration = true;
                 options.LoginPath = "/";
                 options.AccessDeniedPath = "/";
+            });
+
+            services.Configure<CookieAuthenticationOptions>(IdentityConstants.ExternalScheme, options =>
+            {
+                options.SessionStore = cookieTicketStore;
             });
         }
 
@@ -122,7 +130,9 @@ public static class ProductionInfrastructureRegistration
 
             authBuilder.AddOpenIdConnect("oidc", options =>
                 {
-                    options.SignInScheme = IdentityConstants.ExternalScheme;
+                    // This app does not use a separate external-login callback pipeline,
+                    // so OIDC principals must be persisted into the application scheme.
+                    options.SignInScheme = IdentityConstants.ApplicationScheme;
                     options.Authority = authority;
                     options.ClientId = clientId;
                     options.ClientSecret = clientSecret;

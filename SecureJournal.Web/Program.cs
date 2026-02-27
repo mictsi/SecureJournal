@@ -174,6 +174,18 @@ app.Use(async (context, next) =>
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsGet(context.Request.Method) &&
+        !context.Request.Path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) &&
+        !context.Request.Path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase))
+    {
+        var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+        antiforgery.GetAndStoreTokens(context);
+    }
+
+    await next();
+});
 app.UseAuthentication();
 app.UseAuthorization();
 

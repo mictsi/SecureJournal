@@ -35,6 +35,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             using var db = _dbFactory.CreateDbContext();
             db.Database.EnsureCreated();
             EnsureAppUserExternalIdentityColumns(db);
+            EnsureUserRolesTable(db);
             _initialized = true;
         }
     }
@@ -66,6 +67,18 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             .AsNoTracking()
             .OrderBy(x => x.Code)
             .Select(x => new StoredProjectRow(x.ProjectId, x.Code, x.Name, x.Description))
+            .ToList();
+    }
+
+    public IReadOnlyList<StoredUserRoleRow> LoadUserRoles()
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+        return db.UserRoles
+            .AsNoTracking()
+            .OrderBy(x => x.UserId)
+            .ThenBy(x => x.Role)
+            .Select(x => new StoredUserRoleRow(x.UserId, (AppRole)x.Role))
             .ToList();
     }
 
@@ -235,6 +248,32 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         db.SaveChanges();
     }
 
+    public void AddUserRole(Guid userId, AppRole role)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+        var roleValue = (int)role;
+        var exists = db.UserRoles.Any(x => x.UserId == userId && x.Role == roleValue);
+        if (!exists)
+        {
+            db.UserRoles.Add(new UserRoleEntity { UserId = userId, Role = roleValue });
+            db.SaveChanges();
+        }
+    }
+
+    public void RemoveUserRole(Guid userId, AppRole role)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+        var roleValue = (int)role;
+        var membership = db.UserRoles.SingleOrDefault(x => x.UserId == userId && x.Role == roleValue);
+        if (membership is not null)
+        {
+            db.UserRoles.Remove(membership);
+            db.SaveChanges();
+        }
+    }
+
     public void AddUserToGroup(Guid userId, Guid groupId)
     {
         Initialize();
@@ -243,6 +282,18 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         if (!exists)
         {
             db.UserGroups.Add(new UserGroupEntity { UserId = userId, GroupId = groupId });
+            db.SaveChanges();
+        }
+    }
+
+    public void RemoveUserFromGroup(Guid userId, Guid groupId)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+        var membership = db.UserGroups.SingleOrDefault(x => x.UserId == userId && x.GroupId == groupId);
+        if (membership is not null)
+        {
+            db.UserGroups.Remove(membership);
             db.SaveChanges();
         }
     }
@@ -473,6 +524,51 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     connection.Close();
                 }
             }
+        }
+    }
+
+    private static void EnsureUserRolesTable(SecureJournalAppDbContext db)
+    {
+        var provider = db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                IF OBJECT_ID('user_roles', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE user_roles (
+                        user_id uniqueidentifier NOT NULL,
+                        role int NOT NULL,
+                        CONSTRAINT PK_user_roles PRIMARY KEY (user_id, role)
+                    );
+                END
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                CREATE TABLE IF NOT EXISTS user_roles (
+                    user_id uuid NOT NULL,
+                    role integer NOT NULL,
+                    PRIMARY KEY (user_id, role)
+                );
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                CREATE TABLE IF NOT EXISTS user_roles (
+                    user_id TEXT NOT NULL,
+                    role INTEGER NOT NULL,
+                    PRIMARY KEY (user_id, role)
+                );
+                """);
         }
     }
 }

@@ -41,6 +41,7 @@ else
                 <h3>Create Group</h3>
             </div>
             <EditForm Model="GroupDraft" OnValidSubmit="CreateGroupAsync" FormName="admin-group-create">
+                <AntiforgeryToken />
                 <DataAnnotationsValidator />
                 <ValidationSummary />
 

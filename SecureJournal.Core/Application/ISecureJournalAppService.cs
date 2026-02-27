@@ -23,7 +23,10 @@ public interface ISecureJournalAppService
     GroupOverview CreateGroup(CreateGroupRequest request);
     UserOverview CreateUser(CreateUserRequest request);
     Task<UserOverview> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
+    bool AddUserToRole(UserRoleMembershipRequest request);
+    bool RemoveUserFromRole(UserRoleMembershipRequest request);
     bool AssignUserToGroup(AssignUserToGroupRequest request);
+    bool RemoveUserFromGroup(AssignUserToGroupRequest request);
     bool AssignGroupToProject(AssignGroupToProjectRequest request);
     PasswordChangeResult ChangeCurrentUserPassword(ChangePasswordRequest request);
     Task<PasswordChangeResult> ChangeCurrentUserPasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default);

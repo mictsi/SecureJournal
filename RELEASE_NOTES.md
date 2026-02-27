@@ -1,5 +1,31 @@
 # Release Notes
 
+## v0.5.0 - 2026-02-27
+
+### Highlights
+
+- Reworked admin UI flow for user administration:
+  - local account create/reset operations moved to a dedicated `User Accounts` page
+  - group/role governance centered in `User Management` with user-first selection.
+- Added batch save workflow for group/role membership updates to prevent hanging behavior during interactive updates for Entra/OIDC users.
+- Enabled cleaner multi-membership management:
+  - users can be members of multiple groups
+  - users can hold multiple roles
+  - checkbox-based membership editing with explicit save.
+- Improved operational safety and release readiness:
+  - added SQL Server cleanup script (`scripts/cleanup-sqlserver.sql`)
+  - deployment script now fails fast when journal encryption key is missing.
+
+### Technical Notes
+
+- Added/updated persistence operations for role and group membership mutation paths in:
+  - `SecureJournal.Web/Services/InMemorySecureJournalAppService.cs`
+  - `SecureJournal.Web/Services/EfCorePrototypeStore.cs`
+  - `SecureJournal.Web/Services/SqlitePrototypeStore.cs`
+- Added service and regression test coverage for user/group/role paths in `SecureJournal.Tests/InMemorySecureJournalAppServiceTests.cs`.
+- Improved admin page routing/navigation (`NavMenu`, `UserManagement`, new `UserAccounts` page) and reconnect modal styling/readability.
+- Deployment scripts were streamlined for App Service usage (`scripts/provision-azure.ps1`, `scripts/deploy-appservice.ps1`) and now include stronger configuration validation.
+
 ## v0.4.5 - 2026-02-27
 
 ### Highlights

@@ -808,6 +808,34 @@ body[data-theme="dark"] .audit-journal-preview {
     margin-left: 0.8rem;
 }
 
+/* Global fallback styling for Blazor reconnect dialog to guarantee readability. */
+#components-reconnect-modal {
+    background: #0f1728 !important;
+    color: #f3f7ff !important;
+    border: 1px solid #48628a !important;
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45) !important;
+}
+
+#components-reconnect-modal p,
+#components-reconnect-modal span {
+    color: #f3f7ff !important;
+    opacity: 1 !important;
+}
+
+#components-reconnect-modal button {
+    background: #2a70d6 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+#components-reconnect-modal button:hover {
+    background: #1f5bb0 !important;
+}
+
+#components-reconnect-modal::backdrop {
+    background: rgba(3, 8, 18, 0.72) !important;
+}
+
 .audit-integrity-cell {
     display: flex;
     flex-direction: column;
@@ -823,6 +851,51 @@ body[data-theme="dark"] .audit-journal-preview {
     max-width: 100%;
     overflow-wrap: anywhere;
     font-size: 0.76rem;
+}
+
+.audit-integrity-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.checksum-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid transparent;
+}
+
+.checksum-status-valid {
+    color: #0d5a31;
+    background: rgba(32, 177, 93, 0.18);
+    border-color: rgba(32, 177, 93, 0.45);
+}
+
+.checksum-status-invalid {
+    color: #8f151b;
+    background: rgba(220, 53, 69, 0.16);
+    border-color: rgba(220, 53, 69, 0.5);
+}
+
+html[data-theme="dark"] .checksum-status-valid,
+body[data-theme="dark"] .checksum-status-valid {
+    color: #8ef0b8;
+    background: rgba(40, 180, 99, 0.24);
+    border-color: rgba(107, 214, 154, 0.5);
+}
+
+html[data-theme="dark"] .checksum-status-invalid,
+body[data-theme="dark"] .checksum-status-invalid {
+    color: #ff9ea4;
+    background: rgba(205, 57, 69, 0.24);
+    border-color: rgba(235, 107, 119, 0.5);
 }
 
 @media (max-width: 1200px) {

@@ -61,6 +61,8 @@ Recommended workflow:
 - `Authentication:EnableAspNetIdentity`
 - `Authentication:OidcProviderName`
 - `Authentication:Oidc:*`
+- `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing` (optional diagnostics; default `false`)
+- `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing` (optional diagnostics; logs raw token strings; default `false`)
 - `Authentication:Oidc:GroupClaimType`
 - `Authentication:Oidc:RoleGroupMappings:*`
 
@@ -299,7 +301,7 @@ Clean DB and restart:
 Manual run:
 
 ```powershell
-dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true
 ```
 
 Docker Compose run:
@@ -345,7 +347,7 @@ Current `Audit Search` behavior:
 If you want a local publish folder build:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true
 ```
 
 Run the published app locally:

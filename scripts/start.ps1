@@ -1,6 +1,7 @@
 param(
     [switch]$CleanDb,
-    [switch]$HttpOnly
+    [switch]$HttpOnly,
+    [switch]$UseWebAssetsWorkaround
 )
 
 $ErrorActionPreference = "Stop"
@@ -106,10 +107,22 @@ if ($useHttpsProfile) {
 
 $projectPath = Join-Path $repoRoot "SecureJournal.Web\SecureJournal.Web.csproj"
 if ($useHttpsProfile) {
-    & dotnet run --project $projectPath --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+    if ($UseWebAssetsWorkaround) {
+        Write-Host "Using web-assets workaround flag (may disable interactive framework assets)." -ForegroundColor Yellow
+        & dotnet run --project $projectPath --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+    }
+    else {
+        & dotnet run --project $projectPath --launch-profile https -p:RestoreIgnoreFailedSources=true
+    }
 }
 else {
-    & dotnet run --project $projectPath --launch-profile http -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+    if ($UseWebAssetsWorkaround) {
+        Write-Host "Using web-assets workaround flag (may disable interactive framework assets)." -ForegroundColor Yellow
+        & dotnet run --project $projectPath --launch-profile http -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
+    }
+    else {
+        & dotnet run --project $projectPath --launch-profile http -p:RestoreIgnoreFailedSources=true
+    }
 }
 exit $LASTEXITCODE
 

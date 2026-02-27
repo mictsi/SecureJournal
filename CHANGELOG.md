@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2 - 2026-02-27
+
+### UI and Theme Fixes
+
+- Refined light/dark design tokens in `app.css` to improve contrast consistency across backgrounds, cards, and input surfaces.
+- Fixed table text readability by explicitly setting table foreground variables for normal, striped, active, and hover states.
+- Added dark-theme table cell (`td`/`th`) color enforcement to prevent low-contrast text in mixed Bootstrap/table rendering paths.
+
 ## 0.6.1 - 2026-02-27
 
 ### UI Fixes

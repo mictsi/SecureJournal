@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.6.2 - 2026-02-27
+
+### Highlights
+
+- Improved overall UI contrast tokens for both light and dark themes.
+- Fixed table text visibility issues in theme-specific and Bootstrap-interaction scenarios.
+
+### Technical Notes
+
+- Updated root and dark theme CSS custom properties in `SecureJournal.Web/wwwroot/app.css`.
+- Added explicit table text color variables and base `color` for `.table`.
+- Added dark-theme `td`/`th` color override for reliable table readability.
+
 ## v0.6.1 - 2026-02-27
 
 ### Highlights

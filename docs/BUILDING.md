@@ -72,7 +72,6 @@ These scripts:
 - print bootstrap admin credentials
 - optionally delete the SQLite DB (`start-clean.ps1`)
 - delete both local SQLite databases (`SecureJournal` app DB + `Identity` DB) when using `start-clean.ps1`
-- sync Blazor framework JS fallback files to `SecureJournal.Web\wwwroot\_framework`
 - run the app with the local SDK workaround flags
 
 ## Optional Troubleshooting File Logging
@@ -156,7 +155,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-env-from-
 You can produce a local release artifact zip from the repository root:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -p:StaticWebAssetsCompressionEnabled=false
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
 Compress-Archive -Path .artifacts\publish\web\* -DestinationPath .artifacts\releases\securejournal-web-v0.3.0.zip -Force
 ```
 

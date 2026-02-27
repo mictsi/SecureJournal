@@ -22,8 +22,17 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
-builder.Logging.AddConsole();
+var consoleLoggingSettings = ConsoleLoggingSettings.FromConfiguration(builder.Configuration);
+if (consoleLoggingSettings.Enabled)
+{
+    builder.Logging.AddConsole();
+}
 builder.Logging.AddDebug();
+var sqlQueryLoggingSettings = SqlQueryLoggingSettings.FromConfiguration(builder.Configuration);
+if (!sqlQueryLoggingSettings.Enabled)
+{
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+}
 var fileLoggingSettings = FileLoggingSettings.FromConfiguration(builder.Configuration);
 if (fileLoggingSettings.Enabled)
 {
@@ -246,6 +255,24 @@ await app.InitializeProductionIdentityDatabaseAsync();
 app.Run();
 
 public partial class Program { }
+
+internal sealed record ConsoleLoggingSettings(bool Enabled)
+{
+    public static ConsoleLoggingSettings FromConfiguration(IConfiguration configuration)
+    {
+        var enabled = !bool.TryParse(configuration["Logging:Console:Enabled"], out var parsedEnabled) || parsedEnabled;
+        return new ConsoleLoggingSettings(enabled);
+    }
+}
+
+internal sealed record SqlQueryLoggingSettings(bool Enabled)
+{
+    public static SqlQueryLoggingSettings FromConfiguration(IConfiguration configuration)
+    {
+        var enabled = bool.TryParse(configuration["Logging:SqlQueries:Enabled"], out var parsedEnabled) && parsedEnabled;
+        return new SqlQueryLoggingSettings(enabled);
+    }
+}
 
 internal enum RequestLoggingMode
 {

@@ -1,12 +1,24 @@
 # Changelog
 
+## 0.4.2 - 2026-02-27
+
+### Hotfix
+
+- Restored static web asset compression (`CompressionEnabled=true`) after removing duplicate checked-in Blazor runtime files under `wwwroot/_framework`.
+- Updated tag-build workflow restore/build/test/publish steps to run cleanly with compression enabled.
+- Removed local startup-script `_framework` sync behavior that could recreate static asset collisions.
+- Added configuration switches for logging behavior:
+  - `Logging:Console:Enabled`
+  - `Logging:SqlQueries:Enabled`
+- Fixed left navigation theme behavior so the sidebar and nav links switch correctly in light mode.
+
 ## 0.4.1 - 2026-02-27
 
 ### Hotfix
 
 - Fixed CI and tagged-release build failures caused by static web asset compression collisions (`ApplyCompressionNegotiation` duplicate-key error).
-- Disabled static web asset compression at project level via `StaticWebAssetsCompressionEnabled=false`.
-- Hardened tag-build workflow to pass `-p:StaticWebAssetsCompressionEnabled=false` for both build and publish steps.
+- Enabled static web asset compression at project level (`CompressionEnabled=true`).
+- Updated tag-build workflow to build/publish with compression enabled.
 
 ## 0.4.0 - 2026-02-27
 

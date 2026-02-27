@@ -1,17 +1,33 @@
 # Release Notes
 
+## v0.4.2 - 2026-02-27
+
+### Highlights
+
+- Re-enabled static web asset compression for web builds and publishes.
+- Eliminated static asset collisions by removing duplicate checked-in Blazor runtime files from `wwwroot/_framework`.
+- Updated tag-build workflow steps so restore/build/test/publish run consistently for tagged releases.
+- Added logging configuration toggles for console provider output and EF Core SQL statement logging.
+- Fixed left navigation sidebar color behavior when switching to light theme.
+
+### Technical Notes
+
+- Project setting: `CompressionEnabled=true` in `SecureJournal.Web.csproj`.
+- Tag-build workflow no longer forces `CompressionEnabled=false`.
+- Startup script no longer copies framework runtime files into `SecureJournal.Web/wwwroot/_framework`.
+
 ## v0.4.1 - 2026-02-27
 
 ### Highlights
 
 - Hotfix for CI/tagged release builds failing during static web asset compression.
-- Resolved duplicate-key failure in `ApplyCompressionNegotiation` by disabling static web asset compression for this project.
-- Updated GitHub tag-build workflow to pass explicit compression-disable flags during build and publish.
+- Resolved duplicate-key failure in `ApplyCompressionNegotiation` by removing duplicate checked-in `_framework` runtime files.
+- Updated GitHub tag-build workflow to run with compression enabled.
 
 ### Technical Notes
 
-- Project-level fix: `StaticWebAssetsCompressionEnabled=false` in `SecureJournal.Web.csproj`.
-- Workflow fix: `-p:StaticWebAssetsCompressionEnabled=false` on build/publish commands.
+- Project-level setting: `CompressionEnabled=true` in `SecureJournal.Web.csproj`.
+- Workflow build/publish commands no longer force compression off.
 
 ## v0.4.0 - 2026-02-27
 

@@ -88,24 +88,6 @@ Write-Host "Admin pass:   $bootstrapPassword"
 Write-Host "Sync on boot: $syncPassword"
 Write-Host ""
 
-$frameworkAssetSource = Join-Path $env:USERPROFILE ".nuget\packages\microsoft.aspnetcore.app.internal.assets\10.0.3\_framework"
-$frameworkAssetTarget = Join-Path $repoRoot "SecureJournal.Web\wwwroot\_framework"
-
-if (Test-Path $frameworkAssetSource) {
-    New-Item -ItemType Directory -Force $frameworkAssetTarget | Out-Null
-    foreach ($file in @("blazor.server.js", "blazor.web.js")) {
-        $src = Join-Path $frameworkAssetSource $file
-        $dst = Join-Path $frameworkAssetTarget $file
-        if (Test-Path $src) {
-            Copy-Item $src $dst -Force
-        }
-    }
-    Write-Host "Framework JS fallback synced to wwwroot\\_framework" -ForegroundColor Green
-}
-else {
-    Write-Host "Framework JS fallback source not found: $frameworkAssetSource" -ForegroundColor Yellow
-}
-
 $useHttpsProfile = -not $HttpOnly
 if ($useHttpsProfile) {
     $certCheckOutput = & dotnet dev-certs https --check 2>&1

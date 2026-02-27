@@ -12,11 +12,20 @@
     height: calc(100vh - 2rem);
     border-radius: 1.1rem;
     background:
+        radial-gradient(circle at 20% 10%, rgba(30, 102, 209, 0.12), transparent 45%),
+        linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(243, 248, 255, 0.94));
+    border: 1px solid rgba(34, 70, 74, 0.12);
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+}
+
+html[data-theme="dark"] .sidebar-panel,
+body[data-theme="dark"] .sidebar-panel {
+    background:
         radial-gradient(circle at 20% 10%, rgba(120, 174, 252, 0.14), transparent 45%),
         linear-gradient(165deg, rgba(6, 10, 18, 0.96), rgba(10, 16, 30, 0.94));
-    border: 1px solid rgba(165, 191, 235, 0.16);
+    border-color: rgba(165, 191, 235, 0.16);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
 }
 
 .main-panel {

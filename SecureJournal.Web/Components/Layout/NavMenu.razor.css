@@ -1,17 +1,17 @@
 .brand-panel {
     padding: 1rem 1rem 0.5rem;
-    border-bottom: 1px solid rgba(165, 191, 235, 0.14);
+    border-bottom: 1px solid rgba(16, 24, 38, 0.12);
 }
 
 .brand-kicker {
-    color: rgba(209, 221, 246, 0.9);
+    color: var(--sj-muted);
     text-transform: uppercase;
     letter-spacing: 0.11em;
     font-size: 0.72rem;
 }
 
 .brand-title {
-    color: #f6f7ef;
+    color: var(--sj-ink);
     font-size: 1.3rem;
     font-weight: 700;
     margin-top: 0.1rem;
@@ -21,7 +21,7 @@
     margin: 0.55rem 0 0;
     font-size: 0.88rem;
     line-height: 1.35;
-    color: rgba(219, 235, 232, 0.82);
+    color: var(--sj-muted);
 }
 
 .sj-nav {
@@ -34,7 +34,7 @@
     display: block;
     padding: 0.75rem 0.9rem;
     border-radius: 0.75rem;
-    color: rgba(230, 238, 251, 0.9);
+    color: rgba(16, 24, 38, 0.86);
     text-decoration: none;
     font-weight: 500;
     border: 1px solid transparent;
@@ -42,13 +42,53 @@
 }
 
 .sj-nav-link:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.06);
-    color: #fff;
+    background: rgba(30, 102, 209, 0.08);
+    border-color: rgba(30, 102, 209, 0.16);
+    color: var(--sj-ink);
     transform: translateY(-1px);
 }
 
 .sj-nav-link.active {
+    background: linear-gradient(135deg, rgba(30, 102, 209, 0.16), rgba(11, 138, 111, 0.1));
+    border-color: rgba(30, 102, 209, 0.28);
+    color: #0f2a4f;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="dark"] .brand-panel,
+body[data-theme="dark"] .brand-panel {
+    border-bottom-color: rgba(165, 191, 235, 0.14);
+}
+
+html[data-theme="dark"] .brand-kicker,
+body[data-theme="dark"] .brand-kicker {
+    color: rgba(209, 221, 246, 0.9);
+}
+
+html[data-theme="dark"] .brand-title,
+body[data-theme="dark"] .brand-title {
+    color: #f6f7ef;
+}
+
+html[data-theme="dark"] .brand-copy,
+body[data-theme="dark"] .brand-copy {
+    color: rgba(219, 235, 232, 0.82);
+}
+
+html[data-theme="dark"] .sj-nav-link,
+body[data-theme="dark"] .sj-nav-link {
+    color: rgba(230, 238, 251, 0.9);
+}
+
+html[data-theme="dark"] .sj-nav-link:hover,
+body[data-theme="dark"] .sj-nav-link:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+
+html[data-theme="dark"] .sj-nav-link.active,
+body[data-theme="dark"] .sj-nav-link.active {
     background: linear-gradient(135deg, rgba(120, 174, 252, 0.2), rgba(71, 126, 224, 0.14));
     border-color: rgba(148, 188, 248, 0.28);
     color: #fff;

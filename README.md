@@ -35,6 +35,8 @@ It is designed for:
 - OIDC username collisions with local users are rejected; unmapped external roles are denied
 - Role and project access enforced server-side
 - Optional buffered file logging can be enabled via `Logging:File:*` settings for troubleshooting
+- Console provider logging can be toggled via `Logging:Console:Enabled`
+- EF Core SQL statement logging can be toggled via `Logging:SqlQueries:Enabled`
 
 ## Current Status
 

@@ -106,6 +106,8 @@ Helper script:
 
 ### Logging
 
+- `Logging:Console:Enabled`
+- `Logging:SqlQueries:Enabled`
 - `Logging:File:Enabled`
 - `Logging:File:Path`
 - `Logging:File:MinimumLevel`
@@ -305,7 +307,7 @@ Current `Audit Search` behavior:
 If you want a local publish folder build:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -p:StaticWebAssetsCompressionEnabled=false
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
 ```
 
 Run the published app locally:

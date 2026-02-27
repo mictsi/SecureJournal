@@ -75,6 +75,8 @@ Current settings include:
 - `Authentication:Oidc:*` (including `ClientSecret`)
 - `BootstrapAdmin:*` (including `Password`)
   - `BootstrapAdmin:SyncPasswordOnStartup` (development convenience; can resync admin password from appsettings on startup)
+- `Logging:Console:Enabled` (toggle console logger provider)
+- `Logging:SqlQueries:Enabled` (toggle EF Core SQL statement logging)
 - `Logging:File:*` (optional buffered file logging for troubleshooting)
 
 Update the placeholders in the appsettings files before running, and avoid committing real secrets.

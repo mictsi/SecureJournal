@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 - 2026-02-27
+
+### Hotfix
+
+- Fixed CI and tagged-release build failures caused by static web asset compression collisions (`ApplyCompressionNegotiation` duplicate-key error).
+- Disabled static web asset compression at project level via `StaticWebAssetsCompressionEnabled=false`.
+- Hardened tag-build workflow to pass `-p:StaticWebAssetsCompressionEnabled=false` for both build and publish steps.
+
 ## 0.4.0 - 2026-02-27
 
 ### DevOps and Deployment

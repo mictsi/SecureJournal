@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.4.1 - 2026-02-27
+
+### Highlights
+
+- Hotfix for CI/tagged release builds failing during static web asset compression.
+- Resolved duplicate-key failure in `ApplyCompressionNegotiation` by disabling static web asset compression for this project.
+- Updated GitHub tag-build workflow to pass explicit compression-disable flags during build and publish.
+
+### Technical Notes
+
+- Project-level fix: `StaticWebAssetsCompressionEnabled=false` in `SecureJournal.Web.csproj`.
+- Workflow fix: `-p:StaticWebAssetsCompressionEnabled=false` on build/publish commands.
+
 ## v0.4.0 - 2026-02-27
 
 ### Highlights

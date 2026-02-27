@@ -23,6 +23,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <StaticWebAssetsCompressionEnabled>false</StaticWebAssetsCompressionEnabled>
   </PropertyGroup>
 
 </Project>

@@ -25,13 +25,13 @@ jobs:
         run: dotnet restore SecureJournal.Web/SecureJournal.Web.csproj
 
       - name: Build web project (Debug for tests)
-        run: dotnet build SecureJournal.Web/SecureJournal.Web.csproj -c Debug --no-restore
+        run: dotnet build SecureJournal.Web/SecureJournal.Web.csproj -c Debug --no-restore -p:StaticWebAssetsCompressionEnabled=false
 
       - name: Run tests
         run: dotnet test SecureJournal.Tests/SecureJournal.Tests.csproj -c Debug --no-build --logger "console;verbosity=minimal"
 
       - name: Publish web artifact (Release)
-        run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release -o .artifacts/publish/web --no-restore
+        run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release -o .artifacts/publish/web --no-restore -p:StaticWebAssetsCompressionEnabled=false
 
       - name: Upload published web artifact
         uses: actions/upload-artifact@v4

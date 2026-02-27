@@ -144,15 +144,9 @@
 
         try
         {
-            var created = JournalApp.CreateJournalEntry(DraftModel);
-            _message = $"Created journal entry '{created.Subject}' in project {created.ProjectCode}.";
-
             var selectedProject = DraftModel.ProjectId;
-            DraftModel.Action = string.Empty;
-            DraftModel.Subject = string.Empty;
-            DraftModel.Description = string.Empty;
-            DraftModel.Notes = string.Empty;
-            DraftModel.ProjectId = selectedProject;
+            JournalApp.CreateJournalEntry(DraftModel);
+            Navigation.NavigateTo($"/projects?projectId={selectedProject:D}");
         }
         catch (Exception ex)
         {

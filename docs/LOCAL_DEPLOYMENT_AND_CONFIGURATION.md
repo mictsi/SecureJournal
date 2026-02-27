@@ -233,6 +233,18 @@ Login/logout behavior:
 4. Use admin pages to create users, groups, projects, and mappings.
 5. Use `My Projects` for project-specific journal browsing/search.
 
+Current `My Projects` behavior:
+
+- Entry rows are displayed in a single-line, columnar layout with alternating row backgrounds for readability.
+- Entry list supports date sorting (`Newest first` / `Oldest first`).
+- After creating an entry in `/journal`, users are redirected back to `/projects` with the created project preselected.
+- Each row includes a `View` action that opens `/projects/entry/{recordId}` for full entry details and Back navigation.
+
+Current `Audit Search` behavior:
+
+- The results table includes a dedicated `Integrity` column for checksum display and checksum validation actions.
+- Audit result rows use alternating row backgrounds to improve scanability.
+
 ## 6. Local "Deployment" (Published Output)
 
 If you want a local publish folder build:

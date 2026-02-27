@@ -91,23 +91,37 @@
 
     <section class="panel-card">
         <h3>Current user context</h3>
-        <dl class="meta-list">
-            <dt>Display name</dt>
-            <dd>@_currentUser?.DisplayName</dd>
-            <dt>Username</dt>
-            <dd><code>@_currentUser?.Username</code></dd>
-            <dt>Role</dt>
-            <dd>@_currentUser?.Role</dd>
-            <dt>Group memberships</dt>
-            <dd>@_currentUserGroupNames</dd>
-        </dl>
+        <div class="project-user-context-row">
+            <div class="project-user-context-item">
+                <span class="project-user-context-label">Display name</span>
+                <span>@_currentUser?.DisplayName</span>
+            </div>
+            <div class="project-user-context-item">
+                <span class="project-user-context-label">Username</span>
+                <code>@_currentUser?.Username</code>
+            </div>
+            <div class="project-user-context-item">
+                <span class="project-user-context-label">Role</span>
+                <span>@_currentUser?.Role</span>
+            </div>
+            <div class="project-user-context-item">
+                <span class="project-user-context-label">Group memberships</span>
+                <span>@_currentUserGroupNames</span>
+            </div>
+        </div>
     </section>
 </div>
 
 <section class="panel-card mt-3">
     <div class="panel-card-header">
         <h3>Project Journal Entries</h3>
-        <span class="text-muted">@SelectedProjectLabel</span>
+        <div class="panel-card-header-actions">
+            <span class="text-muted">@SelectedProjectLabel</span>
+            @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
+            {
+                <a href="/journal" class="btn btn-primary btn-sm">Add Journal Entry</a>
+            }
+        </div>
     </div>
 
     @if (_currentUser?.Role == AppRole.Auditor)
@@ -125,7 +139,7 @@
     else
     {
         <div class="row g-2 mb-3">
-            <div class="col-md-6">
+            <div class="col-lg-5 col-md-6">
                 <label class="form-label" for="projectJournalSearch">Search</label>
                 <input id="projectJournalSearch"
                        class="form-control"
@@ -134,7 +148,7 @@
                        @oninput="OnSearchChanged"
                        placeholder="Search subject, description, notes..." />
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-2 col-md-3">
                 <label class="form-label" for="projectJournalPageSize">Page size</label>
                 <select id="projectJournalPageSize" class="form-select" @onchange="OnPageSizeChanged">
                     @foreach (var pageSize in _pageSizeOptions)
@@ -143,7 +157,14 @@
                     }
                 </select>
             </div>
-            <div class="col-md-3 d-flex align-items-end">
+            <div class="col-lg-2 col-md-3">
+                <label class="form-label" for="projectJournalSort">Sort by date</label>
+                <select id="projectJournalSort" class="form-select" @onchange="OnSortOrderChanged">
+                    <option value="@DateSortNewest" selected="@(_dateSortOrder == DateSortNewest)">Newest first</option>
+                    <option value="@DateSortOldest" selected="@(_dateSortOrder == DateSortOldest)">Oldest first</option>
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-12 d-flex align-items-end">
                 <div class="form-check mb-2">
                     <input id="projectIncludeDeleted"
                            class="form-check-input"
@@ -166,75 +187,82 @@
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                    <thead>
-                        <tr>
-                            <th>Created (UTC)</th>
-                            <th>Action</th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var entry in VisibleEntries)
-                        {
-                            <tr class="@(entry.IsSoftDeleted ? "table-warning" : string.Empty)">
-                                <td>
-                                    <div>@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</div>
-                                    <small class="text-muted">by @entry.CreatedBy</small>
-                                </td>
-                                <td>@entry.Action</td>
-                                <td>@entry.Subject</td>
-                                <td>
-                                    @if (entry.IsSoftDeleted)
-                                    {
-                                        <span class="badge text-bg-warning">Soft-deleted</span>
-                                        <div class="small text-muted">@entry.DeletedBy · @entry.DeletedAtUtc?.ToString("yyyy-MM-dd HH:mm")</div>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge text-bg-success">Active</span>
-                                    }
-                                </td>
-                                <td class="text-end">
-                                    @if (!entry.IsSoftDeleted)
-                                    {
-                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
-                                            Soft-delete
-                                        </button>
-                                    }
-                                </td>
-                            </tr>
-                            <tr class="entry-detail-row">
-                                <td colspan="5">
-                                    <div class="entry-detail-grid">
-                                        <div>
-                                            <strong>Description</strong>
-                                            <p>@entry.Description</p>
-                                        </div>
-                                        <div>
-                                            <strong>Notes</strong>
-                                            <p>@(string.IsNullOrWhiteSpace(entry.Notes) ? "No notes" : entry.Notes)</p>
-                                        </div>
-                                        <div>
-                                            <strong>Record checksum</strong>
-                                            <code class="checksum">@entry.FullRecordChecksum</code>
-                                        </div>
-                                        @if (entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(entry.DeleteReason))
-                                        {
-                                            <div>
-                                                <strong>Delete reason</strong>
-                                                <p>@entry.DeleteReason</p>
-                                            </div>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            <div class="entry-list" role="list">
+                <div class="entry-inline-header" aria-hidden="true">
+                    <div class="entry-inline-field entry-inline-field-created">
+                        <span class="entry-inline-colname">Created</span>
+                    </div>
+                    <div class="entry-inline-field entry-inline-field-action">
+                        <span class="entry-inline-colname">Action</span>
+                    </div>
+                    <div class="entry-inline-field entry-inline-field-subject">
+                        <span class="entry-inline-colname">Subject</span>
+                    </div>
+                    <div class="entry-inline-field entry-inline-field-description">
+                        <span class="entry-inline-colname">Description</span>
+                    </div>
+                    <div class="entry-inline-field entry-inline-field-notes">
+                        <span class="entry-inline-colname">Notes</span>
+                    </div>
+                    <div class="entry-inline-field entry-inline-field-status">
+                        <span class="entry-inline-colname">Status</span>
+                    </div>
+                    <div class="entry-inline-actions">
+                        <span class="entry-inline-colname">Actions</span>
+                    </div>
+                </div>
+
+                @foreach (var entry in VisibleEntries)
+                {
+                    <article class="entry-inline-row @(entry.IsSoftDeleted ? "entry-inline-row-soft-deleted" : string.Empty)" role="listitem">
+                        <div class="entry-inline-field entry-inline-field-created">
+                            <span class="entry-inline-text" title="@($"{entry.CreatedAtUtc:yyyy-MM-dd HH:mm} by {entry.CreatedBy}")">
+                                @entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") by @entry.CreatedBy
+                            </span>
+                        </div>
+
+                        <div class="entry-inline-field entry-inline-field-action">
+                            <span class="entry-inline-text" title="@entry.Action">@entry.Action</span>
+                        </div>
+
+                        <div class="entry-inline-field entry-inline-field-subject">
+                            <a class="entry-inline-link"
+                               href="@GetEntryDetailsUrl(entry)"
+                               title="@entry.Subject">
+                                @entry.Subject
+                            </a>
+                        </div>
+
+                        <div class="entry-inline-field entry-inline-field-description">
+                            <span class="entry-inline-text" title="@entry.Description">@entry.Description</span>
+                        </div>
+
+                        <div class="entry-inline-field entry-inline-field-notes">
+                            <span class="entry-inline-text" title="@entry.Notes">@(string.IsNullOrWhiteSpace(entry.Notes) ? "No notes" : entry.Notes)</span>
+                        </div>
+
+                        <div class="entry-inline-field entry-inline-field-status">
+                            @if (entry.IsSoftDeleted)
+                            {
+                                <span class="badge text-bg-warning">Soft-deleted</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Active</span>
+                            }
+                        </div>
+
+                        <div class="entry-inline-actions">
+                            <a href="@GetEntryDetailsUrl(entry)" class="btn btn-outline-secondary btn-sm">View</a>
+                            @if (!entry.IsSoftDeleted)
+                            {
+                                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
+                                    Soft-delete
+                                </button>
+                            }
+                        </div>
+                    </article>
+                }
             </div>
 
             <div class="pager-bar">
@@ -249,6 +277,11 @@
 </section>
 
 @code {
+    [SupplyParameterFromQuery(Name = "projectId")]
+    public Guid? ProjectId { get; set; }
+
+    private const string DateSortNewest = "newest";
+    private const string DateSortOldest = "oldest";
     private readonly int[] _pageSizeOptions = [5, 10, 20, 50];
 
     private UserContext? _currentUser;
@@ -260,6 +293,7 @@
     private string _searchText = string.Empty;
     private int _pageSize = 10;
     private int _currentPage = 1;
+    private string _dateSortOrder = DateSortNewest;
     private string _currentUserGroupNames = "None";
     private string? _message;
     private string? _error;
@@ -271,8 +305,13 @@
             e.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
             e.Notes.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
 
+    private IEnumerable<JournalEntryView> SortedEntries
+        => _dateSortOrder == DateSortOldest
+            ? FilteredEntries.OrderBy(e => e.CreatedAtUtc)
+            : FilteredEntries.OrderByDescending(e => e.CreatedAtUtc);
+
     private IEnumerable<JournalEntryView> VisibleEntries
-        => FilteredEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+        => SortedEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
 
     private int TotalPages
     {
@@ -313,7 +352,11 @@
 
         if (_currentUser?.Role != AppRole.Auditor)
         {
-            if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
+            if (ProjectId.HasValue && _projects.Any(p => p.ProjectId == ProjectId.Value))
+            {
+                _selectedProjectId = ProjectId.Value;
+            }
+            else if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
             {
                 _selectedProjectId = _projects.FirstOrDefault()?.ProjectId;
             }
@@ -391,6 +434,13 @@
         }
     }
 
+    private void OnSortOrderChanged(ChangeEventArgs args)
+    {
+        var selected = args.Value?.ToString();
+        _dateSortOrder = selected == DateSortOldest ? DateSortOldest : DateSortNewest;
+        _currentPage = 1;
+    }
+
     private void OnIncludeSoftDeletedChanged(ChangeEventArgs args)
     {
         _includeSoftDeleted = args.Value switch
@@ -419,6 +469,9 @@
             _currentPage++;
         }
     }
+
+    private static string GetEntryDetailsUrl(JournalEntryView entry)
+        => $"/projects/entry/{entry.RecordId:D}?projectId={entry.ProjectId:D}";
 
     private string ResolveGroupNames(IReadOnlyList<Guid> groupIds)
     {

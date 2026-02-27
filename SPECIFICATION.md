@@ -91,6 +91,8 @@ The application supports:
 - Journal entries shall be tied to exactly one project.
 - Journal entries shall be immutable after creation (no updates).
 - Journal entries may be soft-deleted (hidden) but never physically removed through normal UI operations.
+- The project journal list shall support sorting by creation date ascending/descending.
+- The project journal list shall support opening a dedicated single-entry details view.
 - Read visibility of soft-deleted entries:
   - Hidden from project users
   - Visible to administrators in direct journal views (with deletion metadata)
@@ -192,6 +194,7 @@ Each audit log entry should include:
   - Entity type
   - Outcome
 - Exportable audit results shall preserve filter criteria metadata.
+- Audit results shall present checksum values and checksum-validation actions in a dedicated integrity area/column for clarity.
 
 ## 9. Export Requirements
 
@@ -276,6 +279,9 @@ Each audit log entry should include:
 1. UI should be WCAG compatible
 2. Dark mode support
 3. Include basic formatting tools for notes and description fields
+4. Project entry list should show consistent column headers with one row per entry (without repeating field-name prefixes in each row)
+5. List and table views should use alternating row backgrounds to improve readability
+6. Single-entry details view should include clear Back navigation to the prior project context
 
 ## 16. Code testing and security best practises
 1. Always test the codes, Use TDD principles

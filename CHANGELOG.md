@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 - 2026-02-27
+
+### UI / UX
+
+- Refined `My Projects` journal listing into a flex-based, single-line row layout with improved readability
+- Added dedicated column headers for the custom project entry list and normalized row typography/alignment
+- Added project entry details page (`/projects/entry/{recordId}`) with Back navigation to the selected project context
+- Added date sort control (`Newest first` / `Oldest first`) for project journal entries
+- Added `Add Journal Entry` action in `My Projects` and automatic post-create redirect from `/journal` back to `/projects?projectId=...`
+- Removed project-entry checksum display from `My Projects` entry rows per current UI behavior
+- Updated `Audit Search` results to move checksum and checksum-validation actions into a dedicated `Integrity` column
+- Added alternating row backgrounds (zebra striping) across table/list views to improve scanability
+
+### Documentation
+
+- Updated README capability list and usage notes for the new journal browsing flow
+- Updated install/build/local deployment docs with current page behavior and navigation
+- Updated specification UI requirements to document sortable project entries, single-entry detail view, integrity column layout, and alternating row styling
+- Added release notes for `0.3.0`
+
 ## 0.2.0 - 2026-02-26
 
 ### Security

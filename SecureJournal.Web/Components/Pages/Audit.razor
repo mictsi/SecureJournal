@@ -136,6 +136,7 @@
                         <th>Project</th>
                         <th>Outcome</th>
                         <th>Details</th>
+                        <th>Integrity</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -160,7 +161,6 @@
                             </td>
                             <td>
                                 <div>@row.Details</div>
-                                <small class="text-muted">Checksum: <code>@row.DetailsChecksum</code></small>
                                 @if (row.RelatedJournalEntry is not null)
                                 {
                                     <div class="audit-journal-preview mt-2">
@@ -191,12 +191,14 @@
                                         }
                                     </div>
                                 }
-                                <div class="mt-2 d-flex flex-column gap-1">
-                                    <div>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
-                                            Validate checksum
-                                        </button>
-                                    </div>
+                            </td>
+                            <td>
+                                <div class="audit-integrity-cell">
+                                    <small class="text-muted">Checksum</small>
+                                    <code class="audit-checksum">@row.DetailsChecksum</code>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
+                                        Validate checksum
+                                    </button>
                                     @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
                                     {
                                         <small class="@(validation.IsValid ? "text-success" : "text-danger")">
@@ -204,7 +206,7 @@
                                         </small>
                                         @if (!validation.IsValid)
                                         {
-                                            <small class="text-muted">Computed: <code>@validation.ComputedChecksum</code></small>
+                                            <small class="text-muted">Computed: <code class="audit-checksum">@validation.ComputedChecksum</code></small>
                                         }
                                     }
                                 </div>

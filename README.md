@@ -14,6 +14,8 @@ It is designed for:
 - Sign in with OIDC (when enabled by configuration)
 - View `My Projects` and browse journal entries per project
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
+- Sort project journal entries by date (`Newest first` / `Oldest first`)
+- Open a dedicated journal entry details page from `My Projects` and return to the selected project context
 - Create append-only journal entries (`Action`, `Subject`, `Description`, `Notes`)
 - Soft-delete journal entries (preserved for admin visibility and audit evidence)
 - Search audit logs with filters (date/user/project/action/entity/outcome + field-specific contains)
@@ -43,6 +45,12 @@ This repository contains a working Blazor Server application with:
 
 The repository also keeps legacy fallback paths (prototype store/auth toggles) for compatibility/testing. Explicit EF Core migrations and environment-specific validation are still recommended before production deployment.
 
+Recent UI behavior highlights:
+
+- `/journal` redirects back to `/projects?projectId=...` after successful entry creation
+- `My Projects` uses an inline columnar entry list with alternating row colors for readability
+- `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
+
 ## Documentation
 
 - Build instructions: `docs/BUILDING.md`
@@ -50,6 +58,7 @@ The repository also keeps legacy fallback paths (prototype store/auth toggles) f
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
+- Release notes: `RELEASE_NOTES.md`
 - Sanitized config templates:
   - `SecureJournal.Web/appsettings.template.json`
   - `SecureJournal.Web/appsettings.Development.template.json`

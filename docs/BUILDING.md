@@ -92,3 +92,14 @@ You can enable buffered file logging for local troubleshooting:
 ```
 
 The logger writes asynchronously using a buffered queue and periodic flushes to reduce request-path I/O overhead.
+
+## Release Artifact (Local)
+
+You can produce a local release artifact zip from the repository root:
+
+```powershell
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false -p:StaticWebAssetsCompressionEnabled=false
+Compress-Archive -Path .artifacts\publish\web\* -DestinationPath .artifacts\releases\securejournal-web-v0.3.0.zip -Force
+```
+
+This zip is suitable for attaching to a GitHub release.

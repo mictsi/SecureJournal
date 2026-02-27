@@ -1,4 +1,5 @@
 @page "/exports"
+@attribute [Authorize(Roles = "Administrator,Auditor")]
 @inject ISecureJournalAppService JournalApp
 @inject IJSRuntime JS
 @inject NavigationManager Navigation

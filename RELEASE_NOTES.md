@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.6.0 - 2026-02-27
+
+### Highlights
+
+- Expanded administrator user lifecycle controls in `User management`:
+  - user state toggle (`Enable user` / `Disable user`)
+  - user deletion.
+- Moved local password reset into `Manage user` (selected-user context) and restricted resets to local users only.
+- Strengthened disabled-user enforcement so disabled accounts are blocked from active access paths.
+- Restored visible Blazor reconnect UX by ensuring reconnect modal rendering + robust reconnect state class handling.
+
+### Technical Notes
+
+- Added `EnableUser(Guid userId)` to the application service contract and service implementation.
+- Updated `UserManagement.razor` to:
+  - rename `Manage user` heading casing
+  - show stateful enable/disable toggle action
+  - include local-only selected-user password reset form.
+- Updated auth/runtime guard paths to reject/evict disabled users consistently.
+- Updated reconnect modal integration and client logic:
+  - `MainLayout.razor` now renders `<ReconnectModal />`
+  - `ReconnectModal.razor.js` now applies reconnect state classes deterministically for UI visibility.
+
 ## v0.5.0 - 2026-02-27
 
 ### Highlights

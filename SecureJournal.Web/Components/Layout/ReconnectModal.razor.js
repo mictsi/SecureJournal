@@ -2,6 +2,13 @@
 const reconnectModal = document.getElementById("components-reconnect-modal");
 const retryButton = document.getElementById("components-reconnect-button");
 const resumeButton = document.getElementById("components-resume-button");
+const reconnectStateClasses = [
+    "components-reconnect-show",
+    "components-reconnect-retrying",
+    "components-reconnect-failed",
+    "components-reconnect-paused",
+    "components-reconnect-resume-failed"
+];
 
 if (reconnectModal && retryButton && resumeButton) {
     reconnectModal.addEventListener("components-reconnect-state-changed", handleReconnectStateChanged);
@@ -10,14 +17,36 @@ if (reconnectModal && retryButton && resumeButton) {
 }
 
 function handleReconnectStateChanged(event) {
-    if (event.detail.state === "show") {
+    const state = event?.detail?.state ?? "";
+    applyReconnectState(state);
+
+    if (state === "show") {
         reconnectModal.showModal();
-    } else if (event.detail.state === "hide") {
+    } else if (state === "hide") {
         reconnectModal.close();
-    } else if (event.detail.state === "failed") {
+    } else if (state === "failed") {
         document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
-    } else if (event.detail.state === "rejected") {
+    } else if (state === "rejected") {
         location.reload();
+    }
+}
+
+function applyReconnectState(state) {
+    if (!reconnectModal) {
+        return;
+    }
+
+    reconnectStateClasses.forEach(cssClass => reconnectModal.classList.remove(cssClass));
+
+    let stateClass = "";
+    if (state === "show" || state === "retrying" || state === "failed" || state === "paused") {
+        stateClass = `components-reconnect-${state}`;
+    } else if (state === "resumefailed" || state === "resume-failed") {
+        stateClass = "components-reconnect-resume-failed";
+    }
+
+    if (stateClass) {
+        reconnectModal.classList.add(stateClass);
     }
 }
 
@@ -27,6 +56,7 @@ async function retry() {
     }
 
     document.removeEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
+    applyReconnectState("retrying");
 
     try {
         if (!window.Blazor || typeof Blazor.reconnect !== "function") {
@@ -46,11 +76,13 @@ async function retry() {
             if (!resumeSuccessful) {
                 location.reload();
             } else {
+                applyReconnectState("hide");
                 reconnectModal.close();
             }
         }
     } catch (err) {
         // We got an exception, server is currently unavailable
+        applyReconnectState("failed");
         document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
     }
 }
@@ -71,7 +103,7 @@ async function resume() {
             location.reload();
         }
     } catch {
-        reconnectModal.classList.replace("components-reconnect-paused", "components-reconnect-resume-failed");
+        applyReconnectState("resume-failed");
     }
 }
 

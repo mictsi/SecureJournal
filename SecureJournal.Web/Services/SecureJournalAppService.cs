@@ -1,7 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,13 +13,16 @@ using SecureJournal.Web.Infrastructure.Identity;
 
 namespace SecureJournal.Web.Services;
 
-public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
+public sealed class SecureJournalAppService : ISecureJournalAppService
 {
     private readonly IChecksumService _checksumService;
-    private readonly IJournalFieldEncryptor _journalEncryptor;
     private readonly IAuditFieldEncryptor _auditEncryptor;
+    private readonly IJournalEntryRecordFactory _journalRecordFactory;
+    private readonly IAuditLogRecordFactory _auditRecordFactory;
+    private readonly IRecordViewMapper _recordViewMapper;
+    private readonly IExportContentFormatter _exportFormatter;
     private readonly IPrototypeDataStore _sqliteStore;
-    private readonly ILogger<InMemorySecureJournalAppService> _logger;
+    private readonly ILogger<SecureJournalAppService> _logger;
     private readonly PasswordHasher<AppUser> _passwordHasher = new();
     private readonly BootstrapAdminSettings _bootstrapAdmin;
     private readonly SecuritySettings _securitySettings;
@@ -49,14 +50,17 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
     private Guid _currentUserId;
 
-    public InMemorySecureJournalAppService(
+    public SecureJournalAppService(
         IChecksumService checksumService,
-        IJournalFieldEncryptor journalEncryptor,
         IAuditFieldEncryptor auditEncryptor,
+        IJournalEntryRecordFactory journalRecordFactory,
+        IAuditLogRecordFactory auditRecordFactory,
+        IRecordViewMapper recordViewMapper,
+        IExportContentFormatter exportFormatter,
         IPrototypeDataStore sqliteStore,
         PrototypeSharedState shared,
         IConfiguration configuration,
-        ILogger<InMemorySecureJournalAppService> logger,
+        ILogger<SecureJournalAppService> logger,
         IHttpContextAccessor? httpContextAccessor = null,
         PrototypeSessionRegistry? sessionRegistry = null,
         AuthenticationStateProvider? authenticationStateProvider = null,
@@ -64,8 +68,11 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         UserManager<SecureJournalIdentityUser>? identityUserManager = null)
     {
         _checksumService = checksumService;
-        _journalEncryptor = journalEncryptor;
         _auditEncryptor = auditEncryptor;
+        _journalRecordFactory = journalRecordFactory;
+        _auditRecordFactory = auditRecordFactory;
+        _recordViewMapper = recordViewMapper;
+        _exportFormatter = exportFormatter;
         _sqliteStore = sqliteStore;
         _shared = shared;
         _logger = logger;
@@ -106,9 +113,15 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
         lock (_sync)
         {
-            if (_currentUserId != Guid.Empty && _users.Any(u => u.UserId == _currentUserId))
+            if (_currentUserId != Guid.Empty)
             {
-                return true;
+                var existingCurrent = _users.FirstOrDefault(u => u.UserId == _currentUserId);
+                if (existingCurrent is not null && !existingCurrent.IsDisabled)
+                {
+                    return true;
+                }
+
+                _currentUserId = Guid.Empty;
             }
         }
 
@@ -127,7 +140,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         lock (_sync)
         {
             TryRestoreCurrentUserFromCookie();
-            return _users.Any(u => u.UserId == _currentUserId);
+            return _users.Any(u => u.UserId == _currentUserId && !u.IsDisabled);
         }
     }
 
@@ -145,6 +158,12 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 var existingCurrent = _users.FirstOrDefault(u => u.UserId == _currentUserId);
                 if (existingCurrent is not null)
                 {
+                    if (existingCurrent.IsDisabled)
+                    {
+                        _currentUserId = Guid.Empty;
+                        throw new UnauthorizedAccessException("Authentication is required.");
+                    }
+
                     return ToUserContext(existingCurrent);
                 }
             }
@@ -180,6 +199,10 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         {
             var nextUser = _users.FirstOrDefault(u => u.UserId == userId)
                 ?? throw new InvalidOperationException("Selected user was not found.");
+            if (nextUser.IsDisabled)
+            {
+                throw new UnauthorizedAccessException("The selected user account is disabled.");
+            }
 
             var previousUser = _users.FirstOrDefault(u => u.UserId == _currentUserId);
             if (previousUser?.UserId == nextUser.UserId)
@@ -314,6 +337,20 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 return new LoginResult(false, "Invalid username or password.", null);
             }
 
+            if (localUser.IsDisabled)
+            {
+                _logger.LogWarning("Local login rejected for disabled user {Username}", localUser.Username);
+                AppendAudit(
+                    actor: localUser,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: localUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Failed local login for disabled user '{localUser.Username}'.");
+                return new LoginResult(false, "Account is disabled.", null);
+            }
+
             var verification = _passwordHasher.VerifyHashedPassword(localUser, passwordHash, password ?? string.Empty);
             if (verification is PasswordVerificationResult.Failed)
             {
@@ -371,6 +408,20 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                     $"Failed local login attempt for username '{normalizedUsername}'.");
                 return new LoginResult(false, "Invalid username or password.", null);
             }
+
+            if (appUser.IsDisabled)
+            {
+                _logger.LogWarning("Local login rejected for disabled user {Username}", normalizedUsername);
+                AppendAudit(
+                    actor: appUser,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: appUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Failed local login for disabled user '{appUser.Username}'.");
+                return new LoginResult(false, "Account is disabled.", null);
+            }
         }
 
         var signInResult = await _identitySignInManager.PasswordSignInAsync(
@@ -408,6 +459,20 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         lock (_sync)
         {
             finalAppUser = _users.FirstOrDefault(u => u.UserId == appUser.UserId) ?? appUser;
+            if (finalAppUser.IsDisabled)
+            {
+                _logger.LogWarning("Local login rejected post-sign-in for disabled user {Username}", normalizedUsername);
+                AppendAudit(
+                    finalAppUser,
+                    AuditActionType.Login,
+                    AuditEntityType.Authentication,
+                    entityId: finalAppUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Failure,
+                    $"Failed local login for disabled user '{finalAppUser.Username}'.");
+                return new LoginResult(false, "Account is disabled.", null);
+            }
+
             _logger.LogInformation("Local login succeeded for user {Username} via Identity", normalizedUsername);
             AppendAudit(
                 finalAppUser,
@@ -435,6 +500,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         lock (_sync)
         {
             return _users
+                .Where(u => !u.IsDisabled)
                 .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .Select(ToUserContext)
                 .ToList();
@@ -538,7 +604,8 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                     user.Role,
                     user.IsLocalAccount,
                     GetUserGroupNames(user.UserId),
-                    GetUserRoleNames(user.UserId)))
+                    GetUserRoleNames(user.UserId),
+                    user.IsDisabled))
                 .ToList();
         }
     }
@@ -793,6 +860,57 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 group.Name,
                 Members: Array.Empty<string>(),
                 ProjectCodes: Array.Empty<string>());
+        }
+    }
+
+    public bool DeleteGroup(Guid groupId)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (groupId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Group is required.");
+            }
+
+            var group = _groups.FirstOrDefault(g => g.GroupId == groupId);
+            if (group is null)
+            {
+                return false;
+            }
+
+            _groups.Remove(group);
+
+            var removedProjectAssignments = _projectGroups.RemoveAll(pg => pg.GroupId == groupId);
+            var removedUserMemberships = 0;
+            foreach (var memberships in _userGroups.Values)
+            {
+                if (memberships.Remove(groupId))
+                {
+                    removedUserMemberships++;
+                }
+            }
+
+            _sqliteStore.RemoveGroup(groupId);
+            _logger.LogInformation(
+                "Group deleted by {ActorUsername}: {GroupName} ({GroupId}) MembersRemoved={MembersRemoved} ProjectAssignmentsRemoved={ProjectAssignmentsRemoved}",
+                actor.Username,
+                group.Name,
+                group.GroupId,
+                removedUserMemberships,
+                removedProjectAssignments);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Delete,
+                AuditEntityType.Group,
+                entityId: group.GroupId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"Group '{group.Name}' deleted. Removed memberships={removedUserMemberships}, removed project assignments={removedProjectAssignments}.");
+
+            return true;
         }
     }
 
@@ -1054,6 +1172,203 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    public bool DisableUser(Guid userId)
+    {
+        string? identityUsernameToDisable = null;
+        bool changed;
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (targetUser.UserId == actor.UserId)
+            {
+                throw new InvalidOperationException("You cannot disable your own account.");
+            }
+
+            if (targetUser.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedUser = targetUser with { IsDisabled = true };
+            var index = _users.FindIndex(u => u.UserId == targetUser.UserId);
+            if (index >= 0)
+            {
+                _users[index] = updatedUser;
+            }
+
+            var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
+            _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+
+            if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
+            {
+                identityUsernameToDisable = updatedUser.Username;
+            }
+
+            if (_currentUserId == updatedUser.UserId)
+            {
+                _currentUserId = Guid.Empty;
+            }
+
+            _logger.LogInformation(
+                "User disabled by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                updatedUser.Username,
+                updatedUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Configure,
+                AuditEntityType.User,
+                entityId: updatedUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{updatedUser.Username}' was disabled.");
+
+            changed = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(identityUsernameToDisable))
+        {
+            _ = Task.Run(() => TryDisableIdentityUserByUsername(identityUsernameToDisable));
+        }
+
+        return changed;
+    }
+
+    public bool EnableUser(Guid userId)
+    {
+        string? identityUsernameToEnable = null;
+        bool changed;
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (!targetUser.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedUser = targetUser with { IsDisabled = false };
+            var index = _users.FindIndex(u => u.UserId == targetUser.UserId);
+            if (index >= 0)
+            {
+                _users[index] = updatedUser;
+            }
+
+            var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
+            _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+
+            if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
+            {
+                identityUsernameToEnable = updatedUser.Username;
+            }
+
+            _logger.LogInformation(
+                "User enabled by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                updatedUser.Username,
+                updatedUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Configure,
+                AuditEntityType.User,
+                entityId: updatedUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{updatedUser.Username}' was enabled.");
+
+            changed = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(identityUsernameToEnable))
+        {
+            _ = Task.Run(() => TryEnableIdentityUserByUsername(identityUsernameToEnable));
+        }
+
+        return changed;
+    }
+
+    public bool DeleteUser(Guid userId)
+    {
+        string? identityUsernameToDelete = null;
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (targetUser.UserId == actor.UserId)
+            {
+                throw new InvalidOperationException("You cannot delete your own account.");
+            }
+
+            _users.RemoveAll(u => u.UserId == targetUser.UserId);
+            _userRoles.Remove(targetUser.UserId);
+            _userGroups.Remove(targetUser.UserId);
+            _localPasswordHashes.Remove(targetUser.UserId);
+
+            if (_currentUserId == targetUser.UserId)
+            {
+                _currentUserId = Guid.Empty;
+            }
+
+            _sqliteStore.RemoveUser(targetUser.UserId);
+            if (_enableAspNetIdentity && targetUser.IsLocalAccount)
+            {
+                identityUsernameToDelete = targetUser.Username;
+            }
+
+            _logger.LogInformation(
+                "User deleted by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                targetUser.Username,
+                targetUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Delete,
+                AuditEntityType.User,
+                entityId: targetUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{targetUser.Username}' was deleted.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(identityUsernameToDelete))
+        {
+            _ = Task.Run(() => TryDeleteIdentityUserByUsername(identityUsernameToDelete));
+        }
+
+        return true;
+    }
+
     public bool AssignGroupToProject(AssignGroupToProjectRequest request)
     {
         lock (_sync)
@@ -1091,6 +1406,49 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 projectId: project.ProjectId,
                 AuditOutcome.Success,
                 $"Group '{group.Name}' assigned to project '{project.Code}'.");
+
+            return true;
+        }
+    }
+
+    public bool RemoveGroupFromProject(AssignGroupToProjectRequest request)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (request.ProjectId == Guid.Empty || request.GroupId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Project and group are required.");
+            }
+
+            var project = _projects.FirstOrDefault(p => p.ProjectId == request.ProjectId)
+                ?? throw new InvalidOperationException("Selected project was not found.");
+            var group = _groups.FirstOrDefault(g => g.GroupId == request.GroupId)
+                ?? throw new InvalidOperationException("Selected group was not found.");
+
+            var membership = _projectGroups.FirstOrDefault(pg => pg.ProjectId == project.ProjectId && pg.GroupId == group.GroupId);
+            if (membership is null)
+            {
+                return false;
+            }
+
+            _projectGroups.Remove(membership);
+            _sqliteStore.RemoveGroupFromProject(project.ProjectId, group.GroupId);
+            _logger.LogInformation(
+                "Group-to-project removal by {ActorUsername}: {GroupName} -X-> {ProjectCode}",
+                actor.Username,
+                group.Name,
+                project.Code);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Delete,
+                AuditEntityType.Permission,
+                entityId: group.GroupId.ToString(),
+                projectId: project.ProjectId,
+                AuditOutcome.Success,
+                $"Group '{group.Name}' removed from project '{project.Code}'.");
 
             return true;
         }
@@ -1241,7 +1599,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 .Where(e => !projectId.HasValue || e.ProjectId == projectId.Value)
                 .Where(e => !e.IsSoftDeleted || canSeeSoftDeleted)
                 .OrderByDescending(e => e.CreatedAtUtc)
-                .Select(MapJournalEntry)
+                .Select(record => _recordViewMapper.MapJournalEntry(record, _projects))
                 .ToList();
         }
     }
@@ -1290,33 +1648,16 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             var notes = InputNormalizer.NormalizeOptional(request.Notes, FieldLimits.NotesMax);
             var result = string.Empty;
 
-            var record = new JournalEntryRecord
-            {
-                RecordId = Guid.NewGuid(),
-                ProjectId = project.ProjectId,
-                CreatedAtUtc = now,
-                CreatedByUserId = actor.UserId,
-                CreatedByUsername = actor.Username,
-                CategoryCiphertext = _journalEncryptor.Encrypt(action),
-                SubjectCiphertext = _journalEncryptor.Encrypt(subject),
-                DescriptionCiphertext = _journalEncryptor.Encrypt(description),
-                NotesCiphertext = _journalEncryptor.Encrypt(notes),
-                ResultCiphertext = _journalEncryptor.Encrypt(result),
-                CategoryChecksum = _checksumService.ComputeHex(action),
-                SubjectChecksum = _checksumService.ComputeHex(subject),
-                DescriptionChecksum = _checksumService.ComputeHex(description),
-                NotesChecksum = _checksumService.ComputeHex(notes),
-                ResultChecksum = _checksumService.ComputeHex(result),
-                FullRecordChecksum = _checksumService.ComputeHex(BuildFullRecordChecksumMaterial(
-                    project.ProjectId,
-                    actor.UserId,
-                    now,
-                    action,
-                    subject,
-                    description,
-                    notes,
-                    result))
-            };
+            var record = _journalRecordFactory.Create(
+                project.ProjectId,
+                actor.UserId,
+                actor.Username,
+                now,
+                action,
+                subject,
+                description,
+                notes,
+                result);
 
             _journalEntries.Add(record);
             _sqliteStore.UpsertJournalEntry(record);
@@ -1330,7 +1671,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 AuditOutcome.Success,
                 $"Journal entry created in project '{project.Code}' with action '{action}' and subject '{subject}'.");
 
-            return MapJournalEntry(record);
+            return _recordViewMapper.MapJournalEntry(record, _projects);
         }
     }
 
@@ -1459,7 +1800,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
             return query
                 .OrderByDescending(a => a.TimestampUtc)
-                .Select(MapAuditLog)
+                .Select(record => _recordViewMapper.MapAuditLog(record, _projects, _journalEntries))
                 .ToList();
         }
     }
@@ -1538,8 +1879,8 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
 
             var fileName = $"journal-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{(request.Format == ExportFormat.Csv ? "csv" : "json")}";
             var content = request.Format == ExportFormat.Csv
-                ? BuildJournalCsv(request.Filter, rows)
-                : BuildJournalJson(request.Filter, rows);
+                ? _exportFormatter.BuildJournalCsv(request.Filter, rows)
+                : _exportFormatter.BuildJournalJson(request.Filter, rows);
 
             AppendAudit(
                 actor,
@@ -1580,8 +1921,8 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             var rows = SearchAuditLogs(request.Filter).ToList();
             var fileName = $"audit-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{(request.Format == ExportFormat.Csv ? "csv" : "json")}";
             var content = request.Format == ExportFormat.Csv
-                ? BuildAuditCsv(request.Filter, rows)
-                : BuildAuditJson(request.Filter, rows);
+                ? _exportFormatter.BuildAuditCsv(request.Filter, rows)
+                : _exportFormatter.BuildAuditJson(request.Filter, rows);
 
             AppendAudit(
                 actor,
@@ -1616,7 +1957,8 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 stored.Role,
                 stored.IsLocalAccount,
                 stored.ExternalIssuer,
-                stored.ExternalSubject);
+                stored.ExternalSubject,
+                stored.IsDisabled);
 
             _users.Add(user);
             _userRoles[user.UserId] = new HashSet<AppRole> { user.Role };
@@ -1751,60 +2093,22 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         var normalizedNotes = InputNormalizer.NormalizeOptional(notes, FieldLimits.NotesMax);
         var normalizedResult = InputNormalizer.NormalizeOptional(result, FieldLimits.ResultMax);
 
-        var record = new JournalEntryRecord
-        {
-            RecordId = Guid.NewGuid(),
-            ProjectId = project.ProjectId,
-            CreatedAtUtc = createdAtUtc,
-            CreatedByUserId = actor.UserId,
-            CreatedByUsername = actor.Username,
-            CategoryCiphertext = _journalEncryptor.Encrypt(normalizedCategory),
-            SubjectCiphertext = _journalEncryptor.Encrypt(normalizedSubject),
-            DescriptionCiphertext = _journalEncryptor.Encrypt(normalizedDescription),
-            NotesCiphertext = _journalEncryptor.Encrypt(normalizedNotes),
-            ResultCiphertext = _journalEncryptor.Encrypt(normalizedResult),
-            CategoryChecksum = _checksumService.ComputeHex(normalizedCategory),
-            SubjectChecksum = _checksumService.ComputeHex(normalizedSubject),
-            DescriptionChecksum = _checksumService.ComputeHex(normalizedDescription),
-            NotesChecksum = _checksumService.ComputeHex(normalizedNotes),
-            ResultChecksum = _checksumService.ComputeHex(normalizedResult),
-            FullRecordChecksum = _checksumService.ComputeHex(BuildFullRecordChecksumMaterial(
-                project.ProjectId,
-                actor.UserId,
-                createdAtUtc,
-                normalizedCategory,
-                normalizedSubject,
-                normalizedDescription,
-                normalizedNotes,
-                normalizedResult))
-        };
+        var record = _journalRecordFactory.Create(
+            project.ProjectId,
+            actor.UserId,
+            actor.Username,
+            createdAtUtc,
+            normalizedCategory,
+            normalizedSubject,
+            normalizedDescription,
+            normalizedNotes,
+            normalizedResult);
 
         _journalEntries.Add(record);
         _sqliteStore.UpsertJournalEntry(record);
         AppendAudit(actor, AuditActionType.Create, AuditEntityType.JournalEntry, record.RecordId.ToString(), project.ProjectId, AuditOutcome.Success, $"Seed entry created in project '{project.Code}'.");
         return record;
     }
-
-    private static string BuildFullRecordChecksumMaterial(
-        Guid projectId,
-        Guid createdByUserId,
-        DateTime createdAtUtc,
-        string category,
-        string subject,
-        string description,
-        string notes,
-        string result)
-        => string.Join('\u001F', new[]
-        {
-            projectId.ToString("D"),
-            createdByUserId.ToString("D"),
-            createdAtUtc.ToUniversalTime().ToString("O"),
-            category,
-            subject,
-            description,
-            notes,
-            result
-        });
 
     private void ValidateRequest(CreateJournalEntryRequest request)
     {
@@ -1817,80 +2121,6 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
     }
 
-    private JournalEntryView MapJournalEntry(JournalEntryRecord record)
-    {
-        var project = _projects.First(p => p.ProjectId == record.ProjectId);
-        return new JournalEntryView(
-            RecordId: record.RecordId,
-            ProjectId: record.ProjectId,
-            ProjectCode: project.Code,
-            ProjectName: project.Name,
-            CreatedAtUtc: record.CreatedAtUtc,
-            CreatedBy: record.CreatedByUsername,
-            Action: _journalEncryptor.Decrypt(record.CategoryCiphertext),
-            Subject: _journalEncryptor.Decrypt(record.SubjectCiphertext),
-            Description: _journalEncryptor.Decrypt(record.DescriptionCiphertext),
-            Notes: _journalEncryptor.Decrypt(record.NotesCiphertext),
-            IsSoftDeleted: record.IsSoftDeleted,
-            DeletedAtUtc: record.SoftDelete?.DeletedAtUtc,
-            DeletedBy: record.SoftDelete?.DeletedByUsername,
-            DeleteReason: record.SoftDelete?.Reason,
-            FullRecordChecksum: record.FullRecordChecksum);
-    }
-
-    private AuditLogView MapAuditLog(AuditLogRecord record)
-    {
-        var project = record.ProjectId.HasValue
-            ? _projects.FirstOrDefault(p => p.ProjectId == record.ProjectId.Value)
-            : null;
-
-        return new AuditLogView(
-            AuditId: record.AuditId,
-            TimestampUtc: record.TimestampUtc,
-            ActorUsername: record.ActorUsername,
-            Action: record.Action,
-            EntityType: record.EntityType,
-            EntityId: record.EntityId,
-            ProjectId: record.ProjectId,
-            ProjectCode: project?.Code,
-            Outcome: record.Outcome,
-            Details: _auditEncryptor.Decrypt(record.DetailsCiphertext),
-            DetailsChecksum: record.DetailsChecksum,
-            RelatedJournalEntry: TryMapRelatedJournalEntry(record));
-    }
-
-    private AuditRelatedJournalEntryView? TryMapRelatedJournalEntry(AuditLogRecord auditRecord)
-    {
-        if (auditRecord.EntityType != AuditEntityType.JournalEntry ||
-            !Guid.TryParse(auditRecord.EntityId, out var recordId))
-        {
-            return null;
-        }
-
-        var journalRecord = _journalEntries.FirstOrDefault(j => j.RecordId == recordId);
-        if (journalRecord is null)
-        {
-            return null;
-        }
-
-        var project = _projects.FirstOrDefault(p => p.ProjectId == journalRecord.ProjectId);
-        var action = _journalEncryptor.Decrypt(journalRecord.CategoryCiphertext);
-        var subject = _journalEncryptor.Decrypt(journalRecord.SubjectCiphertext);
-        var description = _journalEncryptor.Decrypt(journalRecord.DescriptionCiphertext);
-        var notes = _journalEncryptor.Decrypt(journalRecord.NotesCiphertext);
-
-        return new AuditRelatedJournalEntryView(
-            RecordId: journalRecord.RecordId,
-            ProjectCode: project?.Code ?? "(unknown)",
-            CreatedAtUtc: journalRecord.CreatedAtUtc,
-            CreatedBy: journalRecord.CreatedByUsername,
-            Action: action,
-            Subject: subject,
-            Description: description,
-            Notes: notes,
-            IsSoftDeleted: journalRecord.IsSoftDeleted);
-    }
-
     private void AppendAudit(
         AppUser? actor,
         AuditActionType action,
@@ -1900,20 +2130,14 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         AuditOutcome outcome,
         string details)
     {
-        var normalizedDetails = InputNormalizer.Normalize(details);
-
-        var auditRecord = new AuditLogRecord(
-            AuditId: Guid.NewGuid(),
-            TimestampUtc: DateTime.UtcNow,
-            ActorUserId: actor?.UserId,
-            ActorUsername: actor?.Username ?? "system",
-            Action: action,
-            EntityType: entityType,
-            EntityId: entityId,
-            ProjectId: projectId,
-            Outcome: outcome,
-            DetailsCiphertext: _auditEncryptor.Encrypt(normalizedDetails),
-            DetailsChecksum: _checksumService.ComputeHex(normalizedDetails));
+        var auditRecord = _auditRecordFactory.Create(
+            actor,
+            action,
+            entityType,
+            entityId,
+            projectId,
+            outcome,
+            details);
 
         _auditLogs.Add(auditRecord);
         _sqliteStore.InsertAuditLog(auditRecord);
@@ -1926,154 +2150,10 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             .Where(e => !filter.FromUtc.HasValue || e.CreatedAtUtc >= filter.FromUtc.Value)
             .Where(e => !filter.ToUtc.HasValue || e.CreatedAtUtc <= filter.ToUtc.Value)
             .Where(e => filter.IncludeSoftDeleted || !e.IsSoftDeleted)
-            .Select(MapJournalEntry)
+            .Select(record => _recordViewMapper.MapJournalEntry(record, _projects))
             .ToList();
 
         return rows;
-    }
-
-    private string BuildJournalCsv(JournalExportFilter filter, IReadOnlyList<JournalEntryView> rows)
-    {
-        var sb = new StringBuilder();
-        AppendCsvMetadata(sb, "JournalEntries", filter.ProjectId, filter.FromUtc, filter.ToUtc, filter.IncludeSoftDeleted);
-        sb.AppendLine("RecordId,CreatedAtUtc,CreatedBy,ProjectCode,ProjectName,Action,Subject,Description,Notes,IsSoftDeleted,DeletedAtUtc,DeletedBy,DeleteReason,FullRecordChecksum");
-
-        foreach (var row in rows)
-        {
-            sb.AppendLine(string.Join(',',
-                Csv(row.RecordId),
-                Csv(row.CreatedAtUtc.ToString("O")),
-                Csv(row.CreatedBy),
-                Csv(row.ProjectCode),
-                Csv(row.ProjectName),
-                Csv(row.Action),
-                Csv(row.Subject),
-                Csv(row.Description),
-                Csv(row.Notes),
-                Csv(row.IsSoftDeleted),
-                Csv(row.DeletedAtUtc?.ToString("O") ?? string.Empty),
-                Csv(row.DeletedBy ?? string.Empty),
-                Csv(row.DeleteReason ?? string.Empty),
-                Csv(row.FullRecordChecksum)));
-        }
-
-        return sb.ToString();
-    }
-
-    private string BuildJournalJson(JournalExportFilter filter, IReadOnlyList<JournalEntryView> rows)
-    {
-        var payload = new
-        {
-            exportType = "JournalEntries",
-            exportedAtUtc = DateTime.UtcNow,
-            filter = new
-            {
-                filter.ProjectId,
-                filter.FromUtc,
-                filter.ToUtc,
-                filter.IncludeSoftDeleted
-            },
-            rowCount = rows.Count,
-            rows
-        };
-
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-    }
-
-    private string BuildAuditCsv(AuditSearchFilter filter, IReadOnlyList<AuditLogView> rows)
-    {
-        var sb = new StringBuilder();
-        AppendCsvMetadata(sb, "AuditLogs", filter.ProjectId, filter.FromUtc, filter.ToUtc, includeSoftDeleted: null);
-        if (!string.IsNullOrWhiteSpace(filter.ActorUsername))
-        {
-            sb.AppendLine($"# ActorUsername={CsvString(filter.ActorUsername)}");
-        }
-
-        if (filter.Action.HasValue)
-        {
-            sb.AppendLine($"# Action={filter.Action.Value}");
-        }
-
-        if (filter.EntityType.HasValue)
-        {
-            sb.AppendLine($"# EntityType={filter.EntityType.Value}");
-        }
-
-        if (filter.Outcome.HasValue)
-        {
-            sb.AppendLine($"# Outcome={filter.Outcome.Value}");
-        }
-
-        sb.AppendLine("AuditId,TimestampUtc,ActorUsername,Action,EntityType,EntityId,ProjectId,ProjectCode,Outcome,Details,DetailsChecksum");
-
-        foreach (var row in rows)
-        {
-            sb.AppendLine(string.Join(',',
-                Csv(row.AuditId),
-                Csv(row.TimestampUtc.ToString("O")),
-                Csv(row.ActorUsername),
-                Csv(row.Action),
-                Csv(row.EntityType),
-                Csv(row.EntityId ?? string.Empty),
-                Csv(row.ProjectId?.ToString() ?? string.Empty),
-                Csv(row.ProjectCode ?? string.Empty),
-                Csv(row.Outcome),
-                Csv(row.Details),
-                Csv(row.DetailsChecksum)));
-        }
-
-        return sb.ToString();
-    }
-
-    private string BuildAuditJson(AuditSearchFilter filter, IReadOnlyList<AuditLogView> rows)
-    {
-        var payload = new
-        {
-            exportType = "AuditLogs",
-            exportedAtUtc = DateTime.UtcNow,
-            filter = new
-            {
-                filter.FromUtc,
-                filter.ToUtc,
-                filter.ActorUsername,
-                filter.ProjectId,
-                filter.Action,
-                filter.EntityType,
-                filter.Outcome
-            },
-            rowCount = rows.Count,
-            rows
-        };
-
-        return JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
-    }
-
-    private static void AppendCsvMetadata(
-        StringBuilder sb,
-        string exportType,
-        Guid? projectId,
-        DateTime? fromUtc,
-        DateTime? toUtc,
-        bool? includeSoftDeleted)
-    {
-        sb.AppendLine($"# ExportType={exportType}");
-        sb.AppendLine($"# ExportedAtUtc={DateTime.UtcNow:O}");
-        sb.AppendLine($"# ProjectId={(projectId?.ToString() ?? "Any")}");
-        sb.AppendLine($"# FromUtc={(fromUtc?.ToString("O") ?? "Any")}");
-        sb.AppendLine($"# ToUtc={(toUtc?.ToString("O") ?? "Any")}");
-        if (includeSoftDeleted.HasValue)
-        {
-            sb.AppendLine($"# IncludeSoftDeleted={includeSoftDeleted.Value}");
-        }
-    }
-
-    private static string Csv(object? value)
-        => CsvString(value?.ToString() ?? string.Empty);
-
-    private static string CsvString(string value)
-    {
-        var escaped = value.Replace("\"", "\"\"", StringComparison.Ordinal);
-        return $"\"{escaped}\"";
     }
 
     private AppUser RequireAdmin()
@@ -2083,6 +2163,11 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         if (_currentUserId != Guid.Empty)
         {
             actor = _users.FirstOrDefault(u => u.UserId == _currentUserId);
+            if (actor?.IsDisabled == true)
+            {
+                _currentUserId = Guid.Empty;
+                actor = null;
+            }
         }
 
         if (actor is null)
@@ -2127,7 +2212,8 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             user.IsLocalAccount,
             passwordHash,
             user.ExternalIssuer,
-            user.ExternalSubject);
+            user.ExternalSubject,
+            user.IsDisabled);
 
     private AppUser GetCurrentUserInternal()
     {
@@ -2136,6 +2222,12 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             var existingCurrent = _users.FirstOrDefault(u => u.UserId == _currentUserId);
             if (existingCurrent is not null)
             {
+                if (existingCurrent.IsDisabled)
+                {
+                    _currentUserId = Guid.Empty;
+                    throw new UnauthorizedAccessException("Authentication is required.");
+                }
+
                 return existingCurrent;
             }
         }
@@ -2189,6 +2281,12 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return;
         }
 
+        if (sessionUser.IsDisabled)
+        {
+            _sessionRegistry.Remove(sessionToken);
+            return;
+        }
+
         _currentUserId = sessionUser.UserId;
         _logger.LogInformation("Current user restored from session cookie for username {Username}", sessionUser.Username);
     }
@@ -2215,6 +2313,20 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
                 AuditOutcome.Failure,
                 $"Failed local login attempt for username '{normalizedUsername}'.");
             return new LoginResult(false, "Invalid username or password.", null);
+        }
+
+        if (appUser.IsDisabled)
+        {
+            _logger.LogWarning("Local login rejected for disabled user {Username}", normalizedUsername);
+            AppendAudit(
+                actor: appUser,
+                AuditActionType.Login,
+                AuditEntityType.Authentication,
+                entityId: appUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Failure,
+                $"Failed local login for disabled user '{appUser.Username}'.");
+            return new LoginResult(false, "Account is disabled.", null);
         }
 
         var signInResult = _identitySignInManager.PasswordSignInAsync(
@@ -2735,26 +2847,34 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
     private bool TryResolveOrProvisionUserFromPrincipal(ClaimsPrincipal principal, out AppUser user)
     {
         user = default!;
-        var username = GetNormalizedPrincipalUsername(principal);
+        var username = OidcPrincipalHelpers.GetNormalizedPrincipalUsername(principal);
         if (string.IsNullOrWhiteSpace(username))
         {
             return false;
         }
 
-        var isExternalOidcPrincipal = _enableOidc && LooksLikeOidcPrincipal(principal);
+        var isExternalOidcPrincipal = _enableOidc && OidcPrincipalHelpers.LooksLikeOidcPrincipal(principal);
         var existingByUsername = _users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
         AppUser? existing = existingByUsername;
         string? externalIssuer = null;
         string? externalSubject = null;
 
+        if (!isExternalOidcPrincipal && existingByUsername is null)
+        {
+            _logger.LogWarning(
+                "Rejected local principal because username {Username} is not a known application user",
+                username);
+            return false;
+        }
+
         if (isExternalOidcPrincipal)
         {
-            if (!TryGetOidcIdentityKey(principal, out externalIssuer, out externalSubject))
+            if (!OidcPrincipalHelpers.TryGetOidcIdentityKey(principal, out externalIssuer, out externalSubject))
             {
                 if (_logOidcClaimsWhenIssuerSubjectMissing || _logOidcTokensWhenIssuerSubjectMissing)
                 {
                     var claimsText = _logOidcClaimsWhenIssuerSubjectMissing
-                        ? FormatPrincipalClaimsForDiagnostics(principal)
+                        ? OidcPrincipalHelpers.FormatPrincipalClaimsForDiagnostics(principal)
                         : "(disabled)";
                     var tokensText = _logOidcTokensWhenIssuerSubjectMissing
                         ? GetOidcTokensForDiagnostics()
@@ -2859,10 +2979,26 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             }
         }
 
+        if (existing is not null && existing.IsDisabled)
+        {
+            _logger.LogWarning(
+                "Rejected principal for disabled user {Username}",
+                username);
+            AppendAudit(
+                actor: null,
+                AuditActionType.Login,
+                AuditEntityType.Authentication,
+                entityId: existing.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Failure,
+                $"Rejected login for disabled user '{username}'.");
+            return false;
+        }
+
         AppRole mappedRole;
         if (isExternalOidcPrincipal)
         {
-            if (!TryGetExplicitRoleFromPrincipal(principal, out mappedRole))
+            if (!OidcPrincipalHelpers.TryGetExplicitRoleFromPrincipal(principal, out mappedRole))
             {
                 _logger.LogWarning(
                     "Rejected OIDC principal for username {Username} because no mapped application role was present",
@@ -2880,10 +3016,10 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
         else
         {
-            mappedRole = GetRoleFromPrincipal(principal, existing?.Role);
+            mappedRole = OidcPrincipalHelpers.GetRoleFromPrincipal(principal, existing?.Role);
         }
 
-        var mappedDisplayName = GetDisplayNameFromPrincipal(principal, username);
+        var mappedDisplayName = OidcPrincipalHelpers.GetDisplayNameFromPrincipal(principal, username);
         var isLocalPrincipal = existing?.IsLocalAccount ?? !isExternalOidcPrincipal;
 
         if (existing is null)
@@ -3024,196 +3160,6 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
     }
 
-    private static string? GetNormalizedPrincipalUsername(ClaimsPrincipal principal)
-    {
-        var isOidcPrincipal = LooksLikeOidcPrincipal(principal);
-        var raw = isOidcPrincipal
-            ? principal.FindFirstValue("preferred_username")
-              ?? principal.FindFirstValue(ClaimTypes.Upn)
-              ?? principal.FindFirstValue(ClaimTypes.Email)
-              ?? principal.FindFirstValue("email")
-              ?? principal.Identity?.Name
-              ?? principal.FindFirstValue(ClaimTypes.Name)
-            : principal.Identity?.Name
-              ?? principal.FindFirstValue(ClaimTypes.Name)
-              ?? principal.FindFirstValue("preferred_username")
-              ?? principal.FindFirstValue(ClaimTypes.Upn)
-              ?? principal.FindFirstValue(ClaimTypes.Email)
-              ?? principal.FindFirstValue("email");
-
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        return raw.Trim().ToLowerInvariant();
-    }
-
-    private static string GetDisplayNameFromPrincipal(ClaimsPrincipal principal, string fallbackUsername)
-        => (principal.FindFirstValue("name")
-            ?? principal.FindFirstValue(ClaimTypes.Name)
-            ?? fallbackUsername).Trim();
-
-    private static AppRole GetRoleFromPrincipal(ClaimsPrincipal principal, AppRole? fallbackRole)
-    {
-        if (principal.IsInRole(nameof(AppRole.Administrator)))
-        {
-            return AppRole.Administrator;
-        }
-
-        if (principal.IsInRole(nameof(AppRole.Auditor)))
-        {
-            return AppRole.Auditor;
-        }
-
-        if (principal.IsInRole(nameof(AppRole.ProjectUser)))
-        {
-            return AppRole.ProjectUser;
-        }
-
-        return fallbackRole ?? AppRole.ProjectUser;
-    }
-
-    private static bool TryGetExplicitRoleFromPrincipal(ClaimsPrincipal principal, out AppRole role)
-    {
-        if (principal.IsInRole(nameof(AppRole.Administrator)))
-        {
-            role = AppRole.Administrator;
-            return true;
-        }
-
-        if (principal.IsInRole(nameof(AppRole.Auditor)))
-        {
-            role = AppRole.Auditor;
-            return true;
-        }
-
-        if (principal.IsInRole(nameof(AppRole.ProjectUser)))
-        {
-            role = AppRole.ProjectUser;
-            return true;
-        }
-
-        role = default;
-        return false;
-    }
-
-    private static bool LooksLikeOidcPrincipal(ClaimsPrincipal principal)
-    {
-        var hasSub = principal.HasClaim(c => string.Equals(c.Type, "sub", StringComparison.OrdinalIgnoreCase));
-        var hasIss = principal.HasClaim(c => string.Equals(c.Type, "iss", StringComparison.OrdinalIgnoreCase));
-        var hasOid = principal.HasClaim(c =>
-            string.Equals(c.Type, "oid", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(c.Type, "http://schemas.microsoft.com/identity/claims/objectidentifier", StringComparison.OrdinalIgnoreCase));
-        var hasTid = principal.HasClaim(c =>
-            string.Equals(c.Type, "tid", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(c.Type, "http://schemas.microsoft.com/identity/claims/tenantid", StringComparison.OrdinalIgnoreCase));
-
-        return hasSub || hasIss || (hasOid && hasTid);
-    }
-
-    private static bool TryGetOidcIdentityKey(ClaimsPrincipal principal, out string issuer, out string subject)
-    {
-        subject = GetFirstClaimValue(
-            principal,
-            "sub",
-            "oid",
-            "http://schemas.microsoft.com/identity/claims/objectidentifier",
-            ClaimTypes.NameIdentifier);
-        issuer = GetFirstClaimValue(
-            principal,
-            "iss");
-
-        if (string.IsNullOrWhiteSpace(issuer))
-        {
-            var subjectClaim = principal.Claims.FirstOrDefault(c =>
-                string.Equals(c.Type, "sub", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(c.Type, "oid", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(c.Type, "http://schemas.microsoft.com/identity/claims/objectidentifier", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(c.Type, ClaimTypes.NameIdentifier, StringComparison.Ordinal));
-            var subjectClaimIssuer = subjectClaim?.Issuer?.Trim();
-            if (!string.IsNullOrWhiteSpace(subjectClaimIssuer) && !IsLocalIssuer(subjectClaimIssuer))
-            {
-                issuer = subjectClaimIssuer;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(issuer))
-        {
-            var tenantId = GetFirstClaimValue(
-                principal,
-                "tid",
-                "http://schemas.microsoft.com/identity/claims/tenantid");
-            if (!string.IsNullOrWhiteSpace(tenantId))
-            {
-                issuer = $"https://login.microsoftonline.com/{tenantId}/v2.0";
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(subject))
-        {
-            issuer = string.Empty;
-            subject = string.Empty;
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string GetFirstClaimValue(ClaimsPrincipal principal, params string[] claimTypes)
-    {
-        foreach (var claimType in claimTypes)
-        {
-            var value = principal.FindFirstValue(claimType);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value.Trim();
-            }
-        }
-
-        return string.Empty;
-    }
-
-    private static bool IsLocalIssuer(string issuer)
-        => string.Equals(issuer, "LOCAL AUTHORITY", StringComparison.OrdinalIgnoreCase);
-
-    private static string FormatPrincipalClaimsForDiagnostics(ClaimsPrincipal principal)
-    {
-        var claims = principal.Claims
-            .Select(c => $"{c.Type}={FormatClaimValueForDiagnostics(c.Type, c.Value)}")
-            .ToArray();
-
-        return claims.Length == 0 ? "(none)" : string.Join("; ", claims);
-    }
-
-    private static string FormatClaimValueForDiagnostics(string claimType, string? rawValue)
-    {
-        var value = rawValue ?? string.Empty;
-        if (IsSensitiveClaimType(claimType))
-        {
-            return $"<redacted:{value.Length} chars>";
-        }
-
-        var singleLineValue = value.Replace("\r", " ", StringComparison.Ordinal)
-            .Replace("\n", " ", StringComparison.Ordinal)
-            .Trim();
-
-        const int maxLength = 256;
-        return singleLineValue.Length <= maxLength
-            ? singleLineValue
-            : $"{singleLineValue[..maxLength]}...({singleLineValue.Length} chars)";
-    }
-
-    private static bool IsSensitiveClaimType(string claimType)
-    {
-        var normalized = claimType.ToLowerInvariant();
-        return normalized.Contains("token", StringComparison.Ordinal) ||
-               normalized.Contains("secret", StringComparison.Ordinal) ||
-               normalized.Contains("assertion", StringComparison.Ordinal) ||
-               normalized.Contains("password", StringComparison.Ordinal) ||
-               normalized.Contains("nonce", StringComparison.Ordinal);
-    }
-
     private string GetOidcTokensForDiagnostics()
     {
         var httpContext = _httpContextAccessor?.HttpContext;
@@ -3249,7 +3195,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
             return false;
         }
 
-        if (_enableOidc && LooksLikeOidcPrincipal(principal))
+        if (_enableOidc && OidcPrincipalHelpers.LooksLikeOidcPrincipal(principal))
         {
             return false;
         }
@@ -3382,6 +3328,117 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to synchronize Identity role for username {Username}", username);
+        }
+    }
+
+    private void TryDeleteIdentityUserByUsername(string username)
+    {
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (identityUser is null)
+            {
+                return;
+            }
+
+            var result = _identityUserManager.DeleteAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (!result.Succeeded)
+            {
+                var errors = string.Join("; ", result.Errors.Select(e => $"{e.Code}:{e.Description}"));
+                _logger.LogWarning("Failed to delete Identity account for username {Username}: {Errors}", username, errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete Identity account for username {Username}", username);
+        }
+    }
+
+    private void TryDisableIdentityUserByUsername(string username)
+    {
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (identityUser is null)
+            {
+                return;
+            }
+
+            if (!identityUser.LockoutEnabled)
+            {
+                identityUser.LockoutEnabled = true;
+                var updateResult = _identityUserManager.UpdateAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+                if (!updateResult.Succeeded)
+                {
+                    var updateErrors = string.Join("; ", updateResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
+                    _logger.LogWarning("Failed to enable lockout for disabled Identity user {Username}: {Errors}", username, updateErrors);
+                    return;
+                }
+            }
+
+            var lockoutResult = _identityUserManager.SetLockoutEndDateAsync(identityUser, DateTimeOffset.MaxValue).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (!lockoutResult.Succeeded)
+            {
+                var lockoutErrors = string.Join("; ", lockoutResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
+                _logger.LogWarning("Failed to lockout disabled Identity user {Username}: {Errors}", username, lockoutErrors);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to lockout disabled Identity user {Username}", username);
+        }
+    }
+
+    private void TryEnableIdentityUserByUsername(string username)
+    {
+        if (_identityUserManager is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (identityUser is null)
+            {
+                return;
+            }
+
+            if (!identityUser.LockoutEnabled)
+            {
+                identityUser.LockoutEnabled = true;
+                var updateResult = _identityUserManager.UpdateAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+                if (!updateResult.Succeeded)
+                {
+                    var updateErrors = string.Join("; ", updateResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
+                    _logger.LogWarning("Failed to update lockout settings for enabled Identity user {Username}: {Errors}", username, updateErrors);
+                    return;
+                }
+            }
+
+            var unlockResult = _identityUserManager.SetLockoutEndDateAsync(identityUser, null).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (!unlockResult.Succeeded)
+            {
+                var unlockErrors = string.Join("; ", unlockResult.Errors.Select(e => $"{e.Code}:{e.Description}"));
+                _logger.LogWarning("Failed to clear lockout for enabled Identity user {Username}: {Errors}", username, unlockErrors);
+                return;
+            }
+
+            _identityUserManager.ResetAccessFailedCountAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to unlock enabled Identity user {Username}", username);
         }
     }
 
@@ -3532,6 +3589,7 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         var metadataUpdated = false;
         if (bootstrapUser.Role != AppRole.Administrator ||
             !bootstrapUser.IsLocalAccount ||
+            bootstrapUser.IsDisabled ||
             !string.Equals(bootstrapUser.DisplayName, _bootstrapAdmin.DisplayName, StringComparison.Ordinal))
         {
             updatedBootstrapUser = new AppUser(
@@ -3672,3 +3730,5 @@ public sealed class InMemorySecureJournalAppService : ISecureJournalAppService
         }
     }
 }
+
+

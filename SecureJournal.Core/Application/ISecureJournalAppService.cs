@@ -21,13 +21,18 @@ public interface ISecureJournalAppService
     IReadOnlyList<UserOverview> GetUsers();
     ProjectOverview CreateProject(CreateProjectRequest request);
     GroupOverview CreateGroup(CreateGroupRequest request);
+    bool DeleteGroup(Guid groupId);
     UserOverview CreateUser(CreateUserRequest request);
     Task<UserOverview> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
     bool AddUserToRole(UserRoleMembershipRequest request);
     bool RemoveUserFromRole(UserRoleMembershipRequest request);
     bool AssignUserToGroup(AssignUserToGroupRequest request);
     bool RemoveUserFromGroup(AssignUserToGroupRequest request);
+    bool EnableUser(Guid userId);
+    bool DisableUser(Guid userId);
+    bool DeleteUser(Guid userId);
     bool AssignGroupToProject(AssignGroupToProjectRequest request);
+    bool RemoveGroupFromProject(AssignGroupToProjectRequest request);
     PasswordChangeResult ChangeCurrentUserPassword(ChangePasswordRequest request);
     Task<PasswordChangeResult> ChangeCurrentUserPasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default);
     PasswordChangeResult ResetLocalUserPassword(AdminResetPasswordRequest request);

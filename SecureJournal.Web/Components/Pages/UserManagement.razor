@@ -1,15 +1,17 @@
 @page "/admin/users"
+@attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<UserManagement> Logger
+@inject IJSRuntime JS
 
-<PageTitle>User Membership Management</PageTitle>
+<PageTitle>User management</PageTitle>
 
 <section class="page-head">
     <div>
         <p class="eyebrow">Administration</p>
-        <h2>User Membership Management</h2>
-        <p>Select a user, choose desired group and role memberships, then save once.</p>
+        <h2>User management</h2>
+        <p>Select a user, choose memberships, and manage account state/password.</p>
     </div>
 </section>
 
@@ -63,6 +65,10 @@ else
                             </div>
                             <div class="user-list-item-meta">
                                 <span>Roles: @FormatRoles(user.Roles)</span>
+                                @if (user.IsDisabled)
+                                {
+                                    <span class="user-disabled-badge">Disabled</span>
+                                }
                             </div>
                         </button>
                     }
@@ -73,7 +79,7 @@ else
         <div class="user-detail-column">
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <h3>Membership Editor</h3>
+                    <h3>Manage user</h3>
                 </div>
 
                 @if (SelectedUser is null)
@@ -86,6 +92,12 @@ else
                         Editing <strong>@SelectedUser.DisplayName</strong> (<code>@SelectedUser.Username</code>).
                         Check to add membership, uncheck to remove.
                     </p>
+                    @if (SelectedUser.IsDisabled)
+                    {
+                        <div class="alert alert-warning" role="alert">
+                            This user is disabled and cannot sign in.
+                        </div>
+                    }
 
                     <div class="membership-grid">
                         <div>
@@ -131,7 +143,55 @@ else
                     <div class="mt-3 d-flex gap-2">
                         <button type="button" class="btn btn-primary" @onclick="SaveMembershipsAsync" disabled="@_isSaving">@( _isSaving ? "Saving..." : "Save")</button>
                         <button type="button" class="btn btn-outline-secondary" @onclick="ResetEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
+                        <button type="button"
+                                class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-warning")"
+                                @onclick="ToggleSelectedUserEnabledAsync"
+                                disabled="@(_isSaving || IsSelectedCurrentUser)">
+                            @(SelectedUser.IsDisabled ? "Enable user" : "Disable user")
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete user</button>
                     </div>
+
+                    <hr />
+
+                    <section class="reset-password-panel">
+                        <h4 class="membership-title">Reset local password</h4>
+                        @if (!SelectedUser.IsLocalAccount)
+                        {
+                            <p class="text-muted mb-0">Password reset is available for local users only.</p>
+                        }
+                        else
+                        {
+                            <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary />
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="manageResetPassword">New Password</label>
+                                        <InputText id="manageResetPassword"
+                                                   type="password"
+                                                   class="form-control"
+                                                   @bind-Value="_resetPasswordRequest.NewPassword" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                        <InputText id="manageResetPasswordConfirm"
+                                                   type="password"
+                                                   class="form-control"
+                                                   @bind-Value="_confirmResetPassword" />
+                                    </div>
+                                </div>
+
+                                <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                                <div class="mt-3 d-flex gap-2">
+                                    <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset Password</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                                </div>
+                            </EditForm>
+                        }
+                    </section>
                 }
             </section>
         </div>
@@ -150,6 +210,9 @@ else
     private HashSet<AppRole> _originalRoles = [];
     private HashSet<Guid> _editedGroupIds = [];
     private HashSet<AppRole> _editedRoles = [];
+    private AdminResetPasswordRequest _resetPasswordRequest = new();
+    private string _confirmResetPassword = string.Empty;
+    private int _localPasswordMinLength = 8;
     private bool _isDirty;
     private bool _isSaving;
 
@@ -161,6 +224,9 @@ else
             ? _users.FirstOrDefault(u => u.UserId == id)
             : null;
 
+    private bool IsSelectedCurrentUser
+        => SelectedUser?.UserId == _currentUser?.UserId;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -171,6 +237,7 @@ else
                 return;
             }
 
+            _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
             await LoadDataAsync();
         }
         catch (Exception ex)
@@ -233,6 +300,9 @@ else
 
         _editedGroupIds = _originalGroupIds.ToHashSet();
         _editedRoles = _originalRoles.ToHashSet();
+        _resetPasswordRequest.UserId = selected.UserId;
+        _resetPasswordRequest.NewPassword = string.Empty;
+        _confirmResetPassword = string.Empty;
         _isDirty = false;
     }
 
@@ -367,11 +437,151 @@ else
         }
     }
 
+    private async Task ToggleSelectedUserEnabledAsync()
+    {
+        var selectedUser = SelectedUser;
+        if (selectedUser is null)
+        {
+            _error = "Select a user first.";
+            return;
+        }
+
+        var shouldEnable = selectedUser.IsDisabled;
+        var actionVerb = shouldEnable ? "enable" : "disable";
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            shouldEnable
+                ? $"Enable user '{selectedUser.Username}'?"
+                : $"Disable user '{selectedUser.Username}'? This blocks all app access.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSaving = true;
+            _message = null;
+            _error = null;
+
+            var changed = shouldEnable
+                ? JournalApp.EnableUser(selectedUser.UserId)
+                : JournalApp.DisableUser(selectedUser.UserId);
+            await LoadDataAsync();
+            _message = changed
+                ? $"User '{selectedUser.Username}' was {actionVerb}d."
+                : $"User '{selectedUser.Username}' is already {actionVerb}d.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Toggle user enabled state failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteSelectedUserAsync()
+    {
+        var selectedUser = SelectedUser;
+        if (selectedUser is null)
+        {
+            _error = "Select a user first.";
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Delete user '{selectedUser.Username}'? This cannot be undone.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSaving = true;
+            _message = null;
+            _error = null;
+
+            JournalApp.DeleteUser(selectedUser.UserId);
+            await LoadDataAsync();
+            _message = $"User '{selectedUser.Username}' was deleted.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Delete user failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ResetSelectedUserPasswordAsync()
+    {
+        var selectedUser = SelectedUser;
+        if (selectedUser is null)
+        {
+            _error = "Select a user first.";
+            return;
+        }
+
+        if (!selectedUser.IsLocalAccount)
+        {
+            _error = "Password reset is supported for local users only.";
+            return;
+        }
+
+        if (_resetPasswordRequest.NewPassword != _confirmResetPassword)
+        {
+            _error = "New password and confirm password must match.";
+            return;
+        }
+
+        try
+        {
+            _isSaving = true;
+            _message = null;
+            _error = null;
+
+            _resetPasswordRequest.UserId = selectedUser.UserId;
+            var result = await JournalApp.ResetLocalUserPasswordAsync(_resetPasswordRequest);
+            if (!result.Success)
+            {
+                _error = result.Message;
+                return;
+            }
+
+            _message = result.Message;
+            ResetLocalPasswordForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reset selected user password failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
     private void ResetEdits()
     {
         _editedGroupIds = _originalGroupIds.ToHashSet();
         _editedRoles = _originalRoles.ToHashSet();
         _isDirty = false;
+    }
+
+    private void ResetLocalPasswordForm()
+    {
+        _resetPasswordRequest.NewPassword = string.Empty;
+        _confirmResetPassword = string.Empty;
     }
 
     private void UpdateDirtyState()

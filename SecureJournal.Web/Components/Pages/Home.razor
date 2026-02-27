@@ -50,7 +50,7 @@
         {
             @if (_enableAspNetIdentity)
             {
-                <form method="post" action="/auth/local-login">
+                <form method="post" action="/auth/local-login" data-enhance="false">
                     <AntiforgeryToken />
                     <div class="row g-3">
                         <div class="col-12">
@@ -97,10 +97,11 @@
         @if (_enableOidc)
         {
             <div class="mt-3 d-grid">
-                <form method="get" action="/auth/oidc-login" data-enhance="false" class="d-grid">
-                    <input type="hidden" name="returnUrl" value="/projects" />
-                    <button type="submit" class="btn btn-outline-light">Sign in with OIDC</button>
-                </form>
+                <a class="btn btn-outline-light d-grid"
+                   href="/auth/oidc-login?returnUrl=%2Fprojects"
+                   data-enhance-nav="false">
+                    Sign in with OIDC
+                </a>
             </div>
         }
     </div>

@@ -1,0 +1,4 @@
+.audit-results-table th,
+.audit-results-table td {
+    vertical-align: top;
+}

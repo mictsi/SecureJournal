@@ -1,0 +1,19 @@
+.group-admin-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.group-create-card {
+    width: min(100%, 24rem);
+}
+
+.group-list-card {
+    width: 100%;
+}
+
+.group-table th,
+.group-table td {
+    vertical-align: top;
+}

@@ -814,12 +814,15 @@ body[data-theme="dark"] .audit-journal-preview {
     color: #f3f7ff !important;
     border: 1px solid #48628a !important;
     box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45) !important;
+    font-size: 1rem !important;
+    line-height: 1.45 !important;
 }
 
-#components-reconnect-modal p,
-#components-reconnect-modal span {
+#components-reconnect-modal,
+#components-reconnect-modal * {
     color: #f3f7ff !important;
     opacity: 1 !important;
+    text-shadow: none !important;
 }
 
 #components-reconnect-modal button {

@@ -330,6 +330,11 @@ Login/logout behavior:
 4. Use admin pages to create users, groups, projects, and mappings.
 5. Use `My Projects` for project-specific journal browsing/search.
 
+Current admin page responsibilities:
+
+- `/admin/user-accounts`: create user accounts
+- `/admin/users` (`User management`): manage memberships, toggle enable/disable, delete users, and reset passwords for local users (from `Manage user`)
+
 Current `My Projects` behavior:
 
 - Entry rows are displayed in a single-line, columnar layout with alternating row backgrounds for readability.

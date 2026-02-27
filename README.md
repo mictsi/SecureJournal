@@ -14,6 +14,10 @@ It is designed for:
 
 - Sign in with local accounts (ASP.NET Identity cookie auth)
 - Sign in with OIDC (when enabled by configuration)
+- Admins can create users from `User Accounts` (`/admin/user-accounts`)
+- Admins can manage user role/group memberships from `User management` (`/admin/users`)
+- Admins can enable/disable users and delete users from `User management`
+- Admins can reset passwords for local users from `Manage user` (selected-user context)
 - View `My Projects` and browse journal entries per project
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
 - Sort project journal entries by date (`Newest first` / `Oldest first`)
@@ -33,6 +37,7 @@ It is designed for:
 - Local login/logout endpoints use antiforgery protection (logout is POST-only)
 - OIDC users are bound to stable external identity (`iss` + `sub`) instead of username-only matching
 - OIDC username collisions with local users are rejected; unmapped external roles are denied
+- Disabled users are blocked from access across local/OIDC resolution and authenticated request paths
 - Entra ID app registration provisioning can enforce group claims in ID tokens (`groupMembershipClaims`)
 - Role and project access enforced server-side
 - Optional buffered file logging can be enabled via `Logging:File:*` settings for troubleshooting
@@ -55,6 +60,8 @@ Recent UI behavior highlights:
 - `/journal` redirects back to `/projects?projectId=...` after successful entry creation
 - `My Projects` uses an inline columnar entry list with alternating row colors for readability
 - `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
+- `User management` includes `Manage user` workflows for memberships, local-password reset (local users only), and account state toggle (`Enable user` / `Disable user`)
+- Blazor reconnect/lost-connection flow uses a custom reconnect modal with explicit retry/resume states
 
 ## Container / Cloud Configuration
 

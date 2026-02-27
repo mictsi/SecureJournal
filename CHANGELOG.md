@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 - 2026-02-27
+
+### User Management and Access Control
+
+- Added administrator support to disable and re-enable users in `User management`.
+- Added administrator support to delete users from `User management`.
+- Enforced disabled-user access blocking across local login, OIDC resolution, and authenticated request validation paths.
+- Updated `User management` to use a single toggle action (`Enable user` / `Disable user`) based on selected-user state.
+
+### Password Management UX
+
+- Moved local password reset workflow into `User management` under `Manage user` for selected-user context.
+- Enforced local-only password reset behavior in the UI and handler flow (external users cannot be reset).
+- Updated `User Accounts` page scope to focus on account creation, with reset now centralized in `User management`.
+
+### Reconnect UX
+
+- Restored and hardened Blazor reconnection UX by mounting `ReconnectModal` in layout and ensuring reconnect state CSS classes are applied reliably in client script.
+- Improved reconnect modal readability fallback styles for high-contrast text/buttons in both themes.
+
 ## 0.5.0 - 2026-02-27
 
 ### User and Access Management

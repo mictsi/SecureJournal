@@ -17,10 +17,13 @@ public interface IPrototypeDataStore
     void UpsertUser(StoredUserRow user);
     void UpsertProject(StoredProjectRow project);
     void UpsertGroup(StoredGroupRow group);
+    void RemoveGroup(Guid groupId);
+    void RemoveUser(Guid userId);
     void AddUserRole(Guid userId, AppRole role);
     void RemoveUserRole(Guid userId, AppRole role);
     void AddUserToGroup(Guid userId, Guid groupId);
     void RemoveUserFromGroup(Guid userId, Guid groupId);
     void AddGroupToProject(Guid projectId, Guid groupId);
+    void RemoveGroupFromProject(Guid projectId, Guid groupId);
     void InsertAuditLog(AuditLogRecord record);
 }

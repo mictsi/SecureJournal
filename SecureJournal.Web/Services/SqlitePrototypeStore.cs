@@ -13,7 +13,8 @@ public sealed record StoredUserRow(
     bool IsLocalAccount,
     string? PasswordHash,
     string? ExternalIssuer = null,
-    string? ExternalSubject = null);
+    string? ExternalSubject = null,
+    bool IsDisabled = false);
 
 public sealed record StoredProjectRow(
     Guid ProjectId,
@@ -96,6 +97,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     display_name TEXT NOT NULL,
                     role INTEGER NOT NULL,
                     is_local_account INTEGER NOT NULL,
+                    is_disabled INTEGER NOT NULL DEFAULT 0,
                     password_hash TEXT NULL,
                     external_issuer TEXT NULL,
                     external_subject TEXT NULL
@@ -170,7 +172,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 );
                 """;
             command.ExecuteNonQuery();
-            EnsureAppUserExternalIdentityColumns(connection);
+            EnsureAppUserColumns(connection);
 
             _initialized = true;
         }
@@ -184,7 +186,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT user_id, username, display_name, role, is_local_account, password_hash, external_issuer, external_subject
+            SELECT user_id, username, display_name, role, is_local_account, is_disabled, password_hash, external_issuer, external_subject
             FROM app_users
             ORDER BY username;
             """;
@@ -199,9 +201,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 DisplayName: reader.GetString(2),
                 Role: (AppRole)reader.GetInt32(3),
                 IsLocalAccount: reader.GetInt64(4) == 1,
-                PasswordHash: reader.IsDBNull(5) ? null : reader.GetString(5),
-                ExternalIssuer: reader.IsDBNull(6) ? null : reader.GetString(6),
-                ExternalSubject: reader.IsDBNull(7) ? null : reader.GetString(7)));
+                IsDisabled: reader.GetInt64(5) == 1,
+                PasswordHash: reader.IsDBNull(6) ? null : reader.GetString(6),
+                ExternalIssuer: reader.IsDBNull(7) ? null : reader.GetString(7),
+                ExternalSubject: reader.IsDBNull(8) ? null : reader.GetString(8)));
         }
 
         return rows;
@@ -481,13 +484,14 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO app_users (user_id, username, display_name, role, is_local_account, password_hash, external_issuer, external_subject)
-            VALUES ($user_id, $username, $display_name, $role, $is_local_account, $password_hash, $external_issuer, $external_subject)
+            INSERT INTO app_users (user_id, username, display_name, role, is_local_account, is_disabled, password_hash, external_issuer, external_subject)
+            VALUES ($user_id, $username, $display_name, $role, $is_local_account, $is_disabled, $password_hash, $external_issuer, $external_subject)
             ON CONFLICT(user_id) DO UPDATE SET
                 username = excluded.username,
                 display_name = excluded.display_name,
                 role = excluded.role,
                 is_local_account = excluded.is_local_account,
+                is_disabled = excluded.is_disabled,
                 password_hash = excluded.password_hash,
                 external_issuer = excluded.external_issuer,
                 external_subject = excluded.external_subject;
@@ -498,6 +502,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$display_name", user.DisplayName);
         command.Parameters.AddWithValue("$role", (int)user.Role);
         command.Parameters.AddWithValue("$is_local_account", user.IsLocalAccount ? 1 : 0);
+        command.Parameters.AddWithValue("$is_disabled", user.IsDisabled ? 1 : 0);
         command.Parameters.AddWithValue("$password_hash", user.PasswordHash ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("$external_issuer", user.ExternalIssuer ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("$external_subject", user.ExternalSubject ?? (object)DBNull.Value);
@@ -543,6 +548,50 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
 
         command.Parameters.AddWithValue("$group_id", group.GroupId.ToString("D"));
         command.Parameters.AddWithValue("$name", group.Name);
+        command.ExecuteNonQuery();
+    }
+
+    public void RemoveGroup(Guid groupId)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM user_groups
+            WHERE group_id = $group_id;
+
+            DELETE FROM project_groups
+            WHERE group_id = $group_id;
+
+            DELETE FROM groups_ref
+            WHERE group_id = $group_id;
+            """;
+
+        command.Parameters.AddWithValue("$group_id", groupId.ToString("D"));
+        command.ExecuteNonQuery();
+    }
+
+    public void RemoveUser(Guid userId)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM user_groups
+            WHERE user_id = $user_id;
+
+            DELETE FROM user_roles
+            WHERE user_id = $user_id;
+
+            DELETE FROM app_users
+            WHERE user_id = $user_id;
+            """;
+
+        command.Parameters.AddWithValue("$user_id", userId.ToString("D"));
         command.ExecuteNonQuery();
     }
 
@@ -626,6 +675,24 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             """
             INSERT OR IGNORE INTO project_groups (project_id, group_id)
             VALUES ($project_id, $group_id);
+            """;
+
+        command.Parameters.AddWithValue("$project_id", projectId.ToString("D"));
+        command.Parameters.AddWithValue("$group_id", groupId.ToString("D"));
+        command.ExecuteNonQuery();
+    }
+
+    public void RemoveGroupFromProject(Guid projectId, Guid groupId)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM project_groups
+            WHERE project_id = $project_id
+              AND group_id = $group_id;
             """;
 
         command.Parameters.AddWithValue("$project_id", projectId.ToString("D"));
@@ -737,7 +804,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
     private static DateTime ParseUtc(string value)
         => DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind).ToUniversalTime();
 
-    private static void EnsureAppUserExternalIdentityColumns(SqliteConnection connection)
+    private static void EnsureAppUserColumns(SqliteConnection connection)
     {
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         using (var pragma = connection.CreateCommand())
@@ -764,6 +831,13 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "ALTER TABLE app_users ADD COLUMN external_subject TEXT NULL;";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("is_disabled"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE app_users ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
             cmd.ExecuteNonQuery();
         }
     }

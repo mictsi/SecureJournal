@@ -34,7 +34,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
 
             using var db = _dbFactory.CreateDbContext();
             db.Database.EnsureCreated();
-            EnsureAppUserExternalIdentityColumns(db);
+            EnsureAppUserColumns(db);
             EnsureUserRolesTable(db);
             _initialized = true;
         }
@@ -55,7 +55,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.IsLocalAccount,
                 x.PasswordHash,
                 x.ExternalIssuer,
-                x.ExternalSubject))
+                x.ExternalSubject,
+                x.IsDisabled))
             .ToList();
     }
 
@@ -248,6 +249,58 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         db.SaveChanges();
     }
 
+    public void RemoveGroup(Guid groupId)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var userMemberships = db.UserGroups.Where(x => x.GroupId == groupId).ToList();
+        if (userMemberships.Count > 0)
+        {
+            db.UserGroups.RemoveRange(userMemberships);
+        }
+
+        var projectMemberships = db.ProjectGroups.Where(x => x.GroupId == groupId).ToList();
+        if (projectMemberships.Count > 0)
+        {
+            db.ProjectGroups.RemoveRange(projectMemberships);
+        }
+
+        var group = db.Groups.SingleOrDefault(x => x.GroupId == groupId);
+        if (group is not null)
+        {
+            db.Groups.Remove(group);
+        }
+
+        db.SaveChanges();
+    }
+
+    public void RemoveUser(Guid userId)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var userMemberships = db.UserGroups.Where(x => x.UserId == userId).ToList();
+        if (userMemberships.Count > 0)
+        {
+            db.UserGroups.RemoveRange(userMemberships);
+        }
+
+        var roleMemberships = db.UserRoles.Where(x => x.UserId == userId).ToList();
+        if (roleMemberships.Count > 0)
+        {
+            db.UserRoles.RemoveRange(roleMemberships);
+        }
+
+        var user = db.AppUsers.SingleOrDefault(x => x.UserId == userId);
+        if (user is not null)
+        {
+            db.AppUsers.Remove(user);
+        }
+
+        db.SaveChanges();
+    }
+
     public void AddUserRole(Guid userId, AppRole role)
     {
         Initialize();
@@ -306,6 +359,18 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         if (!exists)
         {
             db.ProjectGroups.Add(new ProjectGroupEntity { ProjectId = projectId, GroupId = groupId });
+            db.SaveChanges();
+        }
+    }
+
+    public void RemoveGroupFromProject(Guid projectId, Guid groupId)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+        var membership = db.ProjectGroups.SingleOrDefault(x => x.ProjectId == projectId && x.GroupId == groupId);
+        if (membership is not null)
+        {
+            db.ProjectGroups.Remove(membership);
             db.SaveChanges();
         }
     }
@@ -391,6 +456,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             entity.DisplayName = user.DisplayName;
             entity.Role = (int)user.Role;
             entity.IsLocalAccount = user.IsLocalAccount;
+            entity.IsDisabled = user.IsDisabled;
             entity.PasswordHash = user.PasswordHash;
             entity.ExternalIssuer = user.ExternalIssuer;
             entity.ExternalSubject = user.ExternalSubject;
@@ -453,7 +519,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                && sql.Message.Contains("app_users", StringComparison.OrdinalIgnoreCase)
                && sql.Message.Contains("username", StringComparison.OrdinalIgnoreCase));
 
-    private static void EnsureAppUserExternalIdentityColumns(SecureJournalAppDbContext db)
+    private static void EnsureAppUserColumns(SecureJournalAppDbContext db)
     {
         var provider = db.Database.ProviderName ?? string.Empty;
         if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
@@ -464,6 +530,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     ALTER TABLE app_users ADD external_issuer nvarchar(512) NULL;
                 IF COL_LENGTH('app_users', 'external_subject') IS NULL
                     ALTER TABLE app_users ADD external_subject nvarchar(512) NULL;
+                IF COL_LENGTH('app_users', 'is_disabled') IS NULL
+                    ALTER TABLE app_users ADD is_disabled bit NOT NULL CONSTRAINT DF_app_users_is_disabled DEFAULT (0);
                 """);
             return;
         }
@@ -474,6 +542,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 """
                 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS external_issuer varchar(512) NULL;
                 ALTER TABLE app_users ADD COLUMN IF NOT EXISTS external_subject varchar(512) NULL;
+                ALTER TABLE app_users ADD COLUMN IF NOT EXISTS is_disabled boolean NOT NULL DEFAULT false;
                 """);
             return;
         }
@@ -514,6 +583,13 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 {
                     using var cmd = connection.CreateCommand();
                     cmd.CommandText = "ALTER TABLE app_users ADD COLUMN external_subject TEXT NULL;";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("is_disabled"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE app_users ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
                     cmd.ExecuteNonQuery();
                 }
             }

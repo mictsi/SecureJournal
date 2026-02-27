@@ -54,8 +54,13 @@ builder.Services.AddSingleton<IChecksumService, Sha256ChecksumService>();
 builder.Services.AddSingleton<IJournalFieldEncryptor>(_ =>
     new JournalFieldEncryptor(EncryptionKeyParser.GetKeyBytes(
         builder.Configuration["Security:JournalEncryptionKey"],
-        "journal")));
+        "journal",
+        requireExplicitKey: builder.Environment.IsProduction())));
 builder.Services.AddSingleton<IAuditFieldEncryptor, PlaintextAuditFieldEncryptor>();
+builder.Services.AddSingleton<IJournalEntryRecordFactory, JournalEntryRecordFactory>();
+builder.Services.AddSingleton<IAuditLogRecordFactory, AuditLogRecordFactory>();
+builder.Services.AddSingleton<IRecordViewMapper, RecordViewMapper>();
+builder.Services.AddSingleton<IExportContentFormatter, ExportContentFormatter>();
 builder.Services.AddSingleton<PrototypeSharedState>();
 builder.Services.AddSingleton<PrototypeSessionRegistry>();
 builder.Services.AddSingleton(_ => OidcRoleGroupMappings.FromConfiguration(builder.Configuration));
@@ -68,7 +73,7 @@ else
     builder.Services.AddSingleton<SqlitePrototypeStore>();
     builder.Services.AddScoped<IPrototypeDataStore>(sp => sp.GetRequiredService<SqlitePrototypeStore>());
 }
-builder.Services.AddScoped<ISecureJournalAppService, InMemorySecureJournalAppService>();
+builder.Services.AddScoped<ISecureJournalAppService, SecureJournalAppService>();
 builder.Services.AddScoped<PrototypeSessionCookieCoordinator>();
 builder.Services.AddProductionIdentityAndDatabaseFoundation(builder.Configuration);
 
@@ -187,6 +192,40 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (enableAspNetIdentity && context.User.Identity?.IsAuthenticated == true)
+    {
+        var path = context.Request.Path;
+        var skipValidation =
+            path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/css", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/js", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/auth/local-login", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/auth/logout", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/auth/oidc-login", StringComparison.OrdinalIgnoreCase);
+
+        if (!skipValidation)
+        {
+            var journalApp = context.RequestServices.GetRequiredService<ISecureJournalAppService>();
+            var hasCurrentUser = await journalApp.HasCurrentUserAsync(context.RequestAborted);
+            if (!hasCurrentUser)
+            {
+                await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+
+                if (HttpMethods.IsGet(context.Request.Method) &&
+                    !path.StartsWithSegments("/login", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.Redirect("/login?error=Account%20is%20disabled%20or%20no%20longer%20valid.");
+                    return;
+                }
+            }
+        }
+    }
+
+    await next();
+});
 app.UseAuthorization();
 
 if (enableAspNetIdentity)
@@ -342,3 +381,4 @@ internal sealed record RequestLoggingSettings(RequestLoggingMode Mode, LogLevel 
         return new RequestLoggingSettings(mode, level);
     }
 }
+

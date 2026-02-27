@@ -31,6 +31,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.DisplayName).HasColumnName("display_name").HasMaxLength(100).IsRequired();
             entity.Property(x => x.Role).HasColumnName("role").IsRequired();
             entity.Property(x => x.IsLocalAccount).HasColumnName("is_local_account").IsRequired();
+            entity.Property(x => x.IsDisabled).HasColumnName("is_disabled").IsRequired();
             entity.Property(x => x.PasswordHash).HasColumnName("password_hash");
             entity.Property(x => x.ExternalIssuer).HasColumnName("external_issuer").HasMaxLength(512);
             entity.Property(x => x.ExternalSubject).HasColumnName("external_subject").HasMaxLength(512);
@@ -135,6 +136,7 @@ public sealed class AppUserEntity
     public string DisplayName { get; set; } = string.Empty;
     public int Role { get; set; }
     public bool IsLocalAccount { get; set; }
+    public bool IsDisabled { get; set; }
     public string? PasswordHash { get; set; }
     public string? ExternalIssuer { get; set; }
     public string? ExternalSubject { get; set; }

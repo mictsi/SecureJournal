@@ -7,4 +7,5 @@ public sealed record AppUser(
     AppRole Role,
     bool IsLocalAccount,
     string? ExternalIssuer = null,
-    string? ExternalSubject = null);
+    string? ExternalSubject = null,
+    bool IsDisabled = false);

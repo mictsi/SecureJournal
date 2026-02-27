@@ -1,4 +1,5 @@
 @page "/admin/projects"
+@attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<ProjectManagement> Logger
@@ -35,115 +36,162 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <div class="panel-grid panel-grid-wide">
-        <section class="panel-card">
+    <div class="project-admin-layout">
+        <section class="panel-card project-admin-left">
             <div class="panel-card-header">
-                <h3>Create Project</h3>
-            </div>
-            <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
-                <AntiforgeryToken />
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="projectName">Name</label>
-                        <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label" for="projectDescription">Description</label>
-                        <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
-                        <small class="text-muted">Project code will be generated automatically (for example `PRJ0001`).</small>
-                    </div>
+                <h3>Projects</h3>
+                <div class="panel-card-header-actions">
+                    <span class="text-muted">@_projects.Count total</span>
+                    <label class="project-page-size-label" for="projectPageSize">Page size</label>
+                    <select id="projectPageSize"
+                            class="form-select form-select-sm project-page-size-select"
+                            value="@_projectPageSize"
+                            @onchange="ChangeProjectPageSize">
+                        @foreach (var option in _projectPageSizeOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
                 </div>
-
-                <div class="mt-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Create Project</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
-                </div>
-            </EditForm>
-        </section>
-
-        <section class="panel-card">
-            <div class="panel-card-header">
-                <h3>Assign Group to Project</h3>
             </div>
-            @if (_projects.Count == 0 || _groups.Count == 0)
+            @if (_projects.Count == 0)
             {
-                <p class="mb-0">Create at least one project and one group first.</p>
+                <p class="mb-0">No projects created yet.</p>
             }
             else
             {
-                <EditForm Model="ProjectGroupDraft" OnValidSubmit="AssignGroupToProjectAsync" FormName="admin-project-assign-group">
+                <div class="table-responsive">
+                    <table class="table table-sm project-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th class="assigned-group-col">Assigned Groups</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var project in PagedProjects)
+                            {
+                                <tr class="project-row @(project.ProjectId == _selectedProjectId ? "is-selected" : string.Empty)"
+                                    @onclick="() => SelectProject(project.ProjectId)">
+                                    <td><code>@project.Code</code></td>
+                                    <td>@project.Name</td>
+                                    <td class="project-group-cell assigned-group-col">
+                                        @if (project.AssignedGroups.Count == 0)
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="project-group-tag-list">
+                                                @foreach (var groupName in project.AssignedGroups)
+                                                {
+                                                    <span class="project-group-tag">@groupName</span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>@project.Description</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pager-bar">
+                    <span class="text-muted">Page @_projectPage of @TotalProjectPages</span>
+                    <div class="d-flex gap-2">
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToPreviousProjectPage"
+                                disabled="@(_projectPage <= 1)">
+                            Previous
+                        </button>
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToNextProjectPage"
+                                disabled="@(_projectPage >= TotalProjectPages)">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            }
+        </section>
+
+        <div class="project-admin-right">
+            <section class="panel-card">
+                <div class="panel-card-header">
+                    <h3>Create Project</h3>
+                </div>
+                <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
                     <AntiforgeryToken />
                     <DataAnnotationsValidator />
                     <ValidationSummary />
 
                     <div class="row g-3">
                         <div class="col-12">
-                            <label class="form-label" for="assignProjectGroupId">Group</label>
-                            <InputSelect id="assignProjectGroupId" class="form-select" TValue="Guid" @bind-Value="ProjectGroupDraft.GroupId">
-                                @foreach (var group in _groups)
-                                {
-                                    <option value="@group.GroupId">@group.Name</option>
-                                }
-                            </InputSelect>
+                            <label class="form-label" for="projectName">Name</label>
+                            <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
                         </div>
                         <div class="col-12">
-                            <label class="form-label" for="assignProjectId">Project</label>
-                            <InputSelect id="assignProjectId" class="form-select" TValue="Guid" @bind-Value="ProjectGroupDraft.ProjectId">
-                                @foreach (var project in _projects)
-                                {
-                                    <option value="@project.ProjectId">@project.Code - @project.Name</option>
-                                }
-                            </InputSelect>
+                            <label class="form-label" for="projectDescription">Description</label>
+                            <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
+                            <small class="text-muted">Project code will be generated automatically (for example `PRJ0001`).</small>
                         </div>
                     </div>
 
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">Assign Group</button>
+                    <div class="mt-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Create Project</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
                     </div>
                 </EditForm>
-            }
-        </section>
-    </div>
+            </section>
 
-    <section class="panel-card mt-3">
-        <div class="panel-card-header">
-            <h3>Projects</h3>
-            <span class="text-muted">@_projects.Count</span>
-        </div>
-        @if (_projects.Count == 0)
-        {
-            <p class="mb-0">No projects created yet.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Name</th>
-                            <th>Assigned Groups</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var project in _projects)
+            <section class="panel-card">
+                <div class="panel-card-header">
+                    <h3>Project Group Access</h3>
+                </div>
+                @if (_projects.Count == 0)
+                {
+                    <p class="mb-0">Create at least one project first.</p>
+                }
+                else if (_groups.Count == 0)
+                {
+                    <p class="mb-0">Create at least one group first.</p>
+                }
+                else if (SelectedProject is null)
+                {
+                    <p class="mb-0">Select a project to manage group access.</p>
+                }
+                else
+                {
+                    <p class="text-muted mb-3">
+                        Editing <strong>@SelectedProject.Code - @SelectedProject.Name</strong>.
+                        Check to grant access, uncheck to remove access.
+                    </p>
+
+                    <div class="project-membership-list">
+                        @foreach (var group in _groups)
                         {
-                            <tr>
-                                <td><code>@project.Code</code></td>
-                                <td>@project.Name</td>
-                                <td>@FormatList(project.AssignedGroups)</td>
-                                <td>@project.Description</td>
-                            </tr>
+                            <label class="form-check project-membership-item">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_editedGroupIds.Contains(group.GroupId)"
+                                       @onchange="args => ToggleGroupLocal(group.GroupId, args)" />
+                                <span class="form-check-label">@group.Name</span>
+                            </label>
                         }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </section>
+                    </div>
+
+                    <div class="mt-3 d-flex gap-2">
+                        <button type="button" class="btn btn-primary" @onclick="SaveProjectGroupsAsync" disabled="@_isSaving">@( _isSaving ? "Saving..." : "Save")</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectGroupEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
 }
 
 @code {
@@ -151,15 +199,33 @@ else
     private CreateProjectRequest? PostedProjectDraft { get; set; }
     private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
 
-    [SupplyParameterFromForm(FormName = "admin-project-assign-group")]
-    private AssignGroupToProjectRequest? PostedProjectGroupDraft { get; set; }
-    private AssignGroupToProjectRequest ProjectGroupDraft => PostedProjectGroupDraft ??= new();
-
     private UserContext? _currentUser;
     private List<ProjectOverview> _projects = new();
     private List<GroupOverview> _groups = new();
+    private readonly int[] _projectPageSizeOptions = [8, 12, 20, 40];
+    private int _projectPageSize = 8;
+    private int _projectPage = 1;
+    private Guid? _selectedProjectId;
+    private HashSet<Guid> _originalGroupIds = [];
+    private HashSet<Guid> _editedGroupIds = [];
+    private bool _isDirty;
+    private bool _isSaving;
     private string? _message;
     private string? _error;
+
+    private ProjectOverview? SelectedProject
+        => _selectedProjectId is { } id
+            ? _projects.FirstOrDefault(p => p.ProjectId == id)
+            : null;
+
+    private int TotalProjectPages
+        => _projects.Count == 0 ? 1 : (int)Math.Ceiling(_projects.Count / (double)_projectPageSize);
+
+    private IReadOnlyList<ProjectOverview> PagedProjects
+        => _projects
+            .Skip((_projectPage - 1) * _projectPageSize)
+            .Take(_projectPageSize)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,7 +243,24 @@ else
         _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().ToList();
         _groups = JournalApp.GetGroups().ToList();
-        EnsureDefaults();
+
+        if (_projects.Count == 0)
+        {
+            _selectedProjectId = null;
+            _projectPage = 1;
+            _originalGroupIds.Clear();
+            _editedGroupIds.Clear();
+            _isDirty = false;
+            return;
+        }
+
+        var selectedId = _selectedProjectId is { } existingId && _projects.Any(p => p.ProjectId == existingId)
+            ? existingId
+            : _projects[0].ProjectId;
+
+        SetProjectPageForProject(selectedId);
+        EnsureProjectPageBounds();
+        SelectProject(selectedId);
     }
 
     private async Task CreateProjectAsync()
@@ -189,6 +272,7 @@ else
         {
             var project = JournalApp.CreateProject(ProjectDraft);
             _message = $"Project '{project.Code}' created.";
+            _selectedProjectId = project.ProjectId;
             ResetProjectForm();
             await LoadDataAsync();
         }
@@ -200,39 +284,185 @@ else
 
     }
 
-    private async Task AssignGroupToProjectAsync()
+    private Task SaveProjectGroupsAsync()
     {
+        var selectedProject = SelectedProject;
+        if (selectedProject is null)
+        {
+            _error = "Select a project first.";
+            return Task.CompletedTask;
+        }
+
+        if (!_isDirty)
+        {
+            _message = "No group access changes to save.";
+            _error = null;
+            return Task.CompletedTask;
+        }
+
         ClearMessages();
-        Logger.LogInformation(
-            "Admin project form submit: AssignGroupToProject GroupId={GroupId} ProjectId={ProjectId}",
-            ProjectGroupDraft.GroupId,
-            ProjectGroupDraft.ProjectId);
+        _isSaving = true;
 
         try
         {
-            var added = JournalApp.AssignGroupToProject(ProjectGroupDraft);
-            _message = added ? "Group assigned to project." : "Group is already assigned to that project.";
-            await LoadDataAsync();
+            var selectedProjectId = selectedProject.ProjectId;
+            var groupAdds = _editedGroupIds.Except(_originalGroupIds).ToList();
+            var groupRemoves = _originalGroupIds.Except(_editedGroupIds).ToList();
+
+            Logger.LogInformation(
+                "Saving project-group memberships for {ProjectCode}: Adds={Adds} Removes={Removes}",
+                selectedProject.Code,
+                groupAdds.Count,
+                groupRemoves.Count);
+
+            foreach (var groupId in groupAdds)
+            {
+                JournalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+                {
+                    ProjectId = selectedProjectId,
+                    GroupId = groupId
+                });
+            }
+
+            foreach (var groupId in groupRemoves)
+            {
+                JournalApp.RemoveGroupFromProject(new AssignGroupToProjectRequest
+                {
+                    ProjectId = selectedProjectId,
+                    GroupId = groupId
+                });
+            }
+
+            _projects = JournalApp.GetProjects().ToList();
+            _groups = JournalApp.GetGroups().ToList();
+            SelectProject(selectedProjectId);
+            _message = $"Group access changes saved for project '{selectedProject.Code}'.";
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Admin project assignment failed");
+            Logger.LogError(ex, "Project group membership save failed");
             _error = ex.Message;
         }
+        finally
+        {
+            _isSaving = false;
+        }
 
+        return Task.CompletedTask;
     }
 
-    private void EnsureDefaults()
+    private void SelectProject(Guid projectId)
     {
-        if (_groups.Count > 0 && _groups.All(g => g.GroupId != ProjectGroupDraft.GroupId))
+        _selectedProjectId = projectId;
+        SetProjectPageForProject(projectId);
+        _message = null;
+        _error = null;
+
+        var selected = SelectedProject;
+        if (selected is null)
         {
-            ProjectGroupDraft.GroupId = _groups[0].GroupId;
+            _originalGroupIds.Clear();
+            _editedGroupIds.Clear();
+            _isDirty = false;
+            return;
         }
 
-        if (_projects.Count > 0 && _projects.All(p => p.ProjectId != ProjectGroupDraft.ProjectId))
+        var assignedGroupNames = selected.AssignedGroups.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _originalGroupIds = _groups
+            .Where(g => assignedGroupNames.Contains(g.Name))
+            .Select(g => g.GroupId)
+            .ToHashSet();
+
+        _editedGroupIds = _originalGroupIds.ToHashSet();
+        _isDirty = false;
+    }
+
+    private void ToggleGroupLocal(Guid groupId, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked)
         {
-            ProjectGroupDraft.ProjectId = _projects[0].ProjectId;
+            _editedGroupIds.Add(groupId);
         }
+        else
+        {
+            _editedGroupIds.Remove(groupId);
+        }
+
+        UpdateDirtyState();
+    }
+
+    private void ResetProjectGroupEdits()
+    {
+        _editedGroupIds = _originalGroupIds.ToHashSet();
+        _isDirty = false;
+    }
+
+    private void UpdateDirtyState()
+        => _isDirty = !_editedGroupIds.SetEquals(_originalGroupIds);
+
+    private void GoToPreviousProjectPage()
+    {
+        if (_projectPage > 1)
+        {
+            _projectPage--;
+        }
+    }
+
+    private void GoToNextProjectPage()
+    {
+        if (_projectPage < TotalProjectPages)
+        {
+            _projectPage++;
+        }
+    }
+
+    private void ChangeProjectPageSize(ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var nextPageSize))
+        {
+            return;
+        }
+
+        if (!_projectPageSizeOptions.Contains(nextPageSize) || nextPageSize == _projectPageSize)
+        {
+            return;
+        }
+
+        _projectPageSize = nextPageSize;
+
+        if (_selectedProjectId is { } selectedProjectId)
+        {
+            SetProjectPageForProject(selectedProjectId);
+        }
+
+        EnsureProjectPageBounds();
+    }
+
+    private void SetProjectPageForProject(Guid projectId)
+    {
+        var selectedIndex = _projects.FindIndex(p => p.ProjectId == projectId);
+        if (selectedIndex < 0)
+        {
+            return;
+        }
+
+        _projectPage = (selectedIndex / _projectPageSize) + 1;
+    }
+
+    private void EnsureProjectPageBounds()
+    {
+        _projectPage = Math.Clamp(_projectPage, 1, TotalProjectPages);
+    }
+
+    private static bool ParseCheckboxValue(ChangeEventArgs args)
+    {
+        if (args.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
     }
 
     private void ClearMessages()
@@ -240,9 +470,6 @@ else
         _message = null;
         _error = null;
     }
-
-    private static string FormatList(IReadOnlyList<string> values)
-        => values.Count == 0 ? "-" : string.Join(", ", values);
 
     private void ResetProjectForm()
     {

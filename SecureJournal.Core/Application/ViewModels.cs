@@ -30,7 +30,8 @@ public sealed record UserOverview(
     AppRole Role,
     bool IsLocalAccount,
     IReadOnlyList<string> Groups,
-    IReadOnlyList<AppRole> Roles);
+    IReadOnlyList<AppRole> Roles,
+    bool IsDisabled = false);
 
 public sealed record JournalEntryView(
     Guid RecordId,

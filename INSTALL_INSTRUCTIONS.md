@@ -149,7 +149,9 @@ After startup:
 
 - `/` is the start page and contains only the app name + login form
 - Use `/login` for the extended local login page (including change-password form)
-- Use `/admin/projects`, `/admin/groups`, `/admin/users` for administrator management pages
+- Use `/admin/user-accounts` to create users
+- Use `/admin/users` (`User management`) to manage roles/groups, toggle enable/disable state, delete users, and reset passwords for local users from `Manage user`
+- Use `/admin/projects` and `/admin/groups` for project/group administration
 - Local login and logout are antiforgery-protected (`/auth/logout` is POST-only)
 - `/projects` supports project entry search + date sorting and opens full entry details at `/projects/entry/{recordId}`
 - `/journal` redirects to `/projects?projectId=...` after successful entry creation
@@ -223,7 +225,9 @@ Recommended permanent fix:
 - Project journal list with date sort + dedicated single-entry detail page
 - Group-based project access assignment workflow (user -> group -> project)
 - Role-aware UI behavior for `Administrator`, `Project User`, `Auditor`
+- Administrator user lifecycle controls (enable/disable/delete)
 - Local password change for the current signed-in local user (ASP.NET Identity-backed when enabled)
+- Local-password reset for selected local users in `User management` (`Manage user`)
 - CSV/JSON export workflows
 - Automated service tests
 

@@ -1,4 +1,5 @@
 @page "/admin/groups"
+@attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<GroupManagement> Logger
@@ -35,8 +36,8 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <div class="panel-grid">
-        <section class="panel-card">
+    <div class="group-admin-layout">
+        <section class="panel-card group-create-card">
             <div class="panel-card-header">
                 <h3>Create Group</h3>
             </div>
@@ -59,7 +60,7 @@ else
             </EditForm>
         </section>
 
-        <section class="panel-card">
+        <section class="panel-card group-list-card">
             <div class="panel-card-header">
                 <h3>Groups</h3>
                 <span class="text-muted">@_groups.Count</span>
@@ -71,12 +72,13 @@ else
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm group-table mb-0">
                         <thead>
                             <tr>
                                 <th>Name</th>
                                 <th>Members</th>
                                 <th>Projects</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -86,6 +88,14 @@ else
                                     <td>@group.Name</td>
                                     <td>@FormatList(group.Members)</td>
                                     <td>@FormatList(group.ProjectCodes)</td>
+                                    <td>
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => DeleteGroupAsync(group.GroupId, group.Name)"
+                                                disabled="@(_isDeleting && _deletingGroupId == group.GroupId)">
+                                            @(_isDeleting && _deletingGroupId == group.GroupId ? "Deleting..." : "Delete")
+                                        </button>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -103,6 +113,8 @@ else
 
     private UserContext? _currentUser;
     private List<GroupOverview> _groups = new();
+    private bool _isDeleting;
+    private Guid? _deletingGroupId;
     private string? _message;
     private string? _error;
 
@@ -141,6 +153,39 @@ else
             _error = ex.Message;
         }
 
+    }
+
+    private async Task DeleteGroupAsync(Guid groupId, string groupName)
+    {
+        if (groupId == Guid.Empty)
+        {
+            return;
+        }
+
+        ClearMessages();
+        _isDeleting = true;
+        _deletingGroupId = groupId;
+        Logger.LogInformation("Admin group action: DeleteGroup {GroupId} ({GroupName})", groupId, groupName);
+
+        try
+        {
+            var deleted = JournalApp.DeleteGroup(groupId);
+            _message = deleted
+                ? $"Group '{groupName}' deleted."
+                : $"Group '{groupName}' was already removed.";
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin group delete failed for GroupId={GroupId}", groupId);
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isDeleting = false;
+            _deletingGroupId = null;
+        }
     }
 
     private void ResetGroupForm()

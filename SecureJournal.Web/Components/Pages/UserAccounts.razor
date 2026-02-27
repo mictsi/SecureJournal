@@ -1,4 +1,5 @@
 @page "/admin/user-accounts"
+@attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<UserAccounts> Logger
@@ -9,7 +10,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h2>User Account Management</h2>
-        <p>Create users and reset local passwords. Manage role/group memberships from User Memberships.</p>
+        <p>Create users. Manage memberships and local password reset from User management.</p>
     </div>
 </section>
 
@@ -93,43 +94,6 @@ else
             </EditForm>
         </section>
 
-        <section class="panel-card tool-card">
-            <div class="panel-card-header">
-                <h3>Reset Local Password</h3>
-            </div>
-
-            <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetLocalPasswordAsync">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="resetUser">User</label>
-                        <InputSelect id="resetUser" class="form-select" @bind-Value="_resetPasswordRequest.UserId">
-                            @foreach (var user in LocalUsers)
-                            {
-                                <option value="@user.UserId">@user.DisplayName (@user.Username)</option>
-                            }
-                        </InputSelect>
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label" for="newPassword">New Password</label>
-                        <InputText id="newPassword" type="password" class="form-control" @bind-Value="_resetPasswordRequest.NewPassword" />
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label" for="confirmPassword">Confirm New Password</label>
-                        <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_confirmResetPassword" />
-                    </div>
-                </div>
-
-                <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
-
-                <div class="mt-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-warning" disabled="@(!LocalUsers.Any())">Reset Password</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetResetPasswordForm">Reset</button>
-                </div>
-            </EditForm>
-        </section>
     </div>
 }
 
@@ -144,16 +108,9 @@ else
         Role = AppRole.ProjectUser
     };
     private HashSet<AppRole> _createUserRoles = [AppRole.ProjectUser];
-    private AdminResetPasswordRequest _resetPasswordRequest = new();
-    private string _confirmResetPassword = string.Empty;
     private int _localPasswordMinLength = 8;
     private string? _message;
     private string? _error;
-
-    private IEnumerable<UserOverview> LocalUsers
-        => _users
-            .Where(u => u.IsLocalAccount)
-            .OrderBy(u => u.DisplayName, StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -179,7 +136,6 @@ else
     {
         _currentUser = await JournalApp.GetCurrentUserAsync();
         _users = JournalApp.GetUsers().ToList();
-        EnsureResetUserSelection();
     }
 
     private async Task CreateUserAsync()
@@ -210,49 +166,12 @@ else
             Logger.LogInformation("Admin user create submitted: {Username}", _createUserDraft.Username);
 
             _users = JournalApp.GetUsers().ToList();
-            EnsureResetUserSelection();
             _message = $"User '{created.Username}' created.";
             ResetCreateUserForm();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Admin user create failed");
-            _error = ex.Message;
-        }
-    }
-
-    private async Task ResetLocalPasswordAsync()
-    {
-        ClearMessages();
-
-        try
-        {
-            if (_resetPasswordRequest.UserId == Guid.Empty)
-            {
-                _error = "Select a local user first.";
-                return;
-            }
-
-            if (_resetPasswordRequest.NewPassword != _confirmResetPassword)
-            {
-                _error = "New password and confirm password must match.";
-                return;
-            }
-
-            Logger.LogInformation("Admin password reset submitted for user id {UserId}", _resetPasswordRequest.UserId);
-            var result = await JournalApp.ResetLocalUserPasswordAsync(_resetPasswordRequest);
-            if (!result.Success)
-            {
-                _error = result.Message;
-                return;
-            }
-
-            _message = result.Message;
-            ResetResetPasswordForm();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Admin password reset failed");
             _error = ex.Message;
         }
     }
@@ -277,23 +196,6 @@ else
             Role = AppRole.ProjectUser
         };
         _createUserRoles = [AppRole.ProjectUser];
-    }
-
-    private void ResetResetPasswordForm()
-    {
-        _resetPasswordRequest.NewPassword = string.Empty;
-        _confirmResetPassword = string.Empty;
-        EnsureResetUserSelection();
-    }
-
-    private void EnsureResetUserSelection()
-    {
-        if (_resetPasswordRequest.UserId != Guid.Empty && _users.Any(u => u.UserId == _resetPasswordRequest.UserId && u.IsLocalAccount))
-        {
-            return;
-        }
-
-        _resetPasswordRequest.UserId = LocalUsers.FirstOrDefault()?.UserId ?? Guid.Empty;
     }
 
     private void ClearMessages()

@@ -159,7 +159,7 @@ public static class ProductionInfrastructureRegistration
 
                             context.HandleResponse();
                             var encodedError = Uri.EscapeDataString("Single sign-on failed. Please try again.");
-                            context.Response.Redirect($"/login?error={encodedError}");
+                            context.Response.Redirect($"/?error={encodedError}");
                             return Task.CompletedTask;
                         },
                         OnAuthenticationFailed = context =>
@@ -174,7 +174,7 @@ public static class ProductionInfrastructureRegistration
 
                             context.HandleResponse();
                             var encodedError = Uri.EscapeDataString("Single sign-on authentication failed. Please try again.");
-                            context.Response.Redirect($"/login?error={encodedError}");
+                            context.Response.Redirect($"/?error={encodedError}");
                             return Task.CompletedTask;
                         }
                     };

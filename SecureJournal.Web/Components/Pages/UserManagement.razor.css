@@ -54,6 +54,11 @@
     opacity: 0.9;
 }
 
+.user-disabled-badge {
+    color: #ffc9c9;
+    font-weight: 700;
+}
+
 .membership-grid {
     display: flex;
     gap: 1.5rem;
@@ -78,6 +83,10 @@
 
 .membership-item {
     margin: 0;
+}
+
+.reset-password-panel {
+    margin-top: 0.25rem;
 }
 
 @media (max-width: 1100px) {

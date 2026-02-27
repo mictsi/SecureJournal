@@ -44,6 +44,9 @@ The application supports:
 - Assign users to groups
 - Assign groups to one or more projects
 - Create/manage users (including local accounts)
+- Enable/disable user accounts
+- Delete user accounts
+- Reset passwords for local users
 - View all journal data across projects
 - View and search all audit logs
 - Export project data and audit data
@@ -79,6 +82,9 @@ The application supports:
 ### 6.2 User Management
 
 - Administrators shall create local users.
+- Administrators shall be able to disable and re-enable users.
+- Administrators shall be able to delete users.
+- Local-password reset shall be available only for local accounts.
 - The system shall support enabling/disabling local login.
 - The system shall support generic OIDC login.
 - Users authenticated via OIDC shall be mapped to application users and roles/groups.
@@ -144,6 +150,7 @@ For each journal entry, the system shall store:
 - Local passwords shall be stored using secure password hashing (framework standard).
 - OIDC integration shall use secure token validation and HTTPS.
 - OIDC logins without required identity claims (`iss`/`sub`) or without an explicit mapped application role shall be denied.
+- Disabled users shall be denied access regardless of authentication path (local/OIDC/session restore).
 - Authentication events shall be audited (success/failure/logout/lockout as applicable).
 - Session cookies shall expire automatically after a configurable duration (current appsettings setting: `Security:SessionCookieHours`, default `8` hours).
 - Local login and logout endpoints shall use CSRF/antiforgery protection; logout shall be POST-only.
@@ -427,7 +434,7 @@ The current implementation expects these files to contain:
 - `/journal` = `New Journal Entry` form (create-only)
 - `/audit` = audit search with linked journal evidence display
 - `/exports` = CSV/JSON export generation + download
-- `/admin/projects`, `/admin/groups`, `/admin/users` = admin management pages
+- `/admin/projects`, `/admin/groups`, `/admin/users`, `/admin/user-accounts` = admin management pages
 
 ### 19.6.1 Production Foundation Feature Flags (Current)
 

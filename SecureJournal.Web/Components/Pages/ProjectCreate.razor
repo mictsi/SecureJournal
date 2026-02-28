@@ -59,10 +59,6 @@ else
                 </div>
 
                 <div>
-                    <label class="form-label" for="projectOwnerName">Project Owner Name</label>
-                    <InputText id="projectOwnerName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwnerName" />
-                </div>
-                <div>
                     <label class="form-label" for="projectOwner">Project Owner</label>
                     <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwner" />
                 </div>
@@ -71,11 +67,11 @@ else
                     <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Department" />
                 </div>
                 <div>
-                    <label class="form-label" for="projectEmail">Project Email</label>
+                    <label class="form-label" for="projectEmail">Project owner email</label>
                     <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="ProjectDraft.ProjectEmail" />
                 </div>
                 <div>
-                    <label class="form-label" for="projectPhone">Project Phone</label>
+                    <label class="form-label" for="projectPhone">Project owner phone</label>
                     <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="ProjectDraft.ProjectPhone" />
                 </div>
             </div>
@@ -140,7 +136,6 @@ else
         ProjectDraft.Code = string.Empty;
         ProjectDraft.Name = string.Empty;
         ProjectDraft.Description = string.Empty;
-        ProjectDraft.ProjectOwnerName = string.Empty;
         ProjectDraft.ProjectEmail = string.Empty;
         ProjectDraft.ProjectPhone = string.Empty;
         ProjectDraft.ProjectOwner = string.Empty;

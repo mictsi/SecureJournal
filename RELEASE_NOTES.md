@@ -1,5 +1,54 @@
 # Release Notes
 
+## v0.8.0 - 2026-02-28
+
+### Highlights
+
+- Simplified exports UX by removing the inline `Export Output Preview` panel and keeping a cleaner generate/download workflow.
+- Updated login/landing presentation:
+  - removed boxed card styling around logo/login content
+  - added spacing refinements around branding and OIDC action
+  - changed OIDC label to `Login with OpenID`.
+- Standardized admin and listing page defaults to `20` items per page.
+- Streamlined project/journal data model:
+  - removed journal `Action` field end-to-end (UI, application contracts, exports, and persistence)
+  - removed project `ProjectOwnerName` property and aligned metadata labels/usage to owner-focused fields.
+- Added SQLite compatibility migration for legacy journal schema (`category_*` columns) and strengthened startup schema handling.
+
+### Technical Notes
+
+- Journal/contract/model updates:
+  - `SecureJournal.Core/Application/CreateJournalEntryRequest.cs`
+  - `SecureJournal.Core/Application/ViewModels.cs`
+  - `SecureJournal.Core/Domain/JournalEntryRecord.cs`
+  - `SecureJournal.Web/Services/IJournalEntryRecordFactory.cs`
+  - `SecureJournal.Web/Services/JournalEntryRecordFactory.cs`
+  - `SecureJournal.Web/Services/RecordViewMapper.cs`
+  - `SecureJournal.Web/Services/ExportContentFormatter.cs`
+- Persistence/schema updates:
+  - `SecureJournal.Web/Services/SqlitePrototypeStore.cs`
+  - `SecureJournal.Web/Services/EfCorePrototypeStore.cs`
+  - `SecureJournal.Web/Infrastructure/Persistence/SecureJournalAppDbContext.cs`
+- Security/runtime updates:
+  - `SecureJournal.Web/Program.cs`
+  - `SecureJournal.Web/Services/PrototypeSessionCookieCoordinator.cs`
+- UI updates:
+  - `SecureJournal.Web/Components/Pages/Exports.razor`
+  - `SecureJournal.Web/Components/Pages/Home.razor`
+  - `SecureJournal.Web/Components/Pages/Login.razor`
+  - `SecureJournal.Web/Components/Pages/Journal.razor`
+  - `SecureJournal.Web/Components/Pages/ProjectEntry.razor`
+  - `SecureJournal.Web/Components/Pages/Projects.razor`
+  - `SecureJournal.Web/Components/Pages/ProjectManagement.razor`
+  - `SecureJournal.Web/wwwroot/app.css`
+- Tests updated/validated:
+  - `SecureJournal.Tests/SecureJournalAppServiceTests.cs`
+
+### Validation
+
+- Solution build succeeded (`dotnet build SecureJournal.slnx`).
+- Tests passing after changes (current workspace runs report all passing).
+
 ## v0.7.0 - 2026-02-28
 
 ### Highlights

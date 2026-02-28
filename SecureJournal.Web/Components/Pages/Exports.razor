@@ -24,8 +24,7 @@
     <div class="alert alert-success" role="alert">@_message</div>
 }
 
-<div class="panel-grid panel-grid-wide">
-    <section class="panel-card">
+<section class="panel-card">
         <div class="panel-card-header">
             <h3>Export Configuration</h3>
             <span class="text-muted">@_currentUser?.Role</span>
@@ -158,33 +157,7 @@
                 </div>
             }
         }
-    </section>
-
-    <section class="panel-card">
-        <div class="panel-card-header">
-            <h3>Export Output Preview</h3>
-            <span class="text-muted">@(_exportResult?.RowCount ?? 0) row(s)</span>
-        </div>
-
-        @if (_exportResult is null)
-        {
-            <p class="mb-0">Generate an export to preview content and download the file.</p>
-        }
-        else
-        {
-            <dl class="meta-list mb-3">
-                <dt>File name</dt>
-                <dd><code>@_exportResult.FileName</code></dd>
-                <dt>Content type</dt>
-                <dd><code>@_exportResult.ContentType</code></dd>
-                <dt>Summary</dt>
-                <dd>@_exportResult.Summary</dd>
-            </dl>
-
-            <textarea class="form-control export-preview" readonly rows="18">@_exportResult.ContentText</textarea>
-        }
-    </section>
-</div>
+</section>
 
 @code {
     private enum ExportDatasetKind

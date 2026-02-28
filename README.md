@@ -17,7 +17,7 @@ It is designed for:
 ## What Users Can Do
 
 - Sign in with local accounts (ASP.NET Identity cookie auth)
-- Sign in with OIDC (when enabled by configuration)
+- Login with OpenID (when enabled by configuration)
 - Admins can create users from `User Accounts` (`/admin/user-accounts`)
 - Admins can manage user role/group memberships from `User management` (`/admin/users`)
 - Admins can create projects from `Create project` (`/admin/projects/create`) and groups from `Create group` (`/admin/groups/create`)
@@ -29,7 +29,7 @@ It is designed for:
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
 - Sort project journal entries by date (`Newest first` / `Oldest first`)
 - Open a dedicated journal entry details page from `My Projects` and return to the selected project context
-- Create append-only journal entries (`Action`, `Subject`, `Description`, `Notes`)
+- Create append-only journal entries (`Subject`, `Description`, `Notes`)
 - Soft-delete journal entries (preserved for admin visibility and audit evidence)
 - Search audit logs with filters (date/user/project/action/entity/outcome + field-specific contains)
 - Validate audit checksums per audit row

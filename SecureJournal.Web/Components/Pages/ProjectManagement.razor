@@ -38,9 +38,9 @@ else
 {
     <div class="project-admin-layout">
         <section class="panel-card project-admin-left">
-            <div class="panel-card-header">
+            <div class="panel-card-header project-panel-header">
                 <h3>Projects</h3>
-                <div class="panel-card-header-actions">
+                <div class="panel-card-header-actions project-panel-header-actions">
                     <span class="text-muted">@_projectPage.TotalCount total</span>
                     <label class="project-page-size-label" for="projectPageSize">Page size</label>
                     <select id="projectPageSize"
@@ -62,7 +62,7 @@ else
                            type="text"
                            value="@_projectQuery.FilterText"
                            @oninput="OnProjectSearchChanged"
-                           placeholder="Filter by project name or description..." />
+                              placeholder="Filter by project code or name..." />
                 </div>
             </div>
 
@@ -73,18 +73,14 @@ else
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm project-table mb-0">
+                    <table class="table table-sm project-table project-admin-projects-table mb-0">
                         <thead>
                             <tr>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("code"))">Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("name"))">Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th>Assigned Groups</th>
-                                <th>Description</th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwnerName"))">Owner Name @SortGlyph("projectOwnerName", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("department"))">Department @SortGlyph("department", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectEmail"))">Email @SortGlyph("projectEmail", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectPhone"))">Phone @SortGlyph("projectPhone", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -93,8 +89,8 @@ else
                             {
                                 <tr class="project-row @(project.ProjectId == _selectedProjectId ? "is-selected" : string.Empty)"
                                     @onclick="() => SelectProjectAsync(project.ProjectId)">
-                                    <td><code>@project.Code</code></td>
-                                    <td>@project.Name</td>
+                                    <td class="project-code-cell"><code>@project.Code</code></td>
+                                    <td class="project-name-cell">@project.Name</td>
                                     <td class="project-group-cell assigned-group-col">
                                         @if (project.AssignedGroups.Count == 0)
                                         {
@@ -105,20 +101,16 @@ else
                                             <div class="project-group-tag-list">
                                                 @foreach (var groupName in project.AssignedGroups)
                                                 {
-                                                    <span class="project-group-tag">@groupName</span>
+                                                    <span class="project-group-tag" title="@groupName">@groupName</span>
                                                 }
                                             </div>
                                         }
                                     </td>
-                                    <td>@project.Description</td>
-                                    <td>@RenderValueOrDash(project.ProjectOwnerName)</td>
-                                    <td>@RenderValueOrDash(project.ProjectOwner)</td>
-                                    <td>@RenderValueOrDash(project.Department)</td>
-                                    <td>@RenderValueOrDash(project.ProjectEmail)</td>
-                                    <td>@RenderValueOrDash(project.ProjectPhone)</td>
-                                    <td>
+                                    <td class="project-detail-cell">@RenderValueOrDash(project.ProjectOwner)</td>
+                                    <td class="project-detail-cell">@RenderValueOrDash(project.Department)</td>
+                                    <td class="project-actions-cell">
                                         <button type="button"
-                                                class="btn btn-outline-primary btn-sm"
+                                                class="btn btn-outline-primary btn-sm project-edit-button"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => StartEditProject(project.ProjectId)">
                                             Edit
@@ -182,10 +174,6 @@ else
                             </div>
 
                             <div>
-                                <label class="form-label" for="projectEditOwnerName">Project Owner Name</label>
-                                <InputText id="projectEditOwnerName" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwnerName" />
-                            </div>
-                            <div>
                                 <label class="form-label" for="projectEditOwner">Project Owner</label>
                                 <InputText id="projectEditOwner" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwner" />
                             </div>
@@ -194,11 +182,11 @@ else
                                 <InputText id="projectEditDepartment" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Department" />
                             </div>
                             <div>
-                                <label class="form-label" for="projectEditEmail">Project Email</label>
+                                <label class="form-label" for="projectEditEmail">Project owner email</label>
                                 <InputText id="projectEditEmail" class="form-control" maxlength="254" @bind-Value="_projectEditDraft.ProjectEmail" />
                             </div>
                             <div>
-                                <label class="form-label" for="projectEditPhone">Project Phone</label>
+                                <label class="form-label" for="projectEditPhone">Project owner phone</label>
                                 <InputText id="projectEditPhone" class="form-control" maxlength="32" @bind-Value="_projectEditDraft.ProjectPhone" />
                             </div>
                         </div>
@@ -260,11 +248,14 @@ else
                     else
                     {
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
+                            <table class="table table-sm align-middle mb-0 project-group-access-table">
+                                <colgroup>
+                                    <col class="project-group-access-col-group" />
+                                    <col class="project-group-access-col-assigned" />
+                                </colgroup>
                                 <thead>
                                     <tr>
                                         <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
-                                        <th>Description</th>
                                         <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
                                     </tr>
                                 </thead>
@@ -273,7 +264,6 @@ else
                                     {
                                         <tr>
                                             <td>@group.Name</td>
-                                            <td>@RenderValueOrDash(group.Description)</td>
                                             <td class="text-end">
                                                 <input class="form-check-input"
                                                        type="checkbox"
@@ -316,13 +306,13 @@ else
 }
 
 @code {
-    private readonly int[] _pageSizeOptions = [30, 50, 100];
+    private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
     private readonly UpdateProjectRequest _projectEditDraft = new();
     private UserContext? _currentUser;
-    private PagedResult<ProjectOverview> _projectPage = new(Array.Empty<ProjectOverview>(), 0, 1, 30, 1);
-    private PagedResult<GroupAccessRow> _groupAccessPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 30, 1);
-    private ProjectListQuery _projectQuery = new() { PageSize = 30, SortField = "code" };
-    private ProjectGroupAccessQuery _groupAccessQuery = new() { PageSize = 30, SortField = "name" };
+    private PagedResult<ProjectOverview> _projectPage = new(Array.Empty<ProjectOverview>(), 0, 1, 20, 1);
+    private PagedResult<GroupAccessRow> _groupAccessPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 20, 1);
+    private ProjectListQuery _projectQuery = new() { PageSize = 20, SortField = "code", IncludeDescriptionInFilter = false };
+    private ProjectGroupAccessQuery _groupAccessQuery = new() { PageSize = 20, SortField = "name" };
     private Guid? _selectedProjectId;
     private Guid? _editingProjectId;
     private readonly Dictionary<Guid, bool> _pendingGroupAssignments = [];
@@ -406,7 +396,6 @@ else
         _projectEditDraft.ProjectId = project.ProjectId;
         _projectEditDraft.Name = project.Name;
         _projectEditDraft.Description = project.Description;
-        _projectEditDraft.ProjectOwnerName = project.ProjectOwnerName;
         _projectEditDraft.ProjectOwner = project.ProjectOwner;
         _projectEditDraft.Department = project.Department;
         _projectEditDraft.ProjectEmail = project.ProjectEmail;
@@ -672,7 +661,6 @@ else
         _projectEditDraft.ProjectId = Guid.Empty;
         _projectEditDraft.Name = string.Empty;
         _projectEditDraft.Description = string.Empty;
-        _projectEditDraft.ProjectOwnerName = string.Empty;
         _projectEditDraft.ProjectEmail = string.Empty;
         _projectEditDraft.ProjectPhone = string.Empty;
         _projectEditDraft.ProjectOwner = string.Empty;

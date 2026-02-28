@@ -8,10 +8,6 @@ public sealed class CreateJournalEntryRequest
     public Guid ProjectId { get; set; }
 
     [Required]
-    [StringLength(FieldLimits.CategoryMax)]
-    public string Action { get; set; } = string.Empty;
-
-    [Required]
     [StringLength(FieldLimits.SubjectMax)]
     public string Subject { get; set; } = string.Empty;
 

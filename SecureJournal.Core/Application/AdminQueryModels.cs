@@ -16,10 +16,11 @@ public sealed record PagedResult<T>(
 public sealed class ProjectListQuery
 {
     public string FilterText { get; set; } = string.Empty;
+    public bool IncludeDescriptionInFilter { get; set; } = true;
     public string SortField { get; set; } = "code";
     public SortDirection SortDirection { get; set; } = SortDirection.Asc;
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 30;
+    public int PageSize { get; set; } = 20;
 }
 
 public sealed class UserListQuery
@@ -28,7 +29,7 @@ public sealed class UserListQuery
     public string SortField { get; set; } = "username";
     public SortDirection SortDirection { get; set; } = SortDirection.Asc;
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 30;
+    public int PageSize { get; set; } = 20;
 }
 
 public sealed class GroupListQuery
@@ -37,7 +38,7 @@ public sealed class GroupListQuery
     public string SortField { get; set; } = "name";
     public SortDirection SortDirection { get; set; } = SortDirection.Asc;
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 30;
+    public int PageSize { get; set; } = 20;
 }
 
 public sealed class ProjectGroupAccessQuery
@@ -47,7 +48,7 @@ public sealed class ProjectGroupAccessQuery
     public string SortField { get; set; } = "name";
     public SortDirection SortDirection { get; set; } = SortDirection.Asc;
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 30;
+    public int PageSize { get; set; } = 20;
 }
 
 public sealed class UserGroupMembershipQuery
@@ -58,7 +59,7 @@ public sealed class UserGroupMembershipQuery
     public string SortField { get; set; } = "name";
     public SortDirection SortDirection { get; set; } = SortDirection.Asc;
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 30;
+    public int PageSize { get; set; } = 20;
 }
 
 public sealed record GroupAccessRow(

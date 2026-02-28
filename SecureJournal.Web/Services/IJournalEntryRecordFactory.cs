@@ -9,7 +9,6 @@ public interface IJournalEntryRecordFactory
         Guid createdByUserId,
         string createdByUsername,
         DateTime createdAtUtc,
-        string action,
         string subject,
         string description,
         string notes,

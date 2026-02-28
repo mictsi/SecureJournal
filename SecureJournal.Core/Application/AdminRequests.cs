@@ -16,9 +16,6 @@ public sealed class CreateProjectRequest
     [StringLength(FieldLimits.DescriptionMax)]
     public string Description { get; set; } = string.Empty;
 
-    [StringLength(FieldLimits.DisplayNameMax)]
-    public string ProjectOwnerName { get; set; } = string.Empty;
-
     [StringLength(FieldLimits.EmailMax)]
     public string ProjectEmail { get; set; } = string.Empty;
 
@@ -42,9 +39,6 @@ public sealed class UpdateProjectRequest
 
     [StringLength(FieldLimits.DescriptionMax)]
     public string Description { get; set; } = string.Empty;
-
-    [StringLength(FieldLimits.DisplayNameMax)]
-    public string ProjectOwnerName { get; set; } = string.Empty;
 
     [StringLength(FieldLimits.EmailMax)]
     public string ProjectEmail { get; set; } = string.Empty;

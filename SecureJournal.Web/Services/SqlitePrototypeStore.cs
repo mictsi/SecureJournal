@@ -21,7 +21,6 @@ public sealed record StoredProjectRow(
     string Code,
     string Name,
     string Description,
-    string ProjectOwnerName,
     string ProjectEmail,
     string ProjectPhone,
     string ProjectOwner,
@@ -114,7 +113,6 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     code TEXT NOT NULL UNIQUE,
                     name TEXT NOT NULL,
                     description TEXT NOT NULL,
-                    project_owner_name TEXT NOT NULL DEFAULT '',
                     project_email TEXT NOT NULL DEFAULT '',
                     project_phone TEXT NOT NULL DEFAULT '',
                     project_owner TEXT NOT NULL DEFAULT '',
@@ -130,18 +128,23 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 CREATE TABLE IF NOT EXISTS user_groups (
                     user_id TEXT NOT NULL,
                     group_id TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES app_users(user_id) ON DELETE CASCADE,
+                    FOREIGN KEY (group_id) REFERENCES groups_ref(group_id) ON DELETE CASCADE,
                     PRIMARY KEY (user_id, group_id)
                 );
 
                 CREATE TABLE IF NOT EXISTS user_roles (
                     user_id TEXT NOT NULL,
                     role INTEGER NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES app_users(user_id) ON DELETE CASCADE,
                     PRIMARY KEY (user_id, role)
                 );
 
                 CREATE TABLE IF NOT EXISTS project_groups (
                     project_id TEXT NOT NULL,
                     group_id TEXT NOT NULL,
+                    FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+                    FOREIGN KEY (group_id) REFERENCES groups_ref(group_id) ON DELETE CASCADE,
                     PRIMARY KEY (project_id, group_id)
                 );
 
@@ -151,12 +154,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     created_at_utc TEXT NOT NULL,
                     created_by_user_id TEXT NOT NULL,
                     created_by_username TEXT NOT NULL,
-                    category_ciphertext TEXT NOT NULL,
                     subject_ciphertext TEXT NOT NULL,
                     description_ciphertext TEXT NOT NULL,
                     notes_ciphertext TEXT NOT NULL,
                     result_ciphertext TEXT NOT NULL,
-                    category_checksum TEXT NOT NULL,
                     subject_checksum TEXT NOT NULL,
                     description_checksum TEXT NOT NULL,
                     notes_checksum TEXT NOT NULL,
@@ -166,7 +167,9 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     deleted_at_utc TEXT NULL,
                     deleted_by_user_id TEXT NULL,
                     deleted_by_username TEXT NULL,
-                    delete_reason TEXT NULL
+                    delete_reason TEXT NULL,
+                    FOREIGN KEY (project_id) REFERENCES projects(project_id),
+                    FOREIGN KEY (created_by_user_id) REFERENCES app_users(user_id)
                 );
 
                 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -180,7 +183,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     project_id TEXT NULL,
                     outcome INTEGER NOT NULL,
                     details_ciphertext TEXT NOT NULL,
-                    details_checksum TEXT NOT NULL
+                    details_checksum TEXT NOT NULL,
+                    FOREIGN KEY (project_id) REFERENCES projects(project_id)
                 );
 
                 CREATE INDEX IF NOT EXISTS ix_projects_name ON projects(name);
@@ -196,6 +200,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             EnsureAppUserColumns(connection);
             EnsureProjectColumns(connection);
             EnsureGroupColumns(connection);
+            EnsureJournalEntrySchema(connection);
 
             _initialized = true;
         }
@@ -241,7 +246,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department
             FROM projects
             ORDER BY code;
             """;
@@ -255,11 +260,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 Code: reader.GetString(1),
                 Name: reader.GetString(2),
                 Description: reader.GetString(3),
-                ProjectOwnerName: reader.GetString(4),
-                ProjectEmail: reader.GetString(5),
-                ProjectPhone: reader.GetString(6),
-                ProjectOwner: reader.GetString(7),
-                Department: reader.GetString(8)));
+                ProjectEmail: reader.GetString(4),
+                ProjectPhone: reader.GetString(5),
+                ProjectOwner: reader.GetString(6),
+                Department: reader.GetString(7)));
         }
 
         return rows;
@@ -381,7 +385,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
 
         if (!string.IsNullOrWhiteSpace(filter))
         {
-            whereClauses.Add("(name LIKE $filter ESCAPE '\\' OR description LIKE $filter ESCAPE '\\')");
+            var filterClause = query.IncludeDescriptionInProjectFilter
+                ? "(code LIKE $filter ESCAPE '\\' OR name LIKE $filter ESCAPE '\\' OR description LIKE $filter ESCAPE '\\')"
+                : "(code LIKE $filter ESCAPE '\\' OR name LIKE $filter ESCAPE '\\')";
+            whereClauses.Add(filterClause);
             var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
             countCommand.Parameters.AddWithValue("$filter", filterValue);
             itemsCommand.Parameters.AddWithValue("$filter", filterValue);
@@ -416,7 +423,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         var skip = (query.Page - 1) * query.PageSize;
         itemsCommand.CommandText =
             $$"""
-            SELECT project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department
             FROM projects
             {{whereSql}}
             ORDER BY {{sortColumn}} {{sortDirection}}, project_id ASC
@@ -435,11 +442,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 Code: reader.GetString(1),
                 Name: reader.GetString(2),
                 Description: reader.GetString(3),
-                ProjectOwnerName: reader.GetString(4),
-                ProjectEmail: reader.GetString(5),
-                ProjectPhone: reader.GetString(6),
-                ProjectOwner: reader.GetString(7),
-                Department: reader.GetString(8)));
+                ProjectEmail: reader.GetString(4),
+                ProjectPhone: reader.GetString(5),
+                ProjectOwner: reader.GetString(6),
+                Department: reader.GetString(7)));
         }
 
         return new StorePagedResult<StoredProjectRow>(rows, totalCount);
@@ -913,8 +919,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             """
             SELECT
                 record_id, project_id, created_at_utc, created_by_user_id, created_by_username,
-                category_ciphertext, subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
-                category_checksum, subject_checksum, description_checksum, notes_checksum, result_checksum,
+                subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
+                subject_checksum, description_checksum, notes_checksum, result_checksum,
                 full_record_checksum, is_soft_deleted, deleted_at_utc, deleted_by_user_id, deleted_by_username, delete_reason
             FROM journal_entries;
             """;
@@ -930,27 +936,25 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 CreatedAtUtc = ParseUtc(reader.GetString(2)),
                 CreatedByUserId = Guid.Parse(reader.GetString(3)),
                 CreatedByUsername = reader.GetString(4),
-                CategoryCiphertext = reader.GetString(5),
-                SubjectCiphertext = reader.GetString(6),
-                DescriptionCiphertext = reader.GetString(7),
-                NotesCiphertext = reader.GetString(8),
-                ResultCiphertext = reader.GetString(9),
-                CategoryChecksum = reader.GetString(10),
-                SubjectChecksum = reader.GetString(11),
-                DescriptionChecksum = reader.GetString(12),
-                NotesChecksum = reader.GetString(13),
-                ResultChecksum = reader.GetString(14),
-                FullRecordChecksum = reader.GetString(15)
+                SubjectCiphertext = reader.GetString(5),
+                DescriptionCiphertext = reader.GetString(6),
+                NotesCiphertext = reader.GetString(7),
+                ResultCiphertext = reader.GetString(8),
+                SubjectChecksum = reader.GetString(9),
+                DescriptionChecksum = reader.GetString(10),
+                NotesChecksum = reader.GetString(11),
+                ResultChecksum = reader.GetString(12),
+                FullRecordChecksum = reader.GetString(13)
             };
 
-            var isSoftDeleted = reader.GetInt64(16) == 1;
+            var isSoftDeleted = reader.GetInt64(14) == 1;
             if (isSoftDeleted)
             {
                 record.MarkSoftDeleted(new SoftDeleteMetadata(
-                    DeletedAtUtc: reader.IsDBNull(17) ? record.CreatedAtUtc : ParseUtc(reader.GetString(17)),
-                    DeletedByUserId: reader.IsDBNull(18) ? Guid.Empty : Guid.Parse(reader.GetString(18)),
-                    DeletedByUsername: reader.IsDBNull(19) ? "unknown" : reader.GetString(19),
-                    Reason: reader.IsDBNull(20) ? string.Empty : reader.GetString(20)));
+                    DeletedAtUtc: reader.IsDBNull(15) ? record.CreatedAtUtc : ParseUtc(reader.GetString(15)),
+                    DeletedByUserId: reader.IsDBNull(16) ? Guid.Empty : Guid.Parse(reader.GetString(16)),
+                    DeletedByUsername: reader.IsDBNull(17) ? "unknown" : reader.GetString(17),
+                    Reason: reader.IsDBNull(18) ? string.Empty : reader.GetString(18)));
             }
 
             rows.Add(record);
@@ -1004,13 +1008,13 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             """
             INSERT INTO journal_entries (
                 record_id, project_id, created_at_utc, created_by_user_id, created_by_username,
-                category_ciphertext, subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
-                category_checksum, subject_checksum, description_checksum, notes_checksum, result_checksum,
+                subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
+                subject_checksum, description_checksum, notes_checksum, result_checksum,
                 full_record_checksum, is_soft_deleted, deleted_at_utc, deleted_by_user_id, deleted_by_username, delete_reason
             ) VALUES (
                 $record_id, $project_id, $created_at_utc, $created_by_user_id, $created_by_username,
-                $category_ciphertext, $subject_ciphertext, $description_ciphertext, $notes_ciphertext, $result_ciphertext,
-                $category_checksum, $subject_checksum, $description_checksum, $notes_checksum, $result_checksum,
+                $subject_ciphertext, $description_ciphertext, $notes_ciphertext, $result_ciphertext,
+                $subject_checksum, $description_checksum, $notes_checksum, $result_checksum,
                 $full_record_checksum, $is_soft_deleted, $deleted_at_utc, $deleted_by_user_id, $deleted_by_username, $delete_reason
             )
             ON CONFLICT(record_id) DO UPDATE SET
@@ -1018,12 +1022,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 created_at_utc = excluded.created_at_utc,
                 created_by_user_id = excluded.created_by_user_id,
                 created_by_username = excluded.created_by_username,
-                category_ciphertext = excluded.category_ciphertext,
                 subject_ciphertext = excluded.subject_ciphertext,
                 description_ciphertext = excluded.description_ciphertext,
                 notes_ciphertext = excluded.notes_ciphertext,
                 result_ciphertext = excluded.result_ciphertext,
-                category_checksum = excluded.category_checksum,
                 subject_checksum = excluded.subject_checksum,
                 description_checksum = excluded.description_checksum,
                 notes_checksum = excluded.notes_checksum,
@@ -1081,13 +1083,12 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO projects (project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department)
-            VALUES ($project_id, $code, $name, $description, $project_owner_name, $project_email, $project_phone, $project_owner, $department)
+            INSERT INTO projects (project_id, code, name, description, project_email, project_phone, project_owner, department)
+            VALUES ($project_id, $code, $name, $description, $project_email, $project_phone, $project_owner, $department)
             ON CONFLICT(project_id) DO UPDATE SET
                 code = excluded.code,
                 name = excluded.name,
                 description = excluded.description,
-                project_owner_name = excluded.project_owner_name,
                 project_email = excluded.project_email,
                 project_phone = excluded.project_phone,
                 project_owner = excluded.project_owner,
@@ -1098,7 +1099,6 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$code", project.Code);
         command.Parameters.AddWithValue("$name", project.Name);
         command.Parameters.AddWithValue("$description", project.Description);
-        command.Parameters.AddWithValue("$project_owner_name", project.ProjectOwnerName);
         command.Parameters.AddWithValue("$project_email", project.ProjectEmail);
         command.Parameters.AddWithValue("$project_phone", project.ProjectPhone);
         command.Parameters.AddWithValue("$project_owner", project.ProjectOwner);
@@ -1314,12 +1314,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$created_at_utc", record.CreatedAtUtc.ToUniversalTime().ToString("O"));
         command.Parameters.AddWithValue("$created_by_user_id", record.CreatedByUserId.ToString("D"));
         command.Parameters.AddWithValue("$created_by_username", record.CreatedByUsername);
-        command.Parameters.AddWithValue("$category_ciphertext", record.CategoryCiphertext);
         command.Parameters.AddWithValue("$subject_ciphertext", record.SubjectCiphertext);
         command.Parameters.AddWithValue("$description_ciphertext", record.DescriptionCiphertext);
         command.Parameters.AddWithValue("$notes_ciphertext", record.NotesCiphertext);
         command.Parameters.AddWithValue("$result_ciphertext", record.ResultCiphertext);
-        command.Parameters.AddWithValue("$category_checksum", record.CategoryChecksum);
         command.Parameters.AddWithValue("$subject_checksum", record.SubjectChecksum);
         command.Parameters.AddWithValue("$description_checksum", record.DescriptionChecksum);
         command.Parameters.AddWithValue("$notes_checksum", record.NotesChecksum);
@@ -1336,7 +1334,6 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "name" => "name",
-            "projectownername" or "project_owner_name" => "project_owner_name",
             "projectemail" or "project_email" => "project_email",
             "projectphone" or "project_phone" => "project_phone",
             "projectowner" or "project_owner" => "project_owner",
@@ -1383,6 +1380,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 using var pragma = connection.CreateCommand();
                 pragma.CommandText =
                     $$"""
+                    PRAGMA foreign_keys = ON;
                     PRAGMA journal_mode = WAL;
                     PRAGMA synchronous = NORMAL;
                     PRAGMA busy_timeout = {{SqliteBusyTimeoutMs}};
@@ -1473,13 +1471,6 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             }
         }
 
-        if (!columns.Contains("project_owner_name"))
-        {
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner_name TEXT NOT NULL DEFAULT '';";
-            cmd.ExecuteNonQuery();
-        }
-
         if (!columns.Contains("project_email"))
         {
             using var cmd = connection.CreateCommand();
@@ -1531,6 +1522,82 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             cmd.CommandText = "ALTER TABLE groups_ref ADD COLUMN description TEXT NOT NULL DEFAULT '';";
             cmd.ExecuteNonQuery();
         }
+    }
+
+    private static void EnsureJournalEntrySchema(SqliteConnection connection)
+    {
+        var columns = GetTableColumns(connection, "journal_entries");
+        if (columns.Count == 0 || (!columns.Contains("category_ciphertext") && !columns.Contains("category_checksum")))
+        {
+            return;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            BEGIN TRANSACTION;
+
+            CREATE TABLE IF NOT EXISTS journal_entries_v2 (
+                record_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                created_by_user_id TEXT NOT NULL,
+                created_by_username TEXT NOT NULL,
+                subject_ciphertext TEXT NOT NULL,
+                description_ciphertext TEXT NOT NULL,
+                notes_ciphertext TEXT NOT NULL,
+                result_ciphertext TEXT NOT NULL,
+                subject_checksum TEXT NOT NULL,
+                description_checksum TEXT NOT NULL,
+                notes_checksum TEXT NOT NULL,
+                result_checksum TEXT NOT NULL,
+                full_record_checksum TEXT NOT NULL,
+                is_soft_deleted INTEGER NOT NULL DEFAULT 0,
+                deleted_at_utc TEXT NULL,
+                deleted_by_user_id TEXT NULL,
+                deleted_by_username TEXT NULL,
+                delete_reason TEXT NULL,
+                FOREIGN KEY (project_id) REFERENCES projects(project_id),
+                FOREIGN KEY (created_by_user_id) REFERENCES app_users(user_id)
+            );
+
+            INSERT INTO journal_entries_v2 (
+                record_id, project_id, created_at_utc, created_by_user_id, created_by_username,
+                subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
+                subject_checksum, description_checksum, notes_checksum, result_checksum,
+                full_record_checksum, is_soft_deleted, deleted_at_utc, deleted_by_user_id, deleted_by_username, delete_reason
+            )
+            SELECT
+                record_id, project_id, created_at_utc, created_by_user_id, created_by_username,
+                subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
+                subject_checksum, description_checksum, notes_checksum, result_checksum,
+                full_record_checksum, is_soft_deleted, deleted_at_utc, deleted_by_user_id, deleted_by_username, delete_reason
+            FROM journal_entries;
+
+            DROP TABLE journal_entries;
+            ALTER TABLE journal_entries_v2 RENAME TO journal_entries;
+            CREATE INDEX IF NOT EXISTS ix_journal_entries_created_at_utc ON journal_entries(created_at_utc);
+
+            COMMIT;
+            """;
+        command.ExecuteNonQuery();
+    }
+
+    private static HashSet<string> GetTableColumns(SqliteConnection connection, string tableName)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = $"PRAGMA table_info({tableName});";
+        using var reader = pragma.ExecuteReader();
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(1))
+            {
+                columns.Add(reader.GetString(1));
+            }
+        }
+
+        return columns;
     }
 
     private static bool IsTransientConnectionFailure(SqliteException ex)

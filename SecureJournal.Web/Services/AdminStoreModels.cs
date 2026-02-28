@@ -6,7 +6,8 @@ public sealed record StoreListQuery(
     bool SortDescending,
     int Page,
     int PageSize,
-    bool? Assigned = null);
+    bool? Assigned = null,
+    bool IncludeDescriptionInProjectFilter = true);
 
 public sealed record StorePagedResult<T>(
     IReadOnlyList<T> Items,

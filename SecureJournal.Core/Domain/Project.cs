@@ -5,7 +5,6 @@ public sealed record Project(
     string Code,
     string Name,
     string Description,
-    string ProjectOwnerName,
     string ProjectEmail,
     string ProjectPhone,
     string ProjectOwner,

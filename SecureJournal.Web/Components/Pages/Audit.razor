@@ -177,7 +177,6 @@
                                             <span><strong>Created:</strong> @row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
                                             <span><strong>By:</strong> @row.RelatedJournalEntry.CreatedBy</span>
                                         </div>
-                                        <div class="audit-journal-preview-field"><strong>Action:</strong> @row.RelatedJournalEntry.Action</div>
                                         <div class="audit-journal-preview-field"><strong>Subject:</strong> @row.RelatedJournalEntry.Subject</div>
                                         <div class="audit-journal-preview-field">
                                             <strong>Description:</strong>
@@ -246,14 +245,14 @@
     private readonly AuditActionType[] _auditActions = Enum.GetValues<AuditActionType>();
     private readonly AuditEntityType[] _auditEntities = Enum.GetValues<AuditEntityType>();
     private readonly AuditOutcome[] _auditOutcomes = Enum.GetValues<AuditOutcome>();
-    private readonly int[] _pageSizeOptions = [10, 25, 50, 100];
+    private readonly int[] _pageSizeOptions = [10, 20, 50, 100];
     private readonly AuditTextSearchField[] _textSearchFields = Enum.GetValues<AuditTextSearchField>();
 
     private List<ProjectOverview> _projects = new();
     private List<AuditLogView> _rows = new();
     private Dictionary<Guid, AuditChecksumValidationResult> _checksumValidationResults = new();
     private string? _error;
-    private int _pageSize = 25;
+    private int _pageSize = 20;
     private int _currentPage = 1;
 
     private string? _fromDateText;

@@ -146,7 +146,7 @@ public sealed class PrototypeSessionCookieCoordinator
             new CookieOptions
             {
                 HttpOnly = true,
-                Secure = context.Request.IsHttps,
+                Secure = true,
                 SameSite = SameSiteMode.Lax,
                 IsEssential = true,
                 Path = "/",
@@ -168,7 +168,7 @@ public sealed class PrototypeSessionCookieCoordinator
             _settings.CookieName,
             new CookieOptions
             {
-                Secure = context.Request.IsHttps,
+                Secure = true,
                 SameSite = SameSiteMode.Lax,
                 Path = "/"
             });

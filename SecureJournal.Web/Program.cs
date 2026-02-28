@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 EnvironmentConfigurationOverrides.Apply(builder.Configuration);
@@ -76,6 +77,12 @@ else
 builder.Services.AddScoped<ISecureJournalAppService, SecureJournalAppService>();
 builder.Services.AddScoped<PrototypeSessionCookieCoordinator>();
 builder.Services.AddProductionIdentityAndDatabaseFoundation(builder.Configuration);
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 var app = builder.Build();
 var oidcRoleMappings = app.Services.GetRequiredService<OidcRoleGroupMappings>();
@@ -91,6 +98,7 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+app.UseForwardedHeaders();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.Use(async (context, next) =>
@@ -107,6 +115,10 @@ app.Use(async (context, next) =>
         headers["Cross-Origin-Resource-Policy"] = "same-origin";
 
         // Blazor Server requires self scripts + websocket connectivity; ImportMap emits inline script content.
+        var connectSrc = app.Environment.IsDevelopment()
+            ? "connect-src 'self' ws: wss:; "
+            : "connect-src 'self' wss:; ";
+
         headers["Content-Security-Policy"] =
             "default-src 'self'; " +
             "base-uri 'self'; " +
@@ -116,7 +128,7 @@ app.Use(async (context, next) =>
             "img-src 'self' data: blob:; " +
             "style-src 'self' 'unsafe-inline'; " +
             "script-src 'self' 'unsafe-inline'; " +
-            "connect-src 'self' ws: wss:; " +
+            connectSrc +
             "font-src 'self' data:;";
 
         if (context.Request.IsHttps && !headers.ContainsKey("Strict-Transport-Security"))

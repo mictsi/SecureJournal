@@ -10,7 +10,7 @@ public sealed class ExportContentFormatter : IExportContentFormatter
     {
         var sb = new StringBuilder();
         AppendCsvMetadata(sb, "JournalEntries", filter.ProjectId, filter.FromUtc, filter.ToUtc, filter.IncludeSoftDeleted);
-        sb.AppendLine("RecordId,CreatedAtUtc,CreatedBy,ProjectCode,ProjectName,Action,Subject,Description,Notes,IsSoftDeleted,DeletedAtUtc,DeletedBy,DeleteReason,FullRecordChecksum");
+        sb.AppendLine("RecordId,CreatedAtUtc,CreatedBy,ProjectCode,ProjectName,Subject,Description,Notes,IsSoftDeleted,DeletedAtUtc,DeletedBy,DeleteReason,FullRecordChecksum");
 
         foreach (var row in rows)
         {
@@ -20,7 +20,6 @@ public sealed class ExportContentFormatter : IExportContentFormatter
                 Csv(row.CreatedBy),
                 Csv(row.ProjectCode),
                 Csv(row.ProjectName),
-                Csv(row.Action),
                 Csv(row.Subject),
                 Csv(row.Description),
                 Csv(row.Notes),

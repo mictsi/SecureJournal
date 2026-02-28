@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.8.0 - 2026-02-28
+
+### UX and Workflow Updates
+
+- Removed `Export Output Preview` from `/exports` and kept export generation/download flow focused on direct file delivery.
+- Refined landing/login branding and auth entry UX:
+  - removed visual card/box treatment around the landing login content and logo
+  - adjusted spacing around logo and OIDC action
+  - updated OIDC button label to `Login with OpenID`.
+- Updated project/admin list defaults to page size `20` across core admin views for more consistent paging behavior.
+- Improved project and group management table layouts/wrapping behavior for better readability on narrower widths.
+
+### Journal and Data Model Simplification
+
+- Removed journal entry `Action` from create flow, view models, entry details, exports, and persistence mapping.
+- Added SQLite schema upgrade path to migrate legacy `journal_entries` tables containing `category_*` columns to the new schema.
+- Removed `ProjectOwnerName` from project contracts/domain/UI/store mappings and aligned project metadata screens to `Project owner`, `Project owner email`, and `Project owner phone`.
+
+### Security and Runtime Hardening
+
+- Added forwarded headers support (`X-Forwarded-For`, `X-Forwarded-Proto`) for reverse-proxy deployments.
+- Tightened CSP `connect-src` behavior to allow `ws:` only in Development and `wss:` in non-development environments.
+- Enforced secure session cookie flags in session-cookie coordinator paths.
+- Enabled SQLite foreign key PRAGMA and added FK constraints in bootstrap schema definitions where applicable.
+
+### UI Reliability
+
+- Hid Blazor unhandled error banner by default and kept it fixed-bottom only when shown.
+- Updated journal entry detail rendering to use simple markup preview formatting consistently with create/edit views.
+
 ## 0.7.0 - 2026-02-28
 
 ### Administration UX and Data Management

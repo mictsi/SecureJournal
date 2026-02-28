@@ -642,7 +642,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.Code,
                     project.Name,
                     project.Description,
-                    project.ProjectOwnerName,
                     project.ProjectEmail,
                     project.ProjectPhone,
                     project.ProjectOwner,
@@ -669,7 +668,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 request.SortField,
                 request.SortDirection,
                 request.Page,
-                request.PageSize);
+                request.PageSize,
+                includeDescriptionInProjectFilter: request.IncludeDescriptionInFilter);
 
             IReadOnlyCollection<Guid>? visibleProjectIds = isPrivileged ? null : readableProjectIds.ToList();
             var storeResult = _sqliteStore.QueryProjects(normalized, visibleProjectIds);
@@ -687,7 +687,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.Code,
                     project.Name,
                     project.Description,
-                    project.ProjectOwnerName,
                     project.ProjectEmail,
                     project.ProjectPhone,
                     project.ProjectOwner,
@@ -935,7 +934,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 : requestedCode.ToUpperInvariant();
             var name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.ProjectNameMax);
             var description = InputNormalizer.NormalizeOptional(request.Description, FieldLimits.DescriptionMax);
-            var projectOwnerName = InputNormalizer.NormalizeOptional(request.ProjectOwnerName, FieldLimits.DisplayNameMax);
             var projectEmail = InputNormalizer.NormalizeOptional(request.ProjectEmail, FieldLimits.EmailMax);
             var projectPhone = InputNormalizer.NormalizeOptional(request.ProjectPhone, FieldLimits.PhoneMax);
             var projectOwner = InputNormalizer.NormalizeOptional(request.ProjectOwner, FieldLimits.DisplayNameMax);
@@ -951,7 +949,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 code,
                 name,
                 description,
-                projectOwnerName,
                 projectEmail,
                 projectPhone,
                 projectOwner,
@@ -962,7 +959,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.Code,
                 project.Name,
                 project.Description,
-                project.ProjectOwnerName,
                 project.ProjectEmail,
                 project.ProjectPhone,
                 project.ProjectOwner,
@@ -987,7 +983,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.Code,
                 project.Name,
                 project.Description,
-                project.ProjectOwnerName,
                 project.ProjectEmail,
                 project.ProjectPhone,
                 project.ProjectOwner,
@@ -1020,7 +1015,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             {
                 Name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.ProjectNameMax),
                 Description = InputNormalizer.NormalizeOptional(request.Description, FieldLimits.DescriptionMax),
-                ProjectOwnerName = InputNormalizer.NormalizeOptional(request.ProjectOwnerName, FieldLimits.DisplayNameMax),
                 ProjectEmail = InputNormalizer.NormalizeOptional(request.ProjectEmail, FieldLimits.EmailMax),
                 ProjectPhone = InputNormalizer.NormalizeOptional(request.ProjectPhone, FieldLimits.PhoneMax),
                 ProjectOwner = InputNormalizer.NormalizeOptional(request.ProjectOwner, FieldLimits.DisplayNameMax),
@@ -1033,7 +1027,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.Code,
                 updatedProject.Name,
                 updatedProject.Description,
-                updatedProject.ProjectOwnerName,
                 updatedProject.ProjectEmail,
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
@@ -1059,7 +1052,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.Code,
                 updatedProject.Name,
                 updatedProject.Description,
-                updatedProject.ProjectOwnerName,
                 updatedProject.ProjectEmail,
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
@@ -2326,7 +2318,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 throw new UnauthorizedAccessException("You do not have access to the selected project.");
             }
 
-            var action = InputNormalizer.NormalizeRequired(request.Action, nameof(request.Action), FieldLimits.CategoryMax);
             var subject = InputNormalizer.NormalizeRequired(request.Subject, nameof(request.Subject), FieldLimits.SubjectMax);
             var description = InputNormalizer.NormalizeRequired(request.Description, nameof(request.Description), FieldLimits.DescriptionMax);
             var notes = InputNormalizer.NormalizeOptional(request.Notes, FieldLimits.NotesMax);
@@ -2337,7 +2328,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 actor.UserId,
                 actor.Username,
                 now,
-                action,
                 subject,
                 description,
                 notes,
@@ -2353,7 +2343,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 entityId: record.RecordId.ToString(),
                 projectId: project.ProjectId,
                 AuditOutcome.Success,
-                $"Journal entry created in project '{project.Code}' with action '{action}' and subject '{subject}'.");
+                $"Journal entry created in project '{project.Code}' with subject '{subject}'.");
 
             return _recordViewMapper.MapJournalEntry(record, _projects);
         }
@@ -2661,7 +2651,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 storedProject.Code,
                 storedProject.Name,
                 storedProject.Description,
-                storedProject.ProjectOwnerName,
                 storedProject.ProjectEmail,
                 storedProject.ProjectPhone,
                 storedProject.ProjectOwner,
@@ -2771,13 +2760,11 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         AppUser actor,
         Project project,
         DateTime createdAtUtc,
-        string category,
         string subject,
         string description,
         string notes,
         string result)
     {
-        var normalizedCategory = InputNormalizer.NormalizeRequired(category, nameof(category), FieldLimits.CategoryMax);
         var normalizedSubject = InputNormalizer.NormalizeRequired(subject, nameof(subject), FieldLimits.SubjectMax);
         var normalizedDescription = InputNormalizer.NormalizeRequired(description, nameof(description), FieldLimits.DescriptionMax);
         var normalizedNotes = InputNormalizer.NormalizeOptional(notes, FieldLimits.NotesMax);
@@ -2788,7 +2775,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             actor.UserId,
             actor.Username,
             createdAtUtc,
-            normalizedCategory,
             normalizedSubject,
             normalizedDescription,
             normalizedNotes,
@@ -3676,7 +3662,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         SortDirection sortDirection,
         int page,
         int pageSize,
-        bool? assigned = null)
+        bool? assigned = null,
+        bool includeDescriptionInProjectFilter = true)
     {
         var normalizedPage = Math.Max(1, page);
         var normalizedPageSize = Math.Clamp(pageSize, 1, 250);
@@ -3686,7 +3673,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             sortDirection == SortDirection.Desc,
             normalizedPage,
             normalizedPageSize,
-            assigned);
+            assigned,
+            includeDescriptionInProjectFilter);
     }
 
     private static PagedResult<T> BuildPagedResult<T>(IReadOnlyList<T> items, int totalCount, int page, int pageSize)

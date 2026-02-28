@@ -10,7 +10,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h2>Group Management</h2>
-        <p>Manage group metadata and memberships with server-side filtering, sorting, and paging.</p>
+        <p>Search groups and delete.</p>
     </div>
 </section>
 
@@ -116,10 +116,10 @@ else
 }
 
 @code {
-    private readonly int[] _pageSizeOptions = [30, 50, 100];
+    private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
     private UserContext? _currentUser;
-    private GroupListQuery _groupQuery = new() { PageSize = 30, SortField = "name" };
-    private PagedResult<GroupOverview> _groupPage = new(Array.Empty<GroupOverview>(), 0, 1, 30, 1);
+    private GroupListQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
+    private PagedResult<GroupOverview> _groupPage = new(Array.Empty<GroupOverview>(), 0, 1, 20, 1);
     private bool _isDeleting;
     private Guid? _deletingGroupId;
     private string? _message;

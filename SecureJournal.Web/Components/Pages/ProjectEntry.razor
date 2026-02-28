@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
+@using SecureJournal.Web.Utilities
 
 <PageTitle>Journal Entry Details</PageTitle>
 
@@ -30,8 +31,6 @@
         <dl class="meta-list">
             <dt>Created (UTC)</dt>
             <dd>@_entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") by @_entry.CreatedBy</dd>
-            <dt>Action</dt>
-            <dd>@_entry.Action</dd>
             <dt>Status</dt>
             <dd>@(_entry.IsSoftDeleted ? "Soft-deleted" : "Active")</dd>
             @if (_entry.IsSoftDeleted)
@@ -46,17 +45,17 @@
         <div class="entry-view-grid">
             <div class="entry-view-block">
                 <h4>Description</h4>
-                <p class="entry-view-text">@_entry.Description</p>
+                <div class="entry-view-text">@SimpleMarkupPreview.Render(_entry.Description)</div>
             </div>
             <div class="entry-view-block">
                 <h4>Notes</h4>
-                <p class="entry-view-text">@(string.IsNullOrWhiteSpace(_entry.Notes) ? "No notes" : _entry.Notes)</p>
+                <div class="entry-view-text">@SimpleMarkupPreview.Render(_entry.Notes)</div>
             </div>
             @if (_entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(_entry.DeleteReason))
             {
                 <div class="entry-view-block entry-view-block-full">
                     <h4>Delete reason</h4>
-                    <p class="entry-view-text">@_entry.DeleteReason</p>
+                    <div class="entry-view-text">@SimpleMarkupPreview.Render(_entry.DeleteReason)</div>
                 </div>
             }
         </div>

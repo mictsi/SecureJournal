@@ -67,31 +67,51 @@
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 my-projects-table">
+                        <colgroup>
+                            <col class="my-projects-col-code" />
+                            <col class="my-projects-col-name" />
+                            <col class="my-projects-col-groups" />
+                            <col class="my-projects-col-access" />
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
                                 <th>Assigned Groups</th>
                                 <th>Access</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var project in VisibleProjects)
                             {
                                 var isSelected = _selectedProjectId == project.ProjectId;
-                                <tr class="@(isSelected ? "table-active" : string.Empty)">
-                                    <td><code>@project.Code</code></td>
-                                    <td>
-                                        <div>@project.Name</div>
+                                <tr class="my-projects-row @(isSelected ? "table-active" : string.Empty)"
+                                    @onclick="() => SelectProject(project.ProjectId)">
+                                    <td class="my-projects-code-cell"><code>@project.Code</code></td>
+                                    <td class="my-projects-name-cell">
+                                        <div class="my-projects-name">@project.Name</div>
                                         @if (!string.IsNullOrWhiteSpace(project.Description))
                                         {
-                                            <small class="text-muted">@project.Description</small>
+                                            <small class="text-muted my-projects-description" title="@project.Description">@project.Description</small>
                                         }
                                     </td>
-                                    <td>@(project.AssignedGroups.Count == 0 ? "-" : string.Join(", ", project.AssignedGroups))</td>
-                                    <td>
+                                    <td class="my-projects-groups-cell">
+                                        @if (project.AssignedGroups.Count == 0)
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="my-projects-group-tag-list">
+                                                @foreach (var groupName in project.AssignedGroups)
+                                                {
+                                                    <span class="my-projects-group-tag" title="@groupName">@groupName</span>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="my-projects-access-cell">
                                         @if (project.HasAccessForCurrentUser)
                                         {
                                             <span class="badge text-bg-success">Allowed</span>
@@ -100,13 +120,6 @@
                                         {
                                             <span class="badge text-bg-secondary">No access</span>
                                         }
-                                    </td>
-                                    <td class="text-end">
-                                        <button type="button"
-                                                class="btn btn-sm @(isSelected ? "btn-primary" : "btn-outline-secondary")"
-                                                @onclick="() => SelectProject(project.ProjectId)">
-                                            @(isSelected ? "Selected" : "Open")
-                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -150,7 +163,7 @@
     <div class="projects-right-column">
         <section class="panel-card projects-journal-column">
             <div class="panel-card-header">
-                <h3>Project Journal Entries</h3>
+                <h3>@JournalEntriesPanelTitle</h3>
                 <div class="panel-card-header-actions">
                     <span class="text-muted">@SelectedProjectLabel</span>
                     @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
@@ -228,17 +241,8 @@
                             <div class="entry-inline-field entry-inline-field-created">
                                 <span class="entry-inline-colname">Created</span>
                             </div>
-                            <div class="entry-inline-field entry-inline-field-action">
-                                <span class="entry-inline-colname">Action</span>
-                            </div>
                             <div class="entry-inline-field entry-inline-field-subject">
                                 <span class="entry-inline-colname">Subject</span>
-                            </div>
-                            <div class="entry-inline-field entry-inline-field-description">
-                                <span class="entry-inline-colname">Description</span>
-                            </div>
-                            <div class="entry-inline-field entry-inline-field-notes">
-                                <span class="entry-inline-colname">Notes</span>
                             </div>
                             <div class="entry-inline-field entry-inline-field-status">
                                 <span class="entry-inline-colname">Status</span>
@@ -257,24 +261,12 @@
                                     </span>
                                 </div>
 
-                                <div class="entry-inline-field entry-inline-field-action">
-                                    <span class="entry-inline-text" title="@entry.Action">@entry.Action</span>
-                                </div>
-
                                 <div class="entry-inline-field entry-inline-field-subject">
                                     <a class="entry-inline-link"
                                        href="@GetEntryDetailsUrl(entry)"
                                        title="@entry.Subject">
                                         @entry.Subject
                                     </a>
-                                </div>
-
-                                <div class="entry-inline-field entry-inline-field-description">
-                                    <span class="entry-inline-text" title="@entry.Description">@entry.Description</span>
-                                </div>
-
-                                <div class="entry-inline-field entry-inline-field-notes">
-                                    <span class="entry-inline-text" title="@entry.Notes">@(string.IsNullOrWhiteSpace(entry.Notes) ? "No notes" : entry.Notes)</span>
                                 </div>
 
                                 <div class="entry-inline-field entry-inline-field-status">
@@ -330,11 +322,11 @@
     private Guid? _selectedProjectId;
     private bool _includeSoftDeleted;
     private string _searchText = string.Empty;
-    private int _pageSize = 10;
+    private int _pageSize = 20;
     private int _currentPage = 1;
     private string _dateSortOrder = DateSortNewest;
     private string _projectSearchText = string.Empty;
-    private int _projectListPageSize = 10;
+    private int _projectListPageSize = 20;
     private int _projectListPage = 1;
     private string _currentUserGroupNames = "None";
     private string? _message;
@@ -411,6 +403,13 @@
                 ? $"{project.Code} - {project.Name}"
                 : "Selected project"
             : "No project selected";
+
+    private string JournalEntriesPanelTitle
+        => _selectedProjectId.HasValue
+            ? _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId.Value) is { } project
+                ? $"Displaying journal entries for {project.Name} ({project.ProjectId})"
+                : "Project Journal Entries"
+            : "Project Journal Entries";
 
     protected override async Task OnInitializedAsync()
     {

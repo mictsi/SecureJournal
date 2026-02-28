@@ -100,7 +100,7 @@ This repository includes a GitHub Actions workflow:
 
 Trigger:
 
-- Push of a new git tag matching `v*` (for example `v0.6.4`)
+- Push of a new git tag matching `v*` (for example `v0.8.0`)
 
 Workflow behavior:
 
@@ -183,7 +183,7 @@ You can produce a local release artifact zip from the repository root:
 
 ```powershell
 dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true
-Compress-Archive -Path .artifacts\publish\web\* -DestinationPath .artifacts\releases\securejournal-web-v0.6.4.zip -Force
+Compress-Archive -Path .artifacts\publish\web\* -DestinationPath .artifacts\releases\securejournal-web-v0.8.0.zip -Force
 ```
 
 This zip is suitable for attaching to a GitHub release.

@@ -55,12 +55,7 @@
                     </InputSelect>
                 </div>
 
-                <div class="col-md-5">
-                    <label class="form-label" for="actionInput">Action (max @FieldLimits.CategoryMax chars)</label>
-                    <InputText id="actionInput" class="form-control" maxlength="@FieldLimits.CategoryMax" @bind-Value="DraftModel.Action" />
-                </div>
-
-                <div class="col-md-7">
+                <div class="col-12">
                     <label class="form-label" for="subjectInput">Subject (one line, max @FieldLimits.SubjectMax chars)</label>
                     <InputText id="subjectInput" class="form-control" maxlength="@FieldLimits.SubjectMax" @bind-Value="DraftModel.Subject" />
                 </div>
@@ -159,7 +154,6 @@
     private void ResetDraft()
     {
         var selectedProject = DraftModel.ProjectId;
-        DraftModel.Action = string.Empty;
         DraftModel.Subject = string.Empty;
         DraftModel.Description = string.Empty;
         DraftModel.Notes = string.Empty;

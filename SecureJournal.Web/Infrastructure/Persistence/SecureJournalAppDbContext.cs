@@ -48,7 +48,6 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.Code).HasColumnName("code").HasMaxLength(20).IsRequired();
             entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
             entity.Property(x => x.Description).HasColumnName("description").HasMaxLength(500).IsRequired();
-            entity.Property(x => x.ProjectOwnerName).HasColumnName("project_owner_name").HasMaxLength(100).IsRequired();
             entity.Property(x => x.ProjectEmail).HasColumnName("project_email").HasMaxLength(254).IsRequired();
             entity.Property(x => x.ProjectPhone).HasColumnName("project_phone").HasMaxLength(32).IsRequired();
             entity.Property(x => x.ProjectOwner).HasColumnName("project_owner").HasMaxLength(100).IsRequired();
@@ -104,12 +103,10 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
             entity.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id").IsRequired();
             entity.Property(x => x.CreatedByUsername).HasColumnName("created_by_username").IsRequired();
-            entity.Property(x => x.CategoryCiphertext).HasColumnName("category_ciphertext").IsRequired();
             entity.Property(x => x.SubjectCiphertext).HasColumnName("subject_ciphertext").IsRequired();
             entity.Property(x => x.DescriptionCiphertext).HasColumnName("description_ciphertext").IsRequired();
             entity.Property(x => x.NotesCiphertext).HasColumnName("notes_ciphertext").IsRequired();
             entity.Property(x => x.ResultCiphertext).HasColumnName("result_ciphertext").IsRequired();
-            entity.Property(x => x.CategoryChecksum).HasColumnName("category_checksum").IsRequired();
             entity.Property(x => x.SubjectChecksum).HasColumnName("subject_checksum").IsRequired();
             entity.Property(x => x.DescriptionChecksum).HasColumnName("description_checksum").IsRequired();
             entity.Property(x => x.NotesChecksum).HasColumnName("notes_checksum").IsRequired();
@@ -162,7 +159,6 @@ public sealed class ProjectEntity
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string ProjectOwnerName { get; set; } = string.Empty;
     public string ProjectEmail { get; set; } = string.Empty;
     public string ProjectPhone { get; set; } = string.Empty;
     public string ProjectOwner { get; set; } = string.Empty;
@@ -201,12 +197,10 @@ public sealed class JournalEntryEntity
     public DateTime CreatedAtUtc { get; set; }
     public Guid CreatedByUserId { get; set; }
     public string CreatedByUsername { get; set; } = string.Empty;
-    public string CategoryCiphertext { get; set; } = string.Empty;
     public string SubjectCiphertext { get; set; } = string.Empty;
     public string DescriptionCiphertext { get; set; } = string.Empty;
     public string NotesCiphertext { get; set; } = string.Empty;
     public string ResultCiphertext { get; set; } = string.Empty;
-    public string CategoryChecksum { get; set; } = string.Empty;
     public string SubjectChecksum { get; set; } = string.Empty;
     public string DescriptionChecksum { get; set; } = string.Empty;
     public string NotesChecksum { get; set; } = string.Empty;

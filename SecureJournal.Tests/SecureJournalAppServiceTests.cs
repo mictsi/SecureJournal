@@ -552,7 +552,6 @@ public sealed class SecureJournalAppServiceTests
         var entry = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
         {
             ProjectId = setup.Project.ProjectId,
-            Action = "Incident",
             Subject = "Subsystem restart",
             Description = "Service restarted after configuration update.",
             Notes = "Observed during maintenance window."
@@ -580,7 +579,6 @@ public sealed class SecureJournalAppServiceTests
         Assert.Throws<UnauthorizedAccessException>(() => ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
         {
             ProjectId = setup.Project.ProjectId,
-            Action = "Test",
             Subject = "Denied",
             Description = "Auditor should not create journal entries"
         }));
@@ -605,7 +603,6 @@ public sealed class SecureJournalAppServiceTests
         var created = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
         {
             ProjectId = setup.Project.ProjectId,
-            Action = "Maintenance",
             Subject = "Patch install",
             Description = "Patched the environment.",
             Notes = ""
@@ -673,7 +670,6 @@ public sealed class SecureJournalAppServiceTests
         var entry = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
         {
             ProjectId = setup.Project.ProjectId,
-            Action = "Ops",
             Subject = "Persistence check",
             Description = "Entry should persist across service instances.",
         });
@@ -1107,7 +1103,6 @@ public sealed class SecureJournalAppServiceTests
             Code = "PRJ-A",
             Name = "Alpha",
             Description = "Incident response operations",
-            ProjectOwnerName = "Zed Owner",
             ProjectEmail = "zed.owner@example.com",
             ProjectPhone = "+46-111",
             ProjectOwner = "zowner",
@@ -1118,7 +1113,6 @@ public sealed class SecureJournalAppServiceTests
             Code = "PRJ-B",
             Name = "Beta",
             Description = "Routine maintenance",
-            ProjectOwnerName = "Anna Owner",
             ProjectEmail = "anna.owner@example.com",
             ProjectPhone = "+46-222",
             ProjectOwner = "aowner",
@@ -1129,7 +1123,6 @@ public sealed class SecureJournalAppServiceTests
             Code = "PRJ-C",
             Name = "Gamma",
             Description = "Another incident process",
-            ProjectOwnerName = "Mike Owner",
             ProjectEmail = "mike.owner@example.com",
             ProjectPhone = "+46-333",
             ProjectOwner = "mowner",
@@ -1147,14 +1140,14 @@ public sealed class SecureJournalAppServiceTests
 
         var sorted = ctx.App.GetProjects(new ProjectListQuery
         {
-            SortField = "projectOwnerName",
+            SortField = "projectOwner",
             SortDirection = SortDirection.Desc,
             Page = 1,
             PageSize = 1
         });
         Assert.Equal(3, sorted.TotalCount);
         Assert.Equal(3, sorted.TotalPages);
-        Assert.Equal("Zed Owner", sorted.Items[0].ProjectOwnerName);
+        Assert.Equal("zowner", sorted.Items[0].ProjectOwner);
         Assert.Equal("zed.owner@example.com", sorted.Items[0].ProjectEmail);
     }
 

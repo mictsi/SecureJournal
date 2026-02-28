@@ -8,13 +8,11 @@ public sealed class JournalEntryRecord
     public Guid CreatedByUserId { get; init; }
     public string CreatedByUsername { get; init; } = string.Empty;
 
-    public string CategoryCiphertext { get; init; } = string.Empty;
     public string SubjectCiphertext { get; init; } = string.Empty;
     public string DescriptionCiphertext { get; init; } = string.Empty;
     public string NotesCiphertext { get; init; } = string.Empty;
     public string ResultCiphertext { get; init; } = string.Empty;
 
-    public string CategoryChecksum { get; init; } = string.Empty;
     public string SubjectChecksum { get; init; } = string.Empty;
     public string DescriptionChecksum { get; init; } = string.Empty;
     public string NotesChecksum { get; init; } = string.Empty;

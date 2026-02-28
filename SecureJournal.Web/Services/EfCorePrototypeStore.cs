@@ -76,7 +76,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.Code,
                 x.Name,
                 x.Description,
-                x.ProjectOwnerName,
                 x.ProjectEmail,
                 x.ProjectPhone,
                 x.ProjectOwner,
@@ -142,9 +141,19 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         if (!string.IsNullOrWhiteSpace(filter))
         {
             var pattern = $"%{EscapeLikeLikePattern(filter)}%";
-            baseQuery = baseQuery.Where(x =>
-                EF.Functions.Like(x.Name, pattern, "\\") ||
-                EF.Functions.Like(x.Description, pattern, "\\"));
+            if (query.IncludeDescriptionInProjectFilter)
+            {
+                baseQuery = baseQuery.Where(x =>
+                    EF.Functions.Like(x.Code, pattern, "\\") ||
+                    EF.Functions.Like(x.Name, pattern, "\\") ||
+                    EF.Functions.Like(x.Description, pattern, "\\"));
+            }
+            else
+            {
+                baseQuery = baseQuery.Where(x =>
+                    EF.Functions.Like(x.Code, pattern, "\\") ||
+                    EF.Functions.Like(x.Name, pattern, "\\"));
+            }
         }
 
         if (visibleProjectIds is not null)
@@ -168,7 +177,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.Code,
                 x.Name,
                 x.Description,
-                x.ProjectOwnerName,
                 x.ProjectEmail,
                 x.ProjectPhone,
                 x.ProjectOwner,
@@ -514,12 +522,10 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 CreatedAtUtc = DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc).ToUniversalTime(),
                 CreatedByUserId = x.CreatedByUserId,
                 CreatedByUsername = x.CreatedByUsername,
-                CategoryCiphertext = x.CategoryCiphertext,
                 SubjectCiphertext = x.SubjectCiphertext,
                 DescriptionCiphertext = x.DescriptionCiphertext,
                 NotesCiphertext = x.NotesCiphertext,
                 ResultCiphertext = x.ResultCiphertext,
-                CategoryChecksum = x.CategoryChecksum,
                 SubjectChecksum = x.SubjectChecksum,
                 DescriptionChecksum = x.DescriptionChecksum,
                 NotesChecksum = x.NotesChecksum,
@@ -608,7 +614,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         entity.Code = project.Code;
         entity.Name = project.Name;
         entity.Description = project.Description;
-        entity.ProjectOwnerName = project.ProjectOwnerName;
         entity.ProjectEmail = project.ProjectEmail;
         entity.ProjectPhone = project.ProjectPhone;
         entity.ProjectOwner = project.ProjectOwner;
@@ -785,12 +790,10 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         entity.CreatedAtUtc = record.CreatedAtUtc.ToUniversalTime();
         entity.CreatedByUserId = record.CreatedByUserId;
         entity.CreatedByUsername = record.CreatedByUsername;
-        entity.CategoryCiphertext = record.CategoryCiphertext;
         entity.SubjectCiphertext = record.SubjectCiphertext;
         entity.DescriptionCiphertext = record.DescriptionCiphertext;
         entity.NotesCiphertext = record.NotesCiphertext;
         entity.ResultCiphertext = record.ResultCiphertext;
-        entity.CategoryChecksum = record.CategoryChecksum;
         entity.SubjectChecksum = record.SubjectChecksum;
         entity.DescriptionChecksum = record.DescriptionChecksum;
         entity.NotesChecksum = record.NotesChecksum;
@@ -899,9 +902,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             "name" => descending
                 ? query.OrderByDescending(x => x.Name).ThenBy(x => x.ProjectId)
                 : query.OrderBy(x => x.Name).ThenBy(x => x.ProjectId),
-            "projectownername" or "project_owner_name" => descending
-                ? query.OrderByDescending(x => x.ProjectOwnerName).ThenBy(x => x.ProjectId)
-                : query.OrderBy(x => x.ProjectOwnerName).ThenBy(x => x.ProjectId),
             "projectemail" or "project_email" => descending
                 ? query.OrderByDescending(x => x.ProjectEmail).ThenBy(x => x.ProjectId)
                 : query.OrderBy(x => x.ProjectEmail).ThenBy(x => x.ProjectId),
@@ -1058,8 +1058,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         {
             db.Database.ExecuteSqlRaw(
                 """
-                IF COL_LENGTH('projects', 'project_owner_name') IS NULL
-                    ALTER TABLE projects ADD project_owner_name nvarchar(100) NOT NULL CONSTRAINT DF_projects_project_owner_name DEFAULT ('');
                 IF COL_LENGTH('projects', 'project_email') IS NULL
                     ALTER TABLE projects ADD project_email nvarchar(254) NOT NULL CONSTRAINT DF_projects_project_email DEFAULT ('');
                 IF COL_LENGTH('projects', 'project_phone') IS NULL
@@ -1076,7 +1074,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         {
             db.Database.ExecuteSqlRaw(
                 """
-                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner_name varchar(100) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_email varchar(254) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_phone varchar(32) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner varchar(100) NOT NULL DEFAULT '';
@@ -1108,13 +1105,6 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                             columns.Add(name);
                         }
                     }
-                }
-
-                if (!columns.Contains("project_owner_name"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner_name TEXT NOT NULL DEFAULT '';";
-                    cmd.ExecuteNonQuery();
                 }
 
                 if (!columns.Contains("project_email"))

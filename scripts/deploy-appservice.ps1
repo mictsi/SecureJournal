@@ -175,9 +175,7 @@ function Resolve-SettingsFilePath {
     }
 
     $candidates = @(
-        (Join-Path $repoRoot "SecureJournal.Web\appsettings.Production.json"),
-        (Join-Path $repoRoot "SecureJournal.Web\appsettings.json"),
-        (Join-Path $repoRoot "SecureJournal.Web\appsettings.template.json")
+        (Join-Path $repoRoot "SecureJournal.Web\appsettings.json")
     )
 
     return $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1

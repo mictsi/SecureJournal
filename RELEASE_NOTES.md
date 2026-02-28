@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.8.2 - 2026-02-28
+
+### Highlights
+
+- Switched audit checksum behavior from details-only hashing to canonical multi-field hashing across:
+  - `Timestamp (UTC)`
+  - `User`
+  - `Action`
+  - `Entity` + `EntityId`
+  - `Project`
+  - `Outcome`
+  - `Details`
+- Added a manual checksum PowerShell utility to reproduce app-side checksum generation exactly.
+
+### Technical Notes
+
+- Added canonical material builder:
+  - `SecureJournal.Core/Security/AuditChecksumMaterialBuilder.cs`
+- Updated checksum creation:
+  - `SecureJournal.Web/Services/AuditLogRecordFactory.cs`
+- Updated checksum validation:
+  - `SecureJournal.Web/Services/SecureJournalAppService.cs`
+- Added manual script:
+  - `scripts/compute-audit-checksum.ps1`
+
+### Validation
+
+- Tests passing after changes (`SecureJournal.Tests`: 34/34).
+
 ## v0.8.1 - 2026-02-28
 
 ### Highlights

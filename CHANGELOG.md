@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.2 - 2026-02-28
+
+### Hotfix
+
+- Updated audit checksum generation and validation to use canonical material across key audit fields instead of details-only hashing:
+  - `Timestamp (UTC)`
+  - `User`
+  - `Action`
+  - `Entity` and `EntityId`
+  - `Project`
+  - `Outcome`
+  - `Details`
+- Added shared canonical checksum material builder for consistency between creation and validation paths.
+- Added manual checksum utility script: `scripts/compute-audit-checksum.ps1`.
+
 ## 0.8.1 - 2026-02-28
 
 ### Hotfix

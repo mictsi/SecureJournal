@@ -2506,7 +2506,16 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 ?? throw new InvalidOperationException("Audit log entry was not found.");
 
             var details = _auditEncryptor.Decrypt(record.DetailsCiphertext);
-            var computed = _checksumService.ComputeHex(details);
+            var checksumMaterial = AuditChecksumMaterialBuilder.Build(
+                record.TimestampUtc,
+                record.ActorUsername,
+                record.Action,
+                record.EntityType,
+                record.EntityId,
+                record.ProjectId,
+                record.Outcome,
+                details);
+            var computed = _checksumService.ComputeHex(checksumMaterial);
             var isValid = string.Equals(computed, record.DetailsChecksum, StringComparison.OrdinalIgnoreCase);
 
             AppendAudit(

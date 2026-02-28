@@ -2,6 +2,10 @@
 
 [![Tag Build](https://github.com/mictsi/SecureJournal/actions/workflows/tag-build.yml/badge.svg)](https://github.com/mictsi/SecureJournal/actions/workflows/tag-build.yml)
 
+<p align="center">
+  <img src="SecureJournal.Web/wwwroot/images/logo_125_by_125.png" alt="Secure Journal logo" width="96" />
+</p>
+
 Secure Journal is a role-based project event journaling application for a single organization with multiple projects.
 
 It is designed for:
@@ -62,6 +66,9 @@ Recent UI behavior highlights:
 - `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
 - `User management` includes `Manage user` workflows for memberships, local-password reset (local users only), and account state toggle (`Enable user` / `Disable user`)
 - Blazor reconnect/lost-connection flow uses a custom reconnect modal with explicit retry/resume states
+- Primary navigation uses `My Settings` as the final main link (renamed from `Account`)
+- `My Settings` page uses a two-column flex layout with left-column card order: `My information`, `Change Password`, `Login`
+- Public landing page uses the PNG brand logo with centered `Secure Journal` heading
 
 ## Container / Cloud Configuration
 

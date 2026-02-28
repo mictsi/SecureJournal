@@ -75,7 +75,7 @@ public static class ProductionInfrastructureRegistration
                 options.SessionStore = cookieTicketStore;
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.ExpireTimeSpan = TimeSpan.FromHours(cookieHours);
                 options.SlidingExpiration = true;
                 options.LoginPath = "/";

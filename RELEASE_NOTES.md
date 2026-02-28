@@ -1,5 +1,50 @@
 # Release Notes
 
+## v0.6.4 - 2026-02-28
+
+### Highlights
+
+- Hardened production auth/session behavior:
+  - auth cookie secure policy is now always HTTPS-only in production
+  - CSV export values are sanitized to mitigate spreadsheet formula injection
+  - session-cookie JavaScript fallback is now explicitly configurable and max-age bounded.
+- Fixed reconnect UX visibility/retry behavior by mounting reconnect UI at app root and adding stronger reconnect diagnostics/fallback handling.
+- Updated user-facing navigation and account tools UX:
+  - `Account` link renamed to `My Settings` and placed as the last main navigation item
+  - settings page heading renamed to `My Settings`
+  - settings page reorganized into a two-column flex layout with left-column card order:
+    - `My information`
+    - `Change Password`
+    - `Login`.
+- Refreshed branding assets:
+  - replaced landing-page SVG brand image with PNG logo
+  - centered `Secure Journal` heading on the landing page
+  - updated favicon and added logo rendering in `README.md`.
+- Upgraded bundled Bootstrap to `v5.3.8`.
+
+### Technical Notes
+
+- Security/runtime updates:
+  - `SecureJournal.Web/Infrastructure/ProductionInfrastructureRegistration.cs`
+  - `SecureJournal.Web/Services/ExportContentFormatter.cs`
+  - `SecureJournal.Web/Services/PrototypeSessionCookieCoordinator.cs`
+  - `SecureJournal.Web/Services/PrototypeSessionCookieSettings.cs`
+  - `SecureJournal.Web/wwwroot/js/site.js`
+- Reconnect/UI updates:
+  - `SecureJournal.Web/Components/App.razor`
+  - `SecureJournal.Web/Components/Layout/MainLayout.razor`
+  - `SecureJournal.Web/Components/Layout/ReconnectModal.razor.js`
+  - `SecureJournal.Web/Components/Layout/NavMenu.razor`
+  - `SecureJournal.Web/Components/Layout/NavMenu.razor.css`
+  - `SecureJournal.Web/Components/Pages/Login.razor`
+  - `SecureJournal.Web/Components/Pages/Login.razor.css`
+  - `SecureJournal.Web/Components/Pages/Home.razor`
+  - `SecureJournal.Web/wwwroot/app.css`.
+- Dependency/runtime asset updates:
+  - `SecureJournal.Web/wwwroot/lib/bootstrap/dist/**`
+  - `SecureJournal.Web/wwwroot/favicon.png`
+  - `SecureJournal.Web/wwwroot/images/logo_125_by_125.png`.
+
 ## v0.6.3 - 2026-02-27
 
 ### Highlights

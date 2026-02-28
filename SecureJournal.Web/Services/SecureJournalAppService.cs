@@ -105,7 +105,35 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public bool HasCurrentUser()
-        => HasCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        lock (_sync)
+        {
+            if (_currentUserId != Guid.Empty)
+            {
+                var existingCurrent = _users.FirstOrDefault(u => u.UserId == _currentUserId);
+                if (existingCurrent is not null && !existingCurrent.IsDisabled)
+                {
+                    return true;
+                }
+
+                _currentUserId = Guid.Empty;
+            }
+        }
+
+        if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
+        {
+            lock (_sync)
+            {
+                return TryResolveOrProvisionUserFromPrincipal(principal, out _);
+            }
+        }
+
+        lock (_sync)
+        {
+            TryRestoreCurrentUserFromCookie();
+            return _users.Any(u => u.UserId == _currentUserId && !u.IsDisabled);
+        }
+    }
 
     public async Task<bool> HasCurrentUserAsync(CancellationToken cancellationToken = default)
     {
@@ -145,7 +173,44 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public UserContext GetCurrentUser()
-        => GetCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        lock (_sync)
+        {
+            if (_currentUserId != Guid.Empty)
+            {
+                var existingCurrent = _users.FirstOrDefault(u => u.UserId == _currentUserId);
+                if (existingCurrent is not null)
+                {
+                    if (existingCurrent.IsDisabled)
+                    {
+                        _currentUserId = Guid.Empty;
+                        throw new UnauthorizedAccessException("Authentication is required.");
+                    }
+
+                    return ToUserContext(existingCurrent);
+                }
+            }
+        }
+
+        if (_enableAspNetIdentity && TryGetCurrentPrincipal(out var principal))
+        {
+            lock (_sync)
+            {
+                if (TryResolveOrProvisionUserFromPrincipal(principal, out var resolved))
+                {
+                    return ToUserContext(resolved);
+                }
+            }
+
+            throw new UnauthorizedAccessException("Authentication is required.");
+        }
+
+        lock (_sync)
+        {
+            TryRestoreCurrentUserFromCookie();
+            return ToUserContext(GetCurrentUserInternal());
+        }
+    }
 
     public async Task<UserContext> GetCurrentUserAsync(CancellationToken cancellationToken = default)
     {
@@ -249,7 +314,34 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public void LogoutCurrentUser()
-        => LogoutCurrentUserAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous logout is unavailable when ASP.NET Identity is enabled. Use LogoutCurrentUserAsync.");
+        }
+
+        lock (_sync)
+        {
+            TryRestoreCurrentUserFromCookie();
+            var currentUser = _users.FirstOrDefault(u => u.UserId == _currentUserId);
+            if (currentUser is null)
+            {
+                return;
+            }
+
+            _currentUserId = Guid.Empty;
+            _logger.LogInformation("Current user logged out: {Username}", currentUser.Username);
+
+            AppendAudit(
+                currentUser,
+                AuditActionType.Logout,
+                AuditEntityType.Authentication,
+                entityId: currentUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{currentUser.Username}' logged out.");
+        }
+    }
 
     public async Task LogoutCurrentUserAsync(CancellationToken cancellationToken = default)
     {
@@ -317,7 +409,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             if (_enableAspNetIdentity)
             {
-                return TryLocalLoginWithIdentity(normalizedUsername, password ?? string.Empty);
+                throw new InvalidOperationException("Synchronous local login is unavailable when ASP.NET Identity is enabled. Use TryLocalLoginAsync.");
             }
 
             var localUser = _users.FirstOrDefault(u =>
@@ -658,7 +750,14 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public UserOverview CreateUser(CreateUserRequest request)
-        => CreateUserAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous user creation is unavailable when ASP.NET Identity is enabled. Use CreateUserAsync.");
+        }
+
+        return CreateUserSyncCore(request);
+    }
 
     public async Task<UserOverview> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
     {
@@ -985,7 +1084,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         if (!string.IsNullOrWhiteSpace(identityUsername) && identityRoleToSync.HasValue)
         {
-            TrySyncIdentityRoleForUsername(identityUsername, identityRoleToSync.Value);
+            QueueIdentityRoleSync(identityUsername, identityRoleToSync.Value);
         }
 
         return true;
@@ -1069,7 +1168,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         if (!string.IsNullOrWhiteSpace(identityUsername) && identityRoleToSync.HasValue)
         {
-            TrySyncIdentityRoleForUsername(identityUsername, identityRoleToSync.Value);
+            QueueIdentityRoleSync(identityUsername, identityRoleToSync.Value);
         }
 
         return true;
@@ -1173,7 +1272,67 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public bool DisableUser(Guid userId)
-        => DisableUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous user disable is unavailable when ASP.NET Identity is enabled. Use DisableUserAsync.");
+        }
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (targetUser.UserId == actor.UserId)
+            {
+                throw new InvalidOperationException("You cannot disable your own account.");
+            }
+
+            if (targetUser.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedUser = targetUser with { IsDisabled = true };
+            var index = _users.FindIndex(u => u.UserId == targetUser.UserId);
+            if (index >= 0)
+            {
+                _users[index] = updatedUser;
+            }
+
+            var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
+            _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+
+            if (_currentUserId == updatedUser.UserId)
+            {
+                _currentUserId = Guid.Empty;
+            }
+
+            _logger.LogInformation(
+                "User disabled by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                updatedUser.Username,
+                updatedUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Configure,
+                AuditEntityType.User,
+                entityId: updatedUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{updatedUser.Username}' was disabled.");
+
+            return true;
+        }
+    }
 
     public async Task<bool> DisableUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -1251,7 +1410,57 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public bool EnableUser(Guid userId)
-        => EnableUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous user enable is unavailable when ASP.NET Identity is enabled. Use EnableUserAsync.");
+        }
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (!targetUser.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedUser = targetUser with { IsDisabled = false };
+            var index = _users.FindIndex(u => u.UserId == targetUser.UserId);
+            if (index >= 0)
+            {
+                _users[index] = updatedUser;
+            }
+
+            var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
+            _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+
+            _logger.LogInformation(
+                "User enabled by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                updatedUser.Username,
+                updatedUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Configure,
+                AuditEntityType.User,
+                entityId: updatedUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{updatedUser.Username}' was enabled.");
+
+            return true;
+        }
+    }
 
     public async Task<bool> EnableUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -1319,7 +1528,59 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public bool DeleteUser(Guid userId)
-        => DeleteUserAsync(userId).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous user deletion is unavailable when ASP.NET Identity is enabled. Use DeleteUserAsync.");
+        }
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+
+            if (userId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == userId)
+                ?? throw new InvalidOperationException("Selected user was not found.");
+
+            if (targetUser.UserId == actor.UserId)
+            {
+                throw new InvalidOperationException("You cannot delete your own account.");
+            }
+
+            _users.RemoveAll(u => u.UserId == targetUser.UserId);
+            _userRoles.Remove(targetUser.UserId);
+            _userGroups.Remove(targetUser.UserId);
+            _localPasswordHashes.Remove(targetUser.UserId);
+
+            if (_currentUserId == targetUser.UserId)
+            {
+                _currentUserId = Guid.Empty;
+            }
+
+            _sqliteStore.RemoveUser(targetUser.UserId);
+
+            _logger.LogInformation(
+                "User deleted by {ActorUsername}: {Username} ({UserId})",
+                actor.Username,
+                targetUser.Username,
+                targetUser.UserId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Delete,
+                AuditEntityType.User,
+                entityId: targetUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"User '{targetUser.Username}' was deleted.");
+
+            return true;
+        }
+    }
 
     public async Task<bool> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -1470,7 +1731,36 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public PasswordChangeResult ChangeCurrentUserPassword(ChangePasswordRequest request)
-        => ChangeCurrentUserPasswordAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous password changes are unavailable when ASP.NET Identity is enabled. Use ChangeCurrentUserPasswordAsync.");
+        }
+
+        lock (_sync)
+        {
+            var actor = GetCurrentUserInternal();
+            _logger.LogInformation("Password change requested for current user {Username}", actor.Username);
+
+            var validationContext = new ValidationContext(request);
+            Validator.ValidateObject(request, validationContext, validateAllProperties: true);
+
+            if (!actor.IsLocalAccount)
+            {
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.Authentication,
+                    entityId: actor.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Denied,
+                    "Password change attempted for non-local account.");
+                return new PasswordChangeResult(false, "Password changes are available only for local accounts.");
+            }
+
+            return ChangeCurrentUserPasswordLocalCore(actor, request);
+        }
+    }
 
     public async Task<PasswordChangeResult> ChangeCurrentUserPasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default)
     {
@@ -1512,7 +1802,64 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     }
 
     public PasswordChangeResult ResetLocalUserPassword(AdminResetPasswordRequest request)
-        => ResetLocalUserPasswordAsync(request).ConfigureAwait(false).GetAwaiter().GetResult();
+    {
+        if (_enableAspNetIdentity)
+        {
+            throw new InvalidOperationException("Synchronous password resets are unavailable when ASP.NET Identity is enabled. Use ResetLocalUserPasswordAsync.");
+        }
+
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            ValidateAdminRequest(request);
+
+            if (request.UserId == Guid.Empty)
+            {
+                return new PasswordChangeResult(false, "A user must be selected.");
+            }
+
+            var targetUser = _users.FirstOrDefault(u => u.UserId == request.UserId)!;
+            if (targetUser is null)
+            {
+                return new PasswordChangeResult(false, "Selected user was not found.");
+            }
+
+            if (!targetUser.IsLocalAccount)
+            {
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.Authentication,
+                    entityId: targetUser.UserId.ToString(),
+                    projectId: null,
+                    AuditOutcome.Denied,
+                    $"Administrator '{actor.Username}' attempted password reset for non-local user '{targetUser.Username}'.");
+                return new PasswordChangeResult(false, "Password reset is available only for local accounts.");
+            }
+
+            EnsurePasswordMeetsPolicy(request.NewPassword, "Reset password");
+
+            var newHash = _passwordHasher.HashPassword(targetUser, request.NewPassword);
+            _localPasswordHashes[targetUser.UserId] = newHash;
+            _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, newHash));
+
+            _logger.LogInformation(
+                "Password reset by admin {ActorUsername} for user {TargetUsername}",
+                actor.Username,
+                targetUser.Username);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Authentication,
+                entityId: targetUser.UserId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"Administrator '{actor.Username}' reset local password for user '{targetUser.Username}'.");
+
+            return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
+        }
+    }
 
     public async Task<PasswordChangeResult> ResetLocalUserPasswordAsync(AdminResetPasswordRequest request, CancellationToken cancellationToken = default)
     {
@@ -2306,134 +2653,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         _logger.LogInformation("Current user restored from session cookie for username {Username}", sessionUser.Username);
     }
 
-    private LoginResult TryLocalLoginWithIdentity(string normalizedUsername, string password)
-    {
-        if (_identitySignInManager is null || _identityUserManager is null)
-        {
-            return new LoginResult(false, "ASP.NET Identity is enabled in config, but Identity services are unavailable.", null);
-        }
-
-        var appUser = _users.FirstOrDefault(u =>
-            u.IsLocalAccount &&
-            string.Equals(u.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
-
-        if (appUser is null)
-        {
-            AppendAudit(
-                actor: null,
-                AuditActionType.Login,
-                AuditEntityType.Authentication,
-                entityId: null,
-                projectId: null,
-                AuditOutcome.Failure,
-                $"Failed local login attempt for username '{normalizedUsername}'.");
-            return new LoginResult(false, "Invalid username or password.", null);
-        }
-
-        if (appUser.IsDisabled)
-        {
-            _logger.LogWarning("Local login rejected for disabled user {Username}", normalizedUsername);
-            AppendAudit(
-                actor: appUser,
-                AuditActionType.Login,
-                AuditEntityType.Authentication,
-                entityId: appUser.UserId.ToString(),
-                projectId: null,
-                AuditOutcome.Failure,
-                $"Failed local login for disabled user '{appUser.Username}'.");
-            return new LoginResult(false, "Account is disabled.", null);
-        }
-
-        var signInResult = _identitySignInManager.PasswordSignInAsync(
-            userName: normalizedUsername,
-            password: password,
-            isPersistent: false,
-            lockoutOnFailure: false).ConfigureAwait(false).GetAwaiter().GetResult();
-
-        if (!signInResult.Succeeded)
-        {
-            _logger.LogWarning("Local login failed for user {Username} via Identity", normalizedUsername);
-            AppendAudit(
-                actor: appUser,
-                AuditActionType.Login,
-                AuditEntityType.Authentication,
-                entityId: appUser.UserId.ToString(),
-                projectId: null,
-                AuditOutcome.Failure,
-                $"Failed local login attempt for user '{appUser.Username}'.");
-            return new LoginResult(false, "Invalid username or password.", null);
-        }
-
-        var identityUser = _identityUserManager.FindByNameAsync(normalizedUsername).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (identityUser is not null)
-        {
-            SyncAppUserMetadataFromIdentity(identityUser);
-        }
-
-        _logger.LogInformation("Local login succeeded for user {Username} via Identity", normalizedUsername);
-        AppendAudit(
-            appUser,
-            AuditActionType.Login,
-            AuditEntityType.Authentication,
-            entityId: appUser.UserId.ToString(),
-            projectId: null,
-            AuditOutcome.Success,
-            $"User '{appUser.Username}' logged in.");
-        return new LoginResult(true, $"Logged in as {appUser.DisplayName}.", ToUserContext(appUser));
-    }
-
-    private PasswordChangeResult ChangeCurrentUserPasswordWithIdentity(AppUser actor, ChangePasswordRequest request)
-    {
-        if (_identityUserManager is null)
-        {
-            return new PasswordChangeResult(false, "Identity services are unavailable.");
-        }
-
-        var currentPassword = request.CurrentPassword ?? string.Empty;
-        var newPassword = request.NewPassword ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(newPassword))
-        {
-            return new PasswordChangeResult(false, "New password is required.");
-        }
-
-        if (TryGetPasswordPolicyViolationMessage(newPassword, "New password") is { } passwordPolicyError)
-        {
-            return new PasswordChangeResult(false, passwordPolicyError);
-        }
-
-        if (string.Equals(currentPassword, newPassword, StringComparison.Ordinal))
-        {
-            return new PasswordChangeResult(false, "New password must be different from the current password.");
-        }
-
-        var identityUser = _identityUserManager.FindByNameAsync(actor.Username).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (identityUser is null)
-        {
-            AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Failure,
-                "Password change failed because the Identity user record was not found.");
-            return new PasswordChangeResult(false, "Current account does not have a local password configured.");
-        }
-
-        var result = _identityUserManager.ChangePasswordAsync(identityUser, currentPassword, newPassword).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (!result.Succeeded)
-        {
-            var error = string.Join("; ", result.Errors.Select(e => e.Description));
-            _logger.LogWarning("Password change failed for user {Username} via Identity: {Error}", actor.Username, error);
-            AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Failure,
-                "Password change failed because the current password did not match.");
-            return new PasswordChangeResult(false, error.Contains("Incorrect", StringComparison.OrdinalIgnoreCase)
-                ? "Current password is incorrect."
-                : error);
-        }
-
-        _sqliteStore.UpsertUser(ToStoredUserRow(actor, passwordHash: null));
-
-        _logger.LogInformation("Password change succeeded for user {Username} via Identity", actor.Username);
-        AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Success,
-            "Local password changed for current user.");
-        return new PasswordChangeResult(true, "Password changed successfully.");
-    }
-
     private PasswordChangeResult ChangeCurrentUserPasswordLocalCore(AppUser actor, ChangePasswordRequest request)
     {
         if (!_localPasswordHashes.TryGetValue(actor.UserId, out var existingHash))
@@ -2563,49 +2782,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         return new PasswordChangeResult(true, "Password changed successfully.");
     }
 
-    private PasswordChangeResult ResetLocalUserPasswordWithIdentity(AppUser actor, AppUser targetUser, string? newPassword)
-    {
-        if (_identityUserManager is null)
-        {
-            return new PasswordChangeResult(false, "Identity services are unavailable.");
-        }
-
-        EnsurePasswordMeetsPolicy(newPassword, "Reset password");
-        var candidatePassword = newPassword ?? string.Empty;
-
-        var identityUser = _identityUserManager.FindByNameAsync(targetUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (identityUser is null)
-        {
-            return new PasswordChangeResult(false, "Selected user does not have an Identity local account.");
-        }
-
-        var resetToken = _identityUserManager.GeneratePasswordResetTokenAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
-        var result = _identityUserManager.ResetPasswordAsync(identityUser, resetToken, candidatePassword).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (!result.Succeeded)
-        {
-            var error = string.Join("; ", result.Errors.Select(e => e.Description));
-            return new PasswordChangeResult(false, error);
-        }
-
-        _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, passwordHash: null));
-
-        _logger.LogInformation(
-            "Password reset by admin {ActorUsername} for user {TargetUsername} via Identity",
-            actor.Username,
-            targetUser.Username);
-
-        AppendAudit(
-            actor,
-            AuditActionType.Update,
-            AuditEntityType.Authentication,
-            entityId: targetUser.UserId.ToString(),
-            projectId: null,
-            AuditOutcome.Success,
-            $"Administrator '{actor.Username}' reset local password for user '{targetUser.Username}'.");
-
-        return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
-    }
-
     private async Task<PasswordChangeResult> ResetLocalUserPasswordWithIdentityAsync(AppUser actor, AppUser targetUser, string? newPassword, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -2653,38 +2829,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         return new PasswordChangeResult(true, $"Password reset for '{targetUser.Username}'.");
     }
 
-    private void CreateOrUpdateIdentityLocalUser(AppUser appUser, string password)
-    {
-        if (_identityUserManager is null)
-        {
-            throw new InvalidOperationException("ASP.NET Identity is enabled but UserManager is unavailable.");
-        }
-
-        var existing = _identityUserManager.FindByNameAsync(appUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (existing is not null)
-        {
-            throw new InvalidOperationException($"An Identity user with username '{appUser.Username}' already exists.");
-        }
-
-        var identityUser = new SecureJournalIdentityUser
-        {
-            UserName = appUser.Username,
-            Email = $"{appUser.Username}@local.invalid",
-            EmailConfirmed = true,
-            DisplayName = appUser.DisplayName,
-            IsBootstrapAdmin = false
-        };
-
-        var create = _identityUserManager.CreateAsync(identityUser, password).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (!create.Succeeded)
-        {
-            var error = string.Join("; ", create.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Failed creating Identity user '{appUser.Username}': {error}");
-        }
-
-        SyncIdentityUserRoles(identityUser, appUser.Role);
-    }
-
     private async Task CreateOrUpdateIdentityLocalUserAsync(AppUser appUser, string password, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -2719,26 +2863,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         await SyncIdentityUserRolesAsync(identityUser, appUser.Role, cancellationToken);
     }
 
-    private void EnsureIdentityExternalUser(AppUser appUser)
-    {
-        // External/OIDC users authenticate at the IdP and may not exist in the local Identity store.
-        // We still keep app metadata for authorization/project-group mapping.
-        if (_identityUserManager is null)
-        {
-            return;
-        }
-
-        var existing = _identityUserManager.FindByNameAsync(appUser.Username).ConfigureAwait(false).GetAwaiter().GetResult();
-        if (existing is null)
-        {
-            return;
-        }
-
-        existing.DisplayName = appUser.DisplayName;
-        _identityUserManager.UpdateAsync(existing).ConfigureAwait(false).GetAwaiter().GetResult();
-        SyncIdentityUserRoles(existing, appUser.Role);
-    }
-
     private async Task EnsureIdentityExternalUserAsync(AppUser appUser, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -2757,34 +2881,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         existing.DisplayName = appUser.DisplayName;
         await _identityUserManager.UpdateAsync(existing);
         await SyncIdentityUserRolesAsync(existing, appUser.Role, cancellationToken);
-    }
-
-    private void SyncIdentityUserRoles(SecureJournalIdentityUser identityUser, AppRole appRole)
-    {
-        if (_identityUserManager is null)
-        {
-            return;
-        }
-
-        var desiredRole = appRole.ToString();
-        var existingRoles = _identityUserManager.GetRolesAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult();
-        foreach (var role in existingRoles.Where(r => r is "Administrator" or "ProjectUser" or "Auditor"))
-        {
-            if (!string.Equals(role, desiredRole, StringComparison.OrdinalIgnoreCase))
-            {
-                _identityUserManager.RemoveFromRoleAsync(identityUser, role).ConfigureAwait(false).GetAwaiter().GetResult();
-            }
-        }
-
-        if (!existingRoles.Any(r => string.Equals(r, desiredRole, StringComparison.OrdinalIgnoreCase)))
-        {
-            var addRole = _identityUserManager.AddToRoleAsync(identityUser, desiredRole).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (!addRole.Succeeded)
-            {
-                var error = string.Join("; ", addRole.Errors.Select(e => e.Description));
-                throw new InvalidOperationException($"Failed assigning Identity role '{desiredRole}' to '{identityUser.UserName}': {error}");
-            }
-        }
     }
 
     private async Task SyncIdentityUserRolesAsync(SecureJournalIdentityUser identityUser, AppRole appRole, CancellationToken cancellationToken)
@@ -3101,38 +3197,6 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         return true;
     }
 
-    private void SyncAppUserMetadataFromIdentity(SecureJournalIdentityUser identityUser)
-    {
-        var appUser = _users.FirstOrDefault(u => string.Equals(u.Username, identityUser.UserName, StringComparison.OrdinalIgnoreCase));
-        if (appUser is null)
-        {
-            return;
-        }
-
-        var roles = _identityUserManager?.GetRolesAsync(identityUser).ConfigureAwait(false).GetAwaiter().GetResult() ?? Array.Empty<string>();
-        var role = roles.Any(r => string.Equals(r, nameof(AppRole.Administrator), StringComparison.OrdinalIgnoreCase))
-            ? AppRole.Administrator
-            : roles.Any(r => string.Equals(r, nameof(AppRole.Auditor), StringComparison.OrdinalIgnoreCase))
-                ? AppRole.Auditor
-                : AppRole.ProjectUser;
-        var displayName = string.IsNullOrWhiteSpace(identityUser.DisplayName) ? appUser.DisplayName : identityUser.DisplayName;
-
-        if (appUser.Role == role && string.Equals(appUser.DisplayName, displayName, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        var updated = appUser with { Role = role, DisplayName = displayName };
-        var index = _users.FindIndex(u => u.UserId == appUser.UserId);
-        if (index >= 0)
-        {
-            _users[index] = updated;
-        }
-
-        ReplaceUserRoles(updated.UserId, [role]);
-        _sqliteStore.UpsertUser(ToStoredUserRow(updated, passwordHash: null));
-    }
-
     private async Task SyncAppUserMetadataFromIdentityAsync(SecureJournalIdentityUser identityUser, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -3323,7 +3387,12 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         return AppRole.ProjectUser;
     }
 
-    private void TrySyncIdentityRoleForUsername(string username, AppRole appRole)
+    private void QueueIdentityRoleSync(string username, AppRole appRole)
+    {
+        _ = TrySyncIdentityRoleForUsernameAsync(username, appRole);
+    }
+
+    private async Task TrySyncIdentityRoleForUsernameAsync(string username, AppRole appRole)
     {
         if (_identityUserManager is null)
         {
@@ -3332,13 +3401,13 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
         try
         {
-            var identityUser = _identityUserManager.FindByNameAsync(username).ConfigureAwait(false).GetAwaiter().GetResult();
+            var identityUser = await _identityUserManager.FindByNameAsync(username);
             if (identityUser is null)
             {
                 return;
             }
 
-            SyncIdentityUserRoles(identityUser, appRole);
+            await SyncIdentityUserRolesAsync(identityUser, appRole, CancellationToken.None);
         }
         catch (Exception ex)
         {

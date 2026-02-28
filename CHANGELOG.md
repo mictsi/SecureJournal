@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.6.4 - 2026-02-28
+
+### Security Hardening
+
+- Enforced secure authentication cookies in production by setting `CookieSecurePolicy.Always`.
+- Added CSV formula-injection neutralization in export formatting for values beginning with spreadsheet formula prefixes.
+- Added bounded JavaScript session-cookie fallback controls (`Security:EnableJsSessionCookieFallback`, `Security:JsSessionCookieFallbackMaxAgeSeconds`) and max-age clamping.
+- Reduced sync-over-async deadlock risk by introducing explicit synchronous code paths and async-only enforcement for Identity-backed auth/user operations.
+
+### Reconnect Reliability
+
+- Moved `<ReconnectModal />` mounting to the app root (`App.razor`) to keep reconnect UI available independent of layout composition.
+- Added reconnect diagnostics logging and safer retry/resume fallback behavior in `ReconnectModal.razor.js`.
+
+### UI and Navigation
+
+- Updated primary navigation so `My Settings` is the final link in the main navigation group (renamed from `Account`).
+- Reworked `/login` into a settings-focused layout with two flex columns and left-column card order:
+  - `My information`
+  - `Change Password`
+  - `Login`
+- Centered the landing page `Secure Journal` heading and replaced the inline SVG brand graphic with a static PNG logo.
+- Updated favicon and added logo usage in `README.md`.
+
+### Dependencies
+
+- Upgraded bundled Bootstrap assets to `v5.3.8`.
+
 ## 0.6.3 - 2026-02-27
 
 ### Reliability and Async Fixes

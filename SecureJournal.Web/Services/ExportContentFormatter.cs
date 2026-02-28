@@ -146,7 +146,35 @@ public sealed class ExportContentFormatter : IExportContentFormatter
 
     private static string CsvString(string value)
     {
-        var escaped = value.Replace("\"", "\"\"", StringComparison.Ordinal);
+        var safe = NeutralizeSpreadsheetFormula(value);
+        var escaped = safe.Replace("\"", "\"\"", StringComparison.Ordinal);
         return $"\"{escaped}\"";
+    }
+
+    private static string NeutralizeSpreadsheetFormula(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var firstNonWhitespace = -1;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (!char.IsWhiteSpace(value[i]))
+            {
+                firstNonWhitespace = i;
+                break;
+            }
+        }
+
+        if (firstNonWhitespace < 0)
+        {
+            return value;
+        }
+
+        return value[firstNonWhitespace] is '=' or '+' or '-' or '@'
+            ? $"'{value}"
+            : value;
     }
 }

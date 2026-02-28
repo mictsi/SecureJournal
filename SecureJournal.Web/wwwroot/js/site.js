@@ -66,7 +66,8 @@ window.secureJournalSession = {
         ];
 
         if (Number.isFinite(maxAgeSeconds) && maxAgeSeconds > 0) {
-            attrs.push(`max-age=${Math.floor(maxAgeSeconds)}`);
+            const boundedMaxAge = Math.min(900, Math.floor(maxAgeSeconds));
+            attrs.push(`max-age=${boundedMaxAge}`);
         }
 
         if (window.location && window.location.protocol === "https:") {

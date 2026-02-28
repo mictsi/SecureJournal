@@ -39,12 +39,12 @@ public sealed class PrototypeSessionCookieCoordinator
             return;
         }
 
-        if (!_app.HasCurrentUser())
+        if (!await _app.HasCurrentUserAsync())
         {
             return;
         }
 
-        var userId = _app.GetCurrentUser().UserId;
+        var userId = (await _app.GetCurrentUserAsync()).UserId;
         var token = _sessionRegistry.CreateSession(userId, _settings.Lifetime);
 
         if (TryAppendServerCookie(token))
@@ -53,15 +53,27 @@ public sealed class PrototypeSessionCookieCoordinator
             return;
         }
 
+        if (!_settings.EnableJavaScriptFallback)
+        {
+            _logger.LogWarning(
+                "Session cookie server write was unavailable for user {UserId}; JS fallback is disabled.",
+                userId);
+            return;
+        }
+
         try
         {
+            var maxAgeSeconds = Math.Min((int)_settings.Lifetime.TotalSeconds, _settings.JavaScriptFallbackMaxAgeSeconds);
             await _jsRuntime.InvokeVoidAsync(
                 "secureJournalSession.set",
                 _settings.CookieName,
                 token,
-                (int)_settings.Lifetime.TotalSeconds);
+                maxAgeSeconds);
 
-            _logger.LogInformation("Session cookie persisted via JS fallback for user {UserId}", userId);
+            _logger.LogInformation(
+                "Session cookie persisted via JS fallback for user {UserId} with max-age {MaxAgeSeconds}s",
+                userId,
+                maxAgeSeconds);
         }
         catch (Exception ex)
         {
@@ -78,7 +90,7 @@ public sealed class PrototypeSessionCookieCoordinator
         }
 
         var token = TryReadServerCookie();
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token) && _settings.EnableJavaScriptFallback)
         {
             try
             {
@@ -95,11 +107,17 @@ public sealed class PrototypeSessionCookieCoordinator
             _sessionRegistry.Remove(token);
         }
 
-        _app.LogoutCurrentUser();
+        await _app.LogoutCurrentUserAsync();
 
         if (TryDeleteServerCookie())
         {
             _logger.LogInformation("Session cookie cleared via HTTP response");
+            return;
+        }
+
+        if (!_settings.EnableJavaScriptFallback)
+        {
+            _logger.LogWarning("Session cookie server delete was unavailable; JS fallback is disabled.");
             return;
         }
 

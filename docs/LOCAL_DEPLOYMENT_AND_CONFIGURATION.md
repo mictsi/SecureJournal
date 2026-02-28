@@ -53,6 +53,8 @@ Recommended workflow:
 - `Security:LocalPasswordRequireNonAlphanumeric`
 - `Security:SessionCookieName`
 - `Security:SessionCookieHours`
+- `Security:EnableJsSessionCookieFallback` (default `false`)
+- `Security:JsSessionCookieFallbackMaxAgeSeconds` (bounded `30`-`900`, default `120`)
 
 ### Authentication
 

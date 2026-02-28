@@ -36,6 +36,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.ExternalIssuer).HasColumnName("external_issuer").HasMaxLength(512);
             entity.Property(x => x.ExternalSubject).HasColumnName("external_subject").HasMaxLength(512);
             entity.HasIndex(x => x.Username).IsUnique();
+            entity.HasIndex(x => x.DisplayName);
             entity.HasIndex(x => new { x.ExternalIssuer, x.ExternalSubject });
         });
 
@@ -47,7 +48,14 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.Code).HasColumnName("code").HasMaxLength(20).IsRequired();
             entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
             entity.Property(x => x.Description).HasColumnName("description").HasMaxLength(500).IsRequired();
+            entity.Property(x => x.ProjectOwnerName).HasColumnName("project_owner_name").HasMaxLength(100).IsRequired();
+            entity.Property(x => x.ProjectEmail).HasColumnName("project_email").HasMaxLength(254).IsRequired();
+            entity.Property(x => x.ProjectPhone).HasColumnName("project_phone").HasMaxLength(32).IsRequired();
+            entity.Property(x => x.ProjectOwner).HasColumnName("project_owner").HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(100).IsRequired();
             entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.Name);
+            entity.HasIndex(x => x.Description);
         });
 
         builder.Entity<GroupEntity>(entity =>
@@ -56,7 +64,9 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasKey(x => x.GroupId);
             entity.Property(x => x.GroupId).HasColumnName("group_id");
             entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Description).HasColumnName("description").HasMaxLength(500).IsRequired();
             entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.Description);
         });
 
         builder.Entity<UserGroupEntity>(entity =>
@@ -65,6 +75,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasKey(x => new { x.UserId, x.GroupId });
             entity.Property(x => x.UserId).HasColumnName("user_id");
             entity.Property(x => x.GroupId).HasColumnName("group_id");
+            entity.HasIndex(x => x.GroupId);
         });
 
         builder.Entity<UserRoleEntity>(entity =>
@@ -81,6 +92,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasKey(x => new { x.ProjectId, x.GroupId });
             entity.Property(x => x.ProjectId).HasColumnName("project_id");
             entity.Property(x => x.GroupId).HasColumnName("group_id");
+            entity.HasIndex(x => x.GroupId);
         });
 
         builder.Entity<JournalEntryEntity>(entity =>
@@ -108,6 +120,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.DeletedByUserId).HasColumnName("deleted_by_user_id");
             entity.Property(x => x.DeletedByUsername).HasColumnName("deleted_by_username");
             entity.Property(x => x.DeleteReason).HasColumnName("delete_reason");
+            entity.HasIndex(x => x.CreatedAtUtc);
         });
 
         builder.Entity<AuditLogEntity>(entity =>
@@ -125,6 +138,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.Outcome).HasColumnName("outcome").IsRequired();
             entity.Property(x => x.DetailsCiphertext).HasColumnName("details_ciphertext").IsRequired();
             entity.Property(x => x.DetailsChecksum).HasColumnName("details_checksum").IsRequired();
+            entity.HasIndex(x => x.TimestampUtc);
         });
     }
 }
@@ -148,12 +162,18 @@ public sealed class ProjectEntity
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string ProjectOwnerName { get; set; } = string.Empty;
+    public string ProjectEmail { get; set; } = string.Empty;
+    public string ProjectPhone { get; set; } = string.Empty;
+    public string ProjectOwner { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
 }
 
 public sealed class GroupEntity
 {
     public Guid GroupId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 }
 
 public sealed class UserGroupEntity

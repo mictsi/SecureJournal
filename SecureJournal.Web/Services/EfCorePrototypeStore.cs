@@ -33,9 +33,13 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             }
 
             using var db = _dbFactory.CreateDbContext();
+            db.Database.SetCommandTimeout(180);
             db.Database.EnsureCreated();
             EnsureAppUserColumns(db);
+            EnsureProjectColumns(db);
+            EnsureGroupColumns(db);
             EnsureUserRolesTable(db);
+            EnsureQueryIndexes(db);
             _initialized = true;
         }
     }
@@ -67,7 +71,16 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         return db.Projects
             .AsNoTracking()
             .OrderBy(x => x.Code)
-            .Select(x => new StoredProjectRow(x.ProjectId, x.Code, x.Name, x.Description))
+            .Select(x => new StoredProjectRow(
+                x.ProjectId,
+                x.Code,
+                x.Name,
+                x.Description,
+                x.ProjectOwnerName,
+                x.ProjectEmail,
+                x.ProjectPhone,
+                x.ProjectOwner,
+                x.Department))
             .ToList();
     }
 
@@ -90,7 +103,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         return db.Groups
             .AsNoTracking()
             .OrderBy(x => x.Name)
-            .Select(x => new StoredGroupRow(x.GroupId, x.Name))
+            .Select(x => new StoredGroupRow(x.GroupId, x.Name, x.Description))
             .ToList();
     }
 
@@ -118,13 +131,377 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             .ToList();
     }
 
+    public StorePagedResult<StoredProjectRow> QueryProjects(StoreListQuery query, IReadOnlyCollection<Guid>? visibleProjectIds = null)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        IQueryable<ProjectEntity> baseQuery = db.Projects.AsNoTracking();
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Name, pattern, "\\") ||
+                EF.Functions.Like(x.Description, pattern, "\\"));
+        }
+
+        if (visibleProjectIds is not null)
+        {
+            if (visibleProjectIds.Count == 0)
+            {
+                return new StorePagedResult<StoredProjectRow>(Array.Empty<StoredProjectRow>(), 0);
+            }
+
+            baseQuery = baseQuery.Where(x => visibleProjectIds.Contains(x.ProjectId));
+        }
+
+        var totalCount = baseQuery.Count();
+        var sorted = ApplyProjectSort(baseQuery, query.SortField, query.SortDescending);
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredProjectRow(
+                x.ProjectId,
+                x.Code,
+                x.Name,
+                x.Description,
+                x.ProjectOwnerName,
+                x.ProjectEmail,
+                x.ProjectPhone,
+                x.ProjectOwner,
+                x.Department))
+            .ToList();
+
+        return new StorePagedResult<StoredProjectRow>(items, totalCount);
+    }
+
+    public StorePagedResult<StoredUserRow> QueryUsers(StoreListQuery query)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        IQueryable<AppUserEntity> baseQuery = db.AppUsers.AsNoTracking();
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Username, pattern, "\\") ||
+                EF.Functions.Like(x.DisplayName, pattern, "\\"));
+        }
+
+        var totalCount = baseQuery.Count();
+        var sorted = ApplyUserSort(baseQuery, query.SortField, query.SortDescending);
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredUserRow(
+                x.UserId,
+                x.Username,
+                x.DisplayName,
+                (AppRole)x.Role,
+                x.IsLocalAccount,
+                x.PasswordHash,
+                x.ExternalIssuer,
+                x.ExternalSubject,
+                x.IsDisabled))
+            .ToList();
+
+        return new StorePagedResult<StoredUserRow>(items, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupRow> QueryGroups(StoreListQuery query)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        IQueryable<GroupEntity> baseQuery = db.Groups.AsNoTracking();
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Name, pattern, "\\") ||
+                EF.Functions.Like(x.Description, pattern, "\\"));
+        }
+
+        var totalCount = baseQuery.Count();
+        var sorted = ApplyGroupSort(baseQuery, query.SortField, query.SortDescending);
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredGroupRow(x.GroupId, x.Name, x.Description))
+            .ToList();
+
+        return new StorePagedResult<StoredGroupRow>(items, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupAccessRow> QueryProjectGroups(Guid projectId, StoreListQuery query)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var baseQuery = db.Groups
+            .AsNoTracking()
+            .Select(g => new
+            {
+                g.GroupId,
+                g.Name,
+                g.Description,
+                IsAssigned = db.ProjectGroups.Any(pg => pg.ProjectId == projectId && pg.GroupId == g.GroupId)
+            });
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Name, pattern, "\\") ||
+                EF.Functions.Like(x.Description, pattern, "\\"));
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            baseQuery = baseQuery.Where(x => x.IsAssigned == query.Assigned.Value);
+        }
+
+        var totalCount = baseQuery.Count();
+        var sorted = (query.SortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.IsAssigned).ThenBy(x => x.GroupId)
+                : baseQuery.OrderBy(x => x.IsAssigned).ThenBy(x => x.GroupId),
+            _ => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.Name).ThenBy(x => x.GroupId)
+                : baseQuery.OrderBy(x => x.Name).ThenBy(x => x.GroupId)
+        };
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredGroupAccessRow(x.GroupId, x.Name, x.Description, x.IsAssigned))
+            .ToList();
+
+        return new StorePagedResult<StoredGroupAccessRow>(items, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupAccessRow> QueryUserGroups(Guid userId, StoreListQuery query)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var baseQuery = db.Groups
+            .AsNoTracking()
+            .Select(g => new
+            {
+                g.GroupId,
+                g.Name,
+                g.Description,
+                IsAssigned = db.UserGroups.Any(ug => ug.UserId == userId && ug.GroupId == g.GroupId)
+            });
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Name, pattern, "\\") ||
+                EF.Functions.Like(x.Description, pattern, "\\"));
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            baseQuery = baseQuery.Where(x => x.IsAssigned == query.Assigned.Value);
+        }
+
+        var totalCount = baseQuery.Count();
+        var sorted = (query.SortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.IsAssigned).ThenBy(x => x.GroupId)
+                : baseQuery.OrderBy(x => x.IsAssigned).ThenBy(x => x.GroupId),
+            _ => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.Name).ThenBy(x => x.GroupId)
+                : baseQuery.OrderBy(x => x.Name).ThenBy(x => x.GroupId)
+        };
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredGroupAccessRow(x.GroupId, x.Name, x.Description, x.IsAssigned))
+            .ToList();
+
+        return new StorePagedResult<StoredGroupAccessRow>(items, totalCount);
+    }
+
+    public IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds)
+    {
+        Initialize();
+        if (projectIds.Count == 0)
+        {
+            return Array.Empty<StoredProjectGroupNameRow>();
+        }
+
+        using var db = _dbFactory.CreateDbContext();
+        var memberships = db.ProjectGroups
+            .AsNoTracking()
+            .Where(x => projectIds.Contains(x.ProjectId))
+            .Select(x => new { x.ProjectId, x.GroupId })
+            .ToList();
+
+        var groupIds = memberships
+            .Select(x => x.GroupId)
+            .Distinct()
+            .ToList();
+
+        var groupNames = db.Groups
+            .AsNoTracking()
+            .Where(x => groupIds.Contains(x.GroupId))
+            .Select(x => new { x.GroupId, x.Name })
+            .ToDictionary(x => x.GroupId, x => x.Name);
+
+        return memberships
+            .Where(x => groupNames.ContainsKey(x.GroupId))
+            .Select(x => new StoredProjectGroupNameRow(x.ProjectId, groupNames[x.GroupId]))
+            .OrderBy(x => x.ProjectId)
+            .ThenBy(x => x.GroupName)
+            .ToList();
+    }
+
+    public IReadOnlyList<StoredUserGroupNameRow> LoadUserGroupNamesForUsers(IReadOnlyCollection<Guid> userIds)
+    {
+        Initialize();
+        if (userIds.Count == 0)
+        {
+            return Array.Empty<StoredUserGroupNameRow>();
+        }
+
+        using var db = _dbFactory.CreateDbContext();
+        var memberships = db.UserGroups
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId))
+            .Select(x => new { x.UserId, x.GroupId })
+            .ToList();
+
+        var groupIds = memberships
+            .Select(x => x.GroupId)
+            .Distinct()
+            .ToList();
+
+        var groupNames = db.Groups
+            .AsNoTracking()
+            .Where(x => groupIds.Contains(x.GroupId))
+            .Select(x => new { x.GroupId, x.Name })
+            .ToDictionary(x => x.GroupId, x => x.Name);
+
+        return memberships
+            .Where(x => groupNames.ContainsKey(x.GroupId))
+            .Select(x => new StoredUserGroupNameRow(x.UserId, groupNames[x.GroupId]))
+            .OrderBy(x => x.UserId)
+            .ThenBy(x => x.GroupName)
+            .ToList();
+    }
+
+    public IReadOnlyList<StoredUserRoleRow> LoadUserRolesForUsers(IReadOnlyCollection<Guid> userIds)
+    {
+        Initialize();
+        if (userIds.Count == 0)
+        {
+            return Array.Empty<StoredUserRoleRow>();
+        }
+
+        using var db = _dbFactory.CreateDbContext();
+        return db.UserRoles
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId))
+            .OrderBy(x => x.UserId)
+            .ThenBy(x => x.Role)
+            .Select(x => new StoredUserRoleRow(x.UserId, (AppRole)x.Role))
+            .ToList();
+    }
+
+    public IReadOnlyList<StoredGroupMemberNameRow> LoadGroupMemberNames(IReadOnlyCollection<Guid> groupIds)
+    {
+        Initialize();
+        if (groupIds.Count == 0)
+        {
+            return Array.Empty<StoredGroupMemberNameRow>();
+        }
+
+        using var db = _dbFactory.CreateDbContext();
+        var memberships = db.UserGroups
+            .AsNoTracking()
+            .Where(x => groupIds.Contains(x.GroupId))
+            .Select(x => new { x.GroupId, x.UserId })
+            .ToList();
+
+        var userIds = memberships
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToList();
+
+        var userNames = db.AppUsers
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId))
+            .Select(x => new { x.UserId, x.DisplayName })
+            .ToDictionary(x => x.UserId, x => x.DisplayName);
+
+        return memberships
+            .Where(x => userNames.ContainsKey(x.UserId))
+            .Select(x => new StoredGroupMemberNameRow(x.GroupId, userNames[x.UserId]))
+            .OrderBy(x => x.GroupId)
+            .ThenBy(x => x.DisplayName)
+            .ToList();
+    }
+
+    public IReadOnlyList<StoredGroupProjectCodeRow> LoadGroupProjectCodes(IReadOnlyCollection<Guid> groupIds)
+    {
+        Initialize();
+        if (groupIds.Count == 0)
+        {
+            return Array.Empty<StoredGroupProjectCodeRow>();
+        }
+
+        using var db = _dbFactory.CreateDbContext();
+        var mappings = db.ProjectGroups
+            .AsNoTracking()
+            .Where(x => groupIds.Contains(x.GroupId))
+            .Select(x => new { x.GroupId, x.ProjectId })
+            .ToList();
+
+        var projectIds = mappings
+            .Select(x => x.ProjectId)
+            .Distinct()
+            .ToList();
+
+        var projectCodes = db.Projects
+            .AsNoTracking()
+            .Where(x => projectIds.Contains(x.ProjectId))
+            .Select(x => new { x.ProjectId, x.Code })
+            .ToDictionary(x => x.ProjectId, x => x.Code);
+
+        return mappings
+            .Where(x => projectCodes.ContainsKey(x.ProjectId))
+            .Select(x => new StoredGroupProjectCodeRow(x.GroupId, projectCodes[x.ProjectId]))
+            .OrderBy(x => x.GroupId)
+            .ThenBy(x => x.ProjectCode)
+            .ToList();
+    }
+
     public IReadOnlyList<JournalEntryRecord> LoadJournalEntries()
     {
         Initialize();
         using var db = _dbFactory.CreateDbContext();
+        db.Database.SetCommandTimeout(180);
         var entities = db.JournalEntries
             .AsNoTracking()
-            .OrderByDescending(x => x.CreatedAtUtc)
             .ToList();
 
         var rows = new List<JournalEntryRecord>(entities.Count);
@@ -169,9 +546,9 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
     {
         Initialize();
         using var db = _dbFactory.CreateDbContext();
+        db.Database.SetCommandTimeout(180);
         return db.AuditLogs
             .AsNoTracking()
-            .OrderByDescending(x => x.TimestampUtc)
             .Select(x => new AuditLogRecord(
                 x.AuditId,
                 DateTime.SpecifyKind(x.TimestampUtc, DateTimeKind.Utc).ToUniversalTime(),
@@ -231,6 +608,11 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         entity.Code = project.Code;
         entity.Name = project.Name;
         entity.Description = project.Description;
+        entity.ProjectOwnerName = project.ProjectOwnerName;
+        entity.ProjectEmail = project.ProjectEmail;
+        entity.ProjectPhone = project.ProjectPhone;
+        entity.ProjectOwner = project.ProjectOwner;
+        entity.Department = project.Department;
         db.SaveChanges();
     }
 
@@ -246,6 +628,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         }
 
         entity.Name = group.Name;
+        entity.Description = group.Description;
         db.SaveChanges();
     }
 
@@ -510,6 +893,71 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         db.SaveChanges();
     }
 
+    private static IOrderedQueryable<ProjectEntity> ApplyProjectSort(IQueryable<ProjectEntity> query, string? sortField, bool descending)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "name" => descending
+                ? query.OrderByDescending(x => x.Name).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.Name).ThenBy(x => x.ProjectId),
+            "projectownername" or "project_owner_name" => descending
+                ? query.OrderByDescending(x => x.ProjectOwnerName).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.ProjectOwnerName).ThenBy(x => x.ProjectId),
+            "projectemail" or "project_email" => descending
+                ? query.OrderByDescending(x => x.ProjectEmail).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.ProjectEmail).ThenBy(x => x.ProjectId),
+            "projectphone" or "project_phone" => descending
+                ? query.OrderByDescending(x => x.ProjectPhone).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.ProjectPhone).ThenBy(x => x.ProjectId),
+            "projectowner" or "project_owner" => descending
+                ? query.OrderByDescending(x => x.ProjectOwner).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.ProjectOwner).ThenBy(x => x.ProjectId),
+            "department" => descending
+                ? query.OrderByDescending(x => x.Department).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.Department).ThenBy(x => x.ProjectId),
+            _ => descending
+                ? query.OrderByDescending(x => x.Code).ThenBy(x => x.ProjectId)
+                : query.OrderBy(x => x.Code).ThenBy(x => x.ProjectId)
+        };
+
+    private static IOrderedQueryable<AppUserEntity> ApplyUserSort(IQueryable<AppUserEntity> query, string? sortField, bool descending)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "displayname" or "display_name" => descending
+                ? query.OrderByDescending(x => x.DisplayName).ThenBy(x => x.UserId)
+                : query.OrderBy(x => x.DisplayName).ThenBy(x => x.UserId),
+            _ => descending
+                ? query.OrderByDescending(x => x.Username).ThenBy(x => x.UserId)
+                : query.OrderBy(x => x.Username).ThenBy(x => x.UserId)
+        };
+
+    private static IOrderedQueryable<GroupEntity> ApplyGroupSort(IQueryable<GroupEntity> query, string? sortField, bool descending)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "description" => descending
+                ? query.OrderByDescending(x => x.Description).ThenBy(x => x.GroupId)
+                : query.OrderBy(x => x.Description).ThenBy(x => x.GroupId),
+            _ => descending
+                ? query.OrderByDescending(x => x.Name).ThenBy(x => x.GroupId)
+                : query.OrderBy(x => x.Name).ThenBy(x => x.GroupId)
+        };
+
+    private static IOrderedQueryable<StoredGroupAccessRow> ApplyGroupAccessSort(IQueryable<StoredGroupAccessRow> query, string? sortField, bool descending)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => descending
+                ? query.OrderByDescending(x => x.IsAssigned).ThenBy(x => x.GroupId)
+                : query.OrderBy(x => x.IsAssigned).ThenBy(x => x.GroupId),
+            _ => descending
+                ? query.OrderByDescending(x => x.Name).ThenBy(x => x.GroupId)
+                : query.OrderBy(x => x.Name).ThenBy(x => x.GroupId)
+        };
+
+    private static string EscapeLikeLikePattern(string value)
+        => value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal);
+
     private static bool IsUniqueUsernameViolation(DbUpdateException ex)
         => (ex.InnerException is SqliteException sqlite
             && sqlite.SqliteErrorCode == 19
@@ -600,6 +1048,215 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     connection.Close();
                 }
             }
+        }
+    }
+
+    private static void EnsureProjectColumns(SecureJournalAppDbContext db)
+    {
+        var provider = db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                IF COL_LENGTH('projects', 'project_owner_name') IS NULL
+                    ALTER TABLE projects ADD project_owner_name nvarchar(100) NOT NULL CONSTRAINT DF_projects_project_owner_name DEFAULT ('');
+                IF COL_LENGTH('projects', 'project_email') IS NULL
+                    ALTER TABLE projects ADD project_email nvarchar(254) NOT NULL CONSTRAINT DF_projects_project_email DEFAULT ('');
+                IF COL_LENGTH('projects', 'project_phone') IS NULL
+                    ALTER TABLE projects ADD project_phone nvarchar(32) NOT NULL CONSTRAINT DF_projects_project_phone DEFAULT ('');
+                IF COL_LENGTH('projects', 'project_owner') IS NULL
+                    ALTER TABLE projects ADD project_owner nvarchar(100) NOT NULL CONSTRAINT DF_projects_project_owner DEFAULT ('');
+                IF COL_LENGTH('projects', 'department') IS NULL
+                    ALTER TABLE projects ADD department nvarchar(100) NOT NULL CONSTRAINT DF_projects_department DEFAULT ('');
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner_name varchar(100) NOT NULL DEFAULT '';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_email varchar(254) NOT NULL DEFAULT '';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_phone varchar(32) NOT NULL DEFAULT '';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner varchar(100) NOT NULL DEFAULT '';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS department varchar(100) NOT NULL DEFAULT '';
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            var connection = db.Database.GetDbConnection();
+            var shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose)
+            {
+                connection.Open();
+            }
+
+            try
+            {
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var pragma = connection.CreateCommand())
+                {
+                    pragma.CommandText = "PRAGMA table_info(projects);";
+                    using var reader = pragma.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        if (reader["name"] is string name && !string.IsNullOrWhiteSpace(name))
+                        {
+                            columns.Add(name);
+                        }
+                    }
+                }
+
+                if (!columns.Contains("project_owner_name"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner_name TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("project_email"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_email TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("project_phone"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_phone TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("project_owner"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("department"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN department TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    connection.Close();
+                }
+            }
+        }
+    }
+
+    private static void EnsureGroupColumns(SecureJournalAppDbContext db)
+    {
+        var provider = db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                IF COL_LENGTH('groups_ref', 'description') IS NULL
+                    ALTER TABLE groups_ref ADD description nvarchar(500) NOT NULL CONSTRAINT DF_groups_ref_description DEFAULT ('');
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                ALTER TABLE groups_ref ADD COLUMN IF NOT EXISTS description varchar(500) NOT NULL DEFAULT '';
+                """);
+            return;
+        }
+
+        if (provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            var connection = db.Database.GetDbConnection();
+            var shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose)
+            {
+                connection.Open();
+            }
+
+            try
+            {
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var pragma = connection.CreateCommand())
+                {
+                    pragma.CommandText = "PRAGMA table_info(groups_ref);";
+                    using var reader = pragma.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        if (reader["name"] is string name && !string.IsNullOrWhiteSpace(name))
+                        {
+                            columns.Add(name);
+                        }
+                    }
+                }
+
+                if (!columns.Contains("description"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE groups_ref ADD COLUMN description TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    connection.Close();
+                }
+            }
+        }
+    }
+
+    private static void EnsureQueryIndexes(SecureJournalAppDbContext db)
+    {
+        var provider = db.Database.ProviderName ?? string.Empty;
+        if (provider.Contains("SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw(
+                """
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_projects_name' AND object_id = OBJECT_ID('projects'))
+                    CREATE INDEX IX_projects_name ON projects(name);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_projects_description' AND object_id = OBJECT_ID('projects'))
+                    CREATE INDEX IX_projects_description ON projects(description);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_app_users_display_name' AND object_id = OBJECT_ID('app_users'))
+                    CREATE INDEX IX_app_users_display_name ON app_users(display_name);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_groups_ref_description' AND object_id = OBJECT_ID('groups_ref'))
+                    CREATE INDEX IX_groups_ref_description ON groups_ref(description);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_groups_group_id' AND object_id = OBJECT_ID('user_groups'))
+                    CREATE INDEX IX_user_groups_group_id ON user_groups(group_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_project_groups_group_id' AND object_id = OBJECT_ID('project_groups'))
+                    CREATE INDEX IX_project_groups_group_id ON project_groups(group_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_created_at_utc' AND object_id = OBJECT_ID('journal_entries'))
+                    CREATE INDEX IX_journal_entries_created_at_utc ON journal_entries(created_at_utc);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_logs_timestamp_utc' AND object_id = OBJECT_ID('audit_logs'))
+                    CREATE INDEX IX_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);
+                """);
+            return;
+        }
+
+        if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
+            provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_projects_name ON projects(name);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_projects_description ON projects(description);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_app_users_display_name ON app_users(display_name);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_groups_ref_description ON groups_ref(description);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_user_groups_group_id ON user_groups(group_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_project_groups_group_id ON project_groups(group_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_created_at_utc ON journal_entries(created_at_utc);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);");
         }
     }
 

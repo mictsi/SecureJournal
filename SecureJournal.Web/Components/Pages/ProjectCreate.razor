@@ -1,0 +1,149 @@
+@page "/admin/projects/create"
+@attribute [Authorize(Roles = "Administrator")]
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<ProjectCreate> Logger
+
+<PageTitle>Create project</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Create project</h2>
+        <p>Create a new project and then manage its group access in Project Management.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <section class="panel-card project-create-card">
+        <div class="panel-card-header">
+            <h3>Create project</h3>
+        </div>
+
+        <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
+            <AntiforgeryToken />
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="project-metadata-grid">
+                <div class="project-metadata-main">
+                    <label class="form-label" for="projectName">Name</label>
+                    <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
+                </div>
+
+                <div class="project-metadata-main">
+                    <label class="form-label" for="projectDescription">Description</label>
+                    <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
+                    <small class="text-muted">Project code is generated automatically (for example <code>PRJ0001</code>).</small>
+                </div>
+
+                <div>
+                    <label class="form-label" for="projectOwnerName">Project Owner Name</label>
+                    <InputText id="projectOwnerName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwnerName" />
+                </div>
+                <div>
+                    <label class="form-label" for="projectOwner">Project Owner</label>
+                    <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwner" />
+                </div>
+                <div>
+                    <label class="form-label" for="projectDepartment">Department</label>
+                    <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Department" />
+                </div>
+                <div>
+                    <label class="form-label" for="projectEmail">Project Email</label>
+                    <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="ProjectDraft.ProjectEmail" />
+                </div>
+                <div>
+                    <label class="form-label" for="projectPhone">Project Phone</label>
+                    <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="ProjectDraft.ProjectPhone" />
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create new project</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
+                <a href="/admin/projects" class="btn btn-outline-secondary">Project Management</a>
+            </div>
+        </EditForm>
+    </section>
+}
+
+@code {
+    [SupplyParameterFromForm(FormName = "admin-project-create")]
+    private CreateProjectRequest? PostedProjectDraft { get; set; }
+    private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
+
+    private UserContext? _currentUser;
+    private string? _message;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await JournalApp.HasCurrentUserAsync())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+    }
+
+    private Task CreateProjectAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation("Admin project form submit: CreateProject");
+
+        try
+        {
+            var project = JournalApp.CreateProject(ProjectDraft);
+            _message = $"Project '{project.Code}' created.";
+            ResetProjectForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin project create failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+
+    private void ResetProjectForm()
+    {
+        ProjectDraft.Code = string.Empty;
+        ProjectDraft.Name = string.Empty;
+        ProjectDraft.Description = string.Empty;
+        ProjectDraft.ProjectOwnerName = string.Empty;
+        ProjectDraft.ProjectEmail = string.Empty;
+        ProjectDraft.ProjectPhone = string.Empty;
+        ProjectDraft.ProjectOwner = string.Empty;
+        ProjectDraft.Department = string.Empty;
+    }
+}

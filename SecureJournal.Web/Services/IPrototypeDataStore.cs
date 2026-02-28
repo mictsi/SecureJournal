@@ -11,6 +11,16 @@ public interface IPrototypeDataStore
     IReadOnlyList<StoredGroupRow> LoadGroups();
     IReadOnlyList<StoredUserGroupRow> LoadUserGroups();
     IReadOnlyList<StoredProjectGroupRow> LoadProjectGroups();
+    StorePagedResult<StoredProjectRow> QueryProjects(StoreListQuery query, IReadOnlyCollection<Guid>? visibleProjectIds = null);
+    StorePagedResult<StoredUserRow> QueryUsers(StoreListQuery query);
+    StorePagedResult<StoredGroupRow> QueryGroups(StoreListQuery query);
+    StorePagedResult<StoredGroupAccessRow> QueryProjectGroups(Guid projectId, StoreListQuery query);
+    StorePagedResult<StoredGroupAccessRow> QueryUserGroups(Guid userId, StoreListQuery query);
+    IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds);
+    IReadOnlyList<StoredUserGroupNameRow> LoadUserGroupNamesForUsers(IReadOnlyCollection<Guid> userIds);
+    IReadOnlyList<StoredUserRoleRow> LoadUserRolesForUsers(IReadOnlyCollection<Guid> userIds);
+    IReadOnlyList<StoredGroupMemberNameRow> LoadGroupMemberNames(IReadOnlyCollection<Guid> groupIds);
+    IReadOnlyList<StoredGroupProjectCodeRow> LoadGroupProjectCodes(IReadOnlyCollection<Guid> groupIds);
     IReadOnlyList<JournalEntryRecord> LoadJournalEntries();
     IReadOnlyList<AuditLogRecord> LoadAuditLogs();
     void UpsertJournalEntry(JournalEntryRecord record);

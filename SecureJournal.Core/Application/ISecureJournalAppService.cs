@@ -17,9 +17,15 @@ public interface ISecureJournalAppService
     IReadOnlyList<UserContext> GetAvailableUsers();
     DashboardSummary GetDashboardSummary();
     IReadOnlyList<ProjectOverview> GetProjects();
+    PagedResult<ProjectOverview> GetProjects(ProjectListQuery request);
     IReadOnlyList<GroupOverview> GetGroups();
+    PagedResult<GroupOverview> GetGroups(GroupListQuery request);
+    PagedResult<GroupAccessRow> GetProjectGroupAccess(ProjectGroupAccessQuery request);
     IReadOnlyList<UserOverview> GetUsers();
+    PagedResult<UserOverview> GetUsers(UserListQuery request);
+    PagedResult<GroupAccessRow> GetUserGroups(UserGroupMembershipQuery request);
     ProjectOverview CreateProject(CreateProjectRequest request);
+    ProjectOverview UpdateProject(UpdateProjectRequest request);
     GroupOverview CreateGroup(CreateGroupRequest request);
     bool DeleteGroup(Guid groupId);
     UserOverview CreateUser(CreateUserRequest request);

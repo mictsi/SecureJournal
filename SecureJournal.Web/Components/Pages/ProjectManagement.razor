@@ -10,7 +10,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h2>Project Management</h2>
-        <p>Create projects (code is generated automatically) and assign groups to projects.</p>
+        <p>Manage project metadata and group access with server-side filtering, sorting, and paging.</p>
     </div>
 </section>
 
@@ -41,20 +41,32 @@ else
             <div class="panel-card-header">
                 <h3>Projects</h3>
                 <div class="panel-card-header-actions">
-                    <span class="text-muted">@_projects.Count total</span>
+                    <span class="text-muted">@_projectPage.TotalCount total</span>
                     <label class="project-page-size-label" for="projectPageSize">Page size</label>
                     <select id="projectPageSize"
                             class="form-select form-select-sm project-page-size-select"
-                            value="@_projectPageSize"
-                            @onchange="ChangeProjectPageSize">
-                        @foreach (var option in _projectPageSizeOptions)
+                            @onchange="OnProjectPageSizeChanged">
+                        @foreach (var option in _pageSizeOptions)
                         {
-                            <option value="@option">@option</option>
+                            <option value="@option" selected="@(option == _projectQuery.PageSize)">@option</option>
                         }
                     </select>
                 </div>
             </div>
-            @if (_projects.Count == 0)
+
+            <div class="row g-2 mb-3">
+                <div class="col-md-8">
+                    <label class="form-label" for="projectSearch">Search projects</label>
+                    <input id="projectSearch"
+                           class="form-control"
+                           type="text"
+                           value="@_projectQuery.FilterText"
+                           @oninput="OnProjectSearchChanged"
+                           placeholder="Filter by project name or description..." />
+                </div>
+            </div>
+
+            @if (_projectPage.TotalCount == 0)
             {
                 <p class="mb-0">No projects created yet.</p>
             }
@@ -64,17 +76,23 @@ else
                     <table class="table table-sm project-table mb-0">
                         <thead>
                             <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th class="assigned-group-col">Assigned Groups</th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("code"))">Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("name"))">Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th>Assigned Groups</th>
                                 <th>Description</th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwnerName"))">Owner Name @SortGlyph("projectOwnerName", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("department"))">Department @SortGlyph("department", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectEmail"))">Email @SortGlyph("projectEmail", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectPhone"))">Phone @SortGlyph("projectPhone", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var project in PagedProjects)
+                            @foreach (var project in _projectPage.Items)
                             {
                                 <tr class="project-row @(project.ProjectId == _selectedProjectId ? "is-selected" : string.Empty)"
-                                    @onclick="() => SelectProject(project.ProjectId)">
+                                    @onclick="() => SelectProjectAsync(project.ProjectId)">
                                     <td><code>@project.Code</code></td>
                                     <td>@project.Name</td>
                                     <td class="project-group-cell assigned-group-col">
@@ -93,6 +111,19 @@ else
                                         }
                                     </td>
                                     <td>@project.Description</td>
+                                    <td>@RenderValueOrDash(project.ProjectOwnerName)</td>
+                                    <td>@RenderValueOrDash(project.ProjectOwner)</td>
+                                    <td>@RenderValueOrDash(project.Department)</td>
+                                    <td>@RenderValueOrDash(project.ProjectEmail)</td>
+                                    <td>@RenderValueOrDash(project.ProjectPhone)</td>
+                                    <td>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => StartEditProject(project.ProjectId)">
+                                            Edit
+                                        </button>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -100,18 +131,18 @@ else
                 </div>
 
                 <div class="pager-bar">
-                    <span class="text-muted">Page @_projectPage of @TotalProjectPages</span>
+                    <span class="text-muted">Page @_projectPage.Page of @_projectPage.TotalPages</span>
                     <div class="d-flex gap-2">
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                @onclick="GoToPreviousProjectPage"
-                                disabled="@(_projectPage <= 1)">
+                                @onclick="GoToPreviousProjectPageAsync"
+                                disabled="@(_projectPage.Page <= 1)">
                             Previous
                         </button>
                         <button type="button"
                                 class="btn btn-outline-secondary btn-sm"
-                                @onclick="GoToNextProjectPage"
-                                disabled="@(_projectPage >= TotalProjectPages)">
+                                @onclick="GoToNextProjectPageAsync"
+                                disabled="@(_projectPage.Page >= _projectPage.TotalPages)">
                             Next
                         </button>
                     </div>
@@ -122,43 +153,73 @@ else
         <div class="project-admin-right">
             <section class="panel-card">
                 <div class="panel-card-header">
-                    <h3>Create Project</h3>
+                    <h3>Edit Project Metadata</h3>
                 </div>
-                <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
-                    <AntiforgeryToken />
-                    <DataAnnotationsValidator />
-                    <ValidationSummary />
 
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label" for="projectName">Name</label>
-                            <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="projectDescription">Description</label>
-                            <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
-                            <small class="text-muted">Project code will be generated automatically (for example `PRJ0001`).</small>
-                        </div>
-                    </div>
+                @if (EditingProject is null)
+                {
+                    <p class="mb-0">Click <strong>Edit</strong> on a project row to update metadata.</p>
+                }
+                else
+                {
+                    <p class="text-muted mb-3">
+                        Editing <strong>@EditingProject.Code - @EditingProject.Name</strong>.
+                    </p>
 
-                    <div class="mt-3 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Create Project</button>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
-                    </div>
-                </EditForm>
+                    <EditForm Model="_projectEditDraft" OnValidSubmit="SaveProjectMetadataAsync">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="project-metadata-grid">
+                            <div class="project-metadata-main">
+                                <label class="form-label" for="projectEditName">Name</label>
+                                <InputText id="projectEditName" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Name" />
+                            </div>
+
+                            <div class="project-metadata-main">
+                                <label class="form-label" for="projectEditDescription">Description</label>
+                                <InputTextArea id="projectEditDescription" class="form-control" rows="3" maxlength="500" @bind-Value="_projectEditDraft.Description" />
+                            </div>
+
+                            <div>
+                                <label class="form-label" for="projectEditOwnerName">Project Owner Name</label>
+                                <InputText id="projectEditOwnerName" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwnerName" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="projectEditOwner">Project Owner</label>
+                                <InputText id="projectEditOwner" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwner" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="projectEditDepartment">Department</label>
+                                <InputText id="projectEditDepartment" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Department" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="projectEditEmail">Project Email</label>
+                                <InputText id="projectEditEmail" class="form-control" maxlength="254" @bind-Value="_projectEditDraft.ProjectEmail" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="projectEditPhone">Project Phone</label>
+                                <InputText id="projectEditPhone" class="form-control" maxlength="32" @bind-Value="_projectEditDraft.ProjectPhone" />
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@_isSavingMetadata">@( _isSavingMetadata ? "Saving..." : "Save metadata")</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CancelProjectEdit" disabled="@_isSavingMetadata">Cancel</button>
+                        </div>
+                    </EditForm>
+                }
             </section>
 
             <section class="panel-card">
                 <div class="panel-card-header">
                     <h3>Project Group Access</h3>
+                    <span class="text-muted">@_groupAccessPage.TotalCount total groups</span>
                 </div>
-                @if (_projects.Count == 0)
+
+                @if (_projectPage.TotalCount == 0)
                 {
                     <p class="mb-0">Create at least one project first.</p>
-                }
-                else if (_groups.Count == 0)
-                {
-                    <p class="mb-0">Create at least one group first.</p>
                 }
                 else if (SelectedProject is null)
                 {
@@ -171,18 +232,78 @@ else
                         Check to grant access, uncheck to remove access.
                     </p>
 
-                    <div class="project-membership-list">
-                        @foreach (var group in _groups)
-                        {
-                            <label class="form-check project-membership-item">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       checked="@_editedGroupIds.Contains(group.GroupId)"
-                                       @onchange="args => ToggleGroupLocal(group.GroupId, args)" />
-                                <span class="form-check-label">@group.Name</span>
-                            </label>
-                        }
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="groupSearch">Filter groups</label>
+                            <input id="groupSearch"
+                                   class="form-control"
+                                   type="text"
+                                   value="@_groupAccessQuery.FilterText"
+                                   @oninput="OnGroupSearchChanged"
+                                   placeholder="Search by group name..." />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="groupPageSize">Page size</label>
+                            <select id="groupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                                @foreach (var option in _pageSizeOptions)
+                                {
+                                    <option value="@option" selected="@(option == _groupAccessQuery.PageSize)">@option</option>
+                                }
+                            </select>
+                        </div>
                     </div>
+
+                    @if (_groupAccessPage.TotalCount == 0)
+                    {
+                        <p class="mb-0">No groups available for the current filter.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
+                                        <th>Description</th>
+                                        <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var group in _groupAccessPage.Items)
+                                    {
+                                        <tr>
+                                            <td>@group.Name</td>
+                                            <td>@RenderValueOrDash(group.Description)</td>
+                                            <td class="text-end">
+                                                <input class="form-check-input"
+                                                       type="checkbox"
+                                                       checked="@IsGroupAssigned(group)"
+                                                       @onchange="args => ToggleGroupLocal(group, args)" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="pager-bar">
+                            <span class="text-muted">Page @_groupAccessPage.Page of @_groupAccessPage.TotalPages</span>
+                            <div class="d-flex gap-2">
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @onclick="GoToPreviousGroupPageAsync"
+                                        disabled="@(_groupAccessPage.Page <= 1)">
+                                    Previous
+                                </button>
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @onclick="GoToNextGroupPageAsync"
+                                        disabled="@(_groupAccessPage.Page >= _groupAccessPage.TotalPages)">
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    }
 
                     <div class="mt-3 d-flex gap-2">
                         <button type="button" class="btn btn-primary" @onclick="SaveProjectGroupsAsync" disabled="@_isSaving">@( _isSaving ? "Saving..." : "Save")</button>
@@ -195,37 +316,32 @@ else
 }
 
 @code {
-    [SupplyParameterFromForm(FormName = "admin-project-create")]
-    private CreateProjectRequest? PostedProjectDraft { get; set; }
-    private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
-
+    private readonly int[] _pageSizeOptions = [30, 50, 100];
+    private readonly UpdateProjectRequest _projectEditDraft = new();
     private UserContext? _currentUser;
-    private List<ProjectOverview> _projects = new();
-    private List<GroupOverview> _groups = new();
-    private readonly int[] _projectPageSizeOptions = [8, 12, 20, 40];
-    private int _projectPageSize = 8;
-    private int _projectPage = 1;
+    private PagedResult<ProjectOverview> _projectPage = new(Array.Empty<ProjectOverview>(), 0, 1, 30, 1);
+    private PagedResult<GroupAccessRow> _groupAccessPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 30, 1);
+    private ProjectListQuery _projectQuery = new() { PageSize = 30, SortField = "code" };
+    private ProjectGroupAccessQuery _groupAccessQuery = new() { PageSize = 30, SortField = "name" };
     private Guid? _selectedProjectId;
-    private HashSet<Guid> _originalGroupIds = [];
-    private HashSet<Guid> _editedGroupIds = [];
-    private bool _isDirty;
+    private Guid? _editingProjectId;
+    private readonly Dictionary<Guid, bool> _pendingGroupAssignments = [];
     private bool _isSaving;
+    private bool _isSavingMetadata;
     private string? _message;
     private string? _error;
 
+    private bool _isDirty => _pendingGroupAssignments.Count > 0;
+
     private ProjectOverview? SelectedProject
         => _selectedProjectId is { } id
-            ? _projects.FirstOrDefault(p => p.ProjectId == id)
+            ? _projectPage.Items.FirstOrDefault(p => p.ProjectId == id)
             : null;
 
-    private int TotalProjectPages
-        => _projects.Count == 0 ? 1 : (int)Math.Ceiling(_projects.Count / (double)_projectPageSize);
-
-    private IReadOnlyList<ProjectOverview> PagedProjects
-        => _projects
-            .Skip((_projectPage - 1) * _projectPageSize)
-            .Take(_projectPageSize)
-            .ToList();
+    private ProjectOverview? EditingProject
+        => _editingProjectId is { } id
+            ? _projectPage.Items.FirstOrDefault(p => p.ProjectId == id)
+            : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -235,69 +351,112 @@ else
             return;
         }
 
-        await LoadDataAsync();
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+        await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
     }
 
-    private async Task LoadDataAsync()
+    private Task LoadProjectsAsync(bool selectFirstProjectIfNeeded = false)
     {
-        _currentUser = await JournalApp.GetCurrentUserAsync();
-        _projects = JournalApp.GetProjects().ToList();
-        _groups = JournalApp.GetGroups().ToList();
+        _projectPage = JournalApp.GetProjects(_projectQuery);
 
-        if (_projects.Count == 0)
+        if (_projectPage.TotalCount == 0)
         {
             _selectedProjectId = null;
-            _projectPage = 1;
-            _originalGroupIds.Clear();
-            _editedGroupIds.Clear();
-            _isDirty = false;
+            _groupAccessPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupAccessQuery.PageSize, 1);
+            _pendingGroupAssignments.Clear();
+            return Task.CompletedTask;
+        }
+
+        if (selectFirstProjectIfNeeded || !_selectedProjectId.HasValue || !_projectPage.Items.Any(x => x.ProjectId == _selectedProjectId.Value))
+        {
+            _selectedProjectId = _projectPage.Items.FirstOrDefault()?.ProjectId;
+            _pendingGroupAssignments.Clear();
+        }
+
+        if (_editingProjectId.HasValue && !_projectPage.Items.Any(x => x.ProjectId == _editingProjectId.Value))
+        {
+            CancelProjectEdit();
+        }
+
+        return LoadGroupAccessAsync();
+    }
+
+    private Task LoadGroupAccessAsync()
+    {
+        if (!_selectedProjectId.HasValue)
+        {
+            _groupAccessPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupAccessQuery.PageSize, 1);
+            return Task.CompletedTask;
+        }
+
+        _groupAccessQuery.ProjectId = _selectedProjectId.Value;
+        _groupAccessPage = JournalApp.GetProjectGroupAccess(_groupAccessQuery);
+        return Task.CompletedTask;
+    }
+
+    private void StartEditProject(Guid projectId)
+    {
+        var project = _projectPage.Items.FirstOrDefault(x => x.ProjectId == projectId);
+        if (project is null)
+        {
             return;
         }
 
-        var selectedId = _selectedProjectId is { } existingId && _projects.Any(p => p.ProjectId == existingId)
-            ? existingId
-            : _projects[0].ProjectId;
-
-        SetProjectPageForProject(selectedId);
-        EnsureProjectPageBounds();
-        SelectProject(selectedId);
+        _editingProjectId = project.ProjectId;
+        _projectEditDraft.ProjectId = project.ProjectId;
+        _projectEditDraft.Name = project.Name;
+        _projectEditDraft.Description = project.Description;
+        _projectEditDraft.ProjectOwnerName = project.ProjectOwnerName;
+        _projectEditDraft.ProjectOwner = project.ProjectOwner;
+        _projectEditDraft.Department = project.Department;
+        _projectEditDraft.ProjectEmail = project.ProjectEmail;
+        _projectEditDraft.ProjectPhone = project.ProjectPhone;
+        ClearMessages();
     }
 
-    private async Task CreateProjectAsync()
+    private async Task SaveProjectMetadataAsync()
     {
+        if (_projectEditDraft.ProjectId == Guid.Empty)
+        {
+            _error = "Select a project to edit first.";
+            return;
+        }
+
         ClearMessages();
-        Logger.LogInformation("Admin project form submit: CreateProject {Code}", ProjectDraft.Code);
+        _isSavingMetadata = true;
 
         try
         {
-            var project = JournalApp.CreateProject(ProjectDraft);
-            _message = $"Project '{project.Code}' created.";
-            _selectedProjectId = project.ProjectId;
-            ResetProjectForm();
-            await LoadDataAsync();
+            var updated = JournalApp.UpdateProject(_projectEditDraft);
+            _message = $"Project '{updated.Code}' metadata updated.";
+            await LoadProjectsAsync();
+            StartEditProject(updated.ProjectId);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Admin project create failed");
+            Logger.LogError(ex, "Admin project metadata update failed");
             _error = ex.Message;
         }
-
+        finally
+        {
+            _isSavingMetadata = false;
+        }
     }
 
-    private Task SaveProjectGroupsAsync()
+    private async Task SaveProjectGroupsAsync()
     {
         var selectedProject = SelectedProject;
         if (selectedProject is null)
         {
             _error = "Select a project first.";
-            return Task.CompletedTask;
+            return;
         }
 
         if (!_isDirty)
         {
             _message = "No group access changes to save.";
             _error = null;
-            return Task.CompletedTask;
+            return;
         }
 
         ClearMessages();
@@ -305,38 +464,34 @@ else
 
         try
         {
-            var selectedProjectId = selectedProject.ProjectId;
-            var groupAdds = _editedGroupIds.Except(_originalGroupIds).ToList();
-            var groupRemoves = _originalGroupIds.Except(_editedGroupIds).ToList();
-
-            Logger.LogInformation(
-                "Saving project-group memberships for {ProjectCode}: Adds={Adds} Removes={Removes}",
-                selectedProject.Code,
-                groupAdds.Count,
-                groupRemoves.Count);
-
-            foreach (var groupId in groupAdds)
+            var adds = 0;
+            var removes = 0;
+            foreach (var (groupId, shouldBeAssigned) in _pendingGroupAssignments)
             {
-                JournalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+                if (shouldBeAssigned)
                 {
-                    ProjectId = selectedProjectId,
-                    GroupId = groupId
-                });
+                    JournalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+                    {
+                        ProjectId = selectedProject.ProjectId,
+                        GroupId = groupId
+                    });
+                    adds++;
+                }
+                else
+                {
+                    JournalApp.RemoveGroupFromProject(new AssignGroupToProjectRequest
+                    {
+                        ProjectId = selectedProject.ProjectId,
+                        GroupId = groupId
+                    });
+                    removes++;
+                }
             }
 
-            foreach (var groupId in groupRemoves)
-            {
-                JournalApp.RemoveGroupFromProject(new AssignGroupToProjectRequest
-                {
-                    ProjectId = selectedProjectId,
-                    GroupId = groupId
-                });
-            }
-
-            _projects = JournalApp.GetProjects().ToList();
-            _groups = JournalApp.GetGroups().ToList();
-            SelectProject(selectedProjectId);
+            Logger.LogInformation("Saved project-group memberships for {ProjectCode}: adds={Adds}, removes={Removes}", selectedProject.Code, adds, removes);
+            _pendingGroupAssignments.Clear();
             _message = $"Group access changes saved for project '{selectedProject.Code}'.";
+            await LoadProjectsAsync();
         }
         catch (Exception ex)
         {
@@ -347,113 +502,153 @@ else
         {
             _isSaving = false;
         }
-
-        return Task.CompletedTask;
     }
 
-    private void SelectProject(Guid projectId)
+    private Task SelectProjectAsync(Guid projectId)
     {
+        if (_selectedProjectId == projectId)
+        {
+            return Task.CompletedTask;
+        }
+
         _selectedProjectId = projectId;
-        SetProjectPageForProject(projectId);
+        _pendingGroupAssignments.Clear();
+        _groupAccessQuery.Page = 1;
         _message = null;
         _error = null;
+        return LoadGroupAccessAsync();
+    }
 
-        var selected = SelectedProject;
-        if (selected is null)
+    private void ToggleGroupLocal(GroupAccessRow group, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked == group.IsAssigned)
         {
-            _originalGroupIds.Clear();
-            _editedGroupIds.Clear();
-            _isDirty = false;
+            _pendingGroupAssignments.Remove(group.GroupId);
             return;
         }
 
-        var assignedGroupNames = selected.AssignedGroups.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _originalGroupIds = _groups
-            .Where(g => assignedGroupNames.Contains(g.Name))
-            .Select(g => g.GroupId)
-            .ToHashSet();
-
-        _editedGroupIds = _originalGroupIds.ToHashSet();
-        _isDirty = false;
+        _pendingGroupAssignments[group.GroupId] = isChecked;
     }
 
-    private void ToggleGroupLocal(Guid groupId, ChangeEventArgs args)
+    private bool IsGroupAssigned(GroupAccessRow row)
+        => _pendingGroupAssignments.TryGetValue(row.GroupId, out var value) ? value : row.IsAssigned;
+
+    private Task ResetProjectGroupEdits()
     {
-        var isChecked = ParseCheckboxValue(args);
-        if (isChecked)
+        _pendingGroupAssignments.Clear();
+        return LoadGroupAccessAsync();
+    }
+
+    private async Task OnProjectSearchChanged(ChangeEventArgs args)
+    {
+        _projectQuery.FilterText = args.Value?.ToString() ?? string.Empty;
+        _projectQuery.Page = 1;
+        await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
+    }
+
+    private async Task OnProjectPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
         {
-            _editedGroupIds.Add(groupId);
+            _projectQuery.PageSize = pageSize;
+            _projectQuery.Page = 1;
+            await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
+        }
+    }
+
+    private async Task GoToPreviousProjectPageAsync()
+    {
+        if (_projectQuery.Page > 1)
+        {
+            _projectQuery.Page--;
+            await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
+        }
+    }
+
+    private async Task GoToNextProjectPageAsync()
+    {
+        if (_projectQuery.Page < _projectPage.TotalPages)
+        {
+            _projectQuery.Page++;
+            await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
+        }
+    }
+
+    private async Task ChangeProjectSortAsync(string field)
+    {
+        if (string.Equals(_projectQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _projectQuery.SortDirection = _projectQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
         }
         else
         {
-            _editedGroupIds.Remove(groupId);
+            _projectQuery.SortField = field;
+            _projectQuery.SortDirection = SortDirection.Asc;
         }
 
-        UpdateDirtyState();
+        _projectQuery.Page = 1;
+        await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
     }
 
-    private void ResetProjectGroupEdits()
+    private async Task OnGroupSearchChanged(ChangeEventArgs args)
     {
-        _editedGroupIds = _originalGroupIds.ToHashSet();
-        _isDirty = false;
+        _groupAccessQuery.FilterText = args.Value?.ToString() ?? string.Empty;
+        _groupAccessQuery.Page = 1;
+        await LoadGroupAccessAsync();
     }
 
-    private void UpdateDirtyState()
-        => _isDirty = !_editedGroupIds.SetEquals(_originalGroupIds);
-
-    private void GoToPreviousProjectPage()
+    private async Task OnGroupPageSizeChanged(ChangeEventArgs args)
     {
-        if (_projectPage > 1)
+        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
         {
-            _projectPage--;
+            _groupAccessQuery.PageSize = pageSize;
+            _groupAccessQuery.Page = 1;
+            await LoadGroupAccessAsync();
         }
     }
 
-    private void GoToNextProjectPage()
+    private async Task GoToPreviousGroupPageAsync()
     {
-        if (_projectPage < TotalProjectPages)
+        if (_groupAccessQuery.Page > 1)
         {
-            _projectPage++;
+            _groupAccessQuery.Page--;
+            await LoadGroupAccessAsync();
         }
     }
 
-    private void ChangeProjectPageSize(ChangeEventArgs args)
+    private async Task GoToNextGroupPageAsync()
     {
-        if (!int.TryParse(args.Value?.ToString(), out var nextPageSize))
+        if (_groupAccessQuery.Page < _groupAccessPage.TotalPages)
         {
-            return;
+            _groupAccessQuery.Page++;
+            await LoadGroupAccessAsync();
         }
-
-        if (!_projectPageSizeOptions.Contains(nextPageSize) || nextPageSize == _projectPageSize)
-        {
-            return;
-        }
-
-        _projectPageSize = nextPageSize;
-
-        if (_selectedProjectId is { } selectedProjectId)
-        {
-            SetProjectPageForProject(selectedProjectId);
-        }
-
-        EnsureProjectPageBounds();
     }
 
-    private void SetProjectPageForProject(Guid projectId)
+    private async Task ChangeGroupSortAsync(string field)
     {
-        var selectedIndex = _projects.FindIndex(p => p.ProjectId == projectId);
-        if (selectedIndex < 0)
+        if (string.Equals(_groupAccessQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            _groupAccessQuery.SortDirection = _groupAccessQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        }
+        else
+        {
+            _groupAccessQuery.SortField = field;
+            _groupAccessQuery.SortDirection = SortDirection.Asc;
         }
 
-        _projectPage = (selectedIndex / _projectPageSize) + 1;
+        _groupAccessQuery.Page = 1;
+        await LoadGroupAccessAsync();
     }
 
-    private void EnsureProjectPageBounds()
-    {
-        _projectPage = Math.Clamp(_projectPage, 1, TotalProjectPages);
-    }
+    private static string SortGlyph(string field, string currentField, SortDirection currentDirection)
+        => string.Equals(currentField, field, StringComparison.OrdinalIgnoreCase)
+            ? currentDirection == SortDirection.Asc ? "\u2191" : "\u2193"
+            : string.Empty;
+
+    private static string RenderValueOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
 
     private static bool ParseCheckboxValue(ChangeEventArgs args)
     {
@@ -471,10 +666,16 @@ else
         _error = null;
     }
 
-    private void ResetProjectForm()
+    private void CancelProjectEdit()
     {
-        ProjectDraft.Code = string.Empty;
-        ProjectDraft.Name = string.Empty;
-        ProjectDraft.Description = string.Empty;
+        _editingProjectId = null;
+        _projectEditDraft.ProjectId = Guid.Empty;
+        _projectEditDraft.Name = string.Empty;
+        _projectEditDraft.Description = string.Empty;
+        _projectEditDraft.ProjectOwnerName = string.Empty;
+        _projectEditDraft.ProjectEmail = string.Empty;
+        _projectEditDraft.ProjectPhone = string.Empty;
+        _projectEditDraft.ProjectOwner = string.Empty;
+        _projectEditDraft.Department = string.Empty;
     }
 }

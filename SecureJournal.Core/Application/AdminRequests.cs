@@ -6,25 +6,67 @@ namespace SecureJournal.Core.Application;
 
 public sealed class CreateProjectRequest
 {
-    [StringLength(20)]
+    [StringLength(FieldLimits.ProjectCodeMax)]
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100)]
+    [StringLength(FieldLimits.ProjectNameMax)]
     public string Name { get; set; } = string.Empty;
 
-    [StringLength(500)]
+    [StringLength(FieldLimits.DescriptionMax)]
     public string Description { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DisplayNameMax)]
+    public string ProjectOwnerName { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.EmailMax)]
+    public string ProjectEmail { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.PhoneMax)]
+    public string ProjectPhone { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DisplayNameMax)]
+    public string ProjectOwner { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DepartmentMax)]
+    public string Department { get; set; } = string.Empty;
+}
+
+public sealed class UpdateProjectRequest
+{
+    public Guid ProjectId { get; set; }
+
+    [Required]
+    [StringLength(FieldLimits.ProjectNameMax)]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DescriptionMax)]
+    public string Description { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DisplayNameMax)]
+    public string ProjectOwnerName { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.EmailMax)]
+    public string ProjectEmail { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.PhoneMax)]
+    public string ProjectPhone { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DisplayNameMax)]
+    public string ProjectOwner { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DepartmentMax)]
+    public string Department { get; set; } = string.Empty;
 }
 
 public sealed class CreateUserRequest
 {
     [Required]
-    [StringLength(100)]
+    [StringLength(FieldLimits.UsernameMax)]
     public string Username { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100)]
+    [StringLength(FieldLimits.DisplayNameMax)]
     public string DisplayName { get; set; } = string.Empty;
 
     public AppRole Role { get; set; } = AppRole.ProjectUser;
@@ -38,8 +80,11 @@ public sealed class CreateUserRequest
 public sealed class CreateGroupRequest
 {
     [Required]
-    [StringLength(100)]
+    [StringLength(FieldLimits.GroupNameMax)]
     public string Name { get; set; } = string.Empty;
+
+    [StringLength(FieldLimits.DescriptionMax)]
+    public string Description { get; set; } = string.Empty;
 }
 
 public sealed class AssignUserToGroupRequest

@@ -20,9 +20,12 @@ It is designed for:
 - Sign in with OIDC (when enabled by configuration)
 - Admins can create users from `User Accounts` (`/admin/user-accounts`)
 - Admins can manage user role/group memberships from `User management` (`/admin/users`)
+- Admins can create projects from `Create project` (`/admin/projects/create`) and groups from `Create group` (`/admin/groups/create`)
+- Admins can edit project metadata from `Project Management` (`/admin/projects`) per project row
 - Admins can enable/disable users and delete users from `User management`
 - Admins can reset passwords for local users from `Manage user` (selected-user context)
 - View `My Projects` and browse journal entries per project
+- Search and page the `My Projects` project list
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
 - Sort project journal entries by date (`Newest first` / `Oldest first`)
 - Open a dedicated journal entry details page from `My Projects` and return to the selected project context
@@ -62,9 +65,12 @@ The repository also keeps legacy fallback paths (prototype store/auth toggles) f
 Recent UI behavior highlights:
 
 - `/journal` redirects back to `/projects?projectId=...` after successful entry creation
+- `My Projects` uses a two-column flex layout with `Project Journal Entries` in the right column
+- `My Projects` project list supports search + paging
 - `My Projects` uses an inline columnar entry list with alternating row colors for readability
 - `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
 - `User management` includes `Manage user` workflows for memberships, local-password reset (local users only), and account state toggle (`Enable user` / `Disable user`)
+- `User management` uses a three-column admin layout and supports assigned/unassigned filtering in `Manage user groups`
 - Blazor reconnect/lost-connection flow uses a custom reconnect modal with explicit retry/resume states
 - Primary navigation uses `My Settings` as the final main link (renamed from `Account`)
 - `My Settings` page uses a two-column flex layout with left-column card order: `My information`, `Change Password`, `Login`

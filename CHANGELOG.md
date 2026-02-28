@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.7.0 - 2026-02-28
+
+### Administration UX and Data Management
+
+- Added server-side filtered/sorted/paged admin query models and store query flows for projects, groups, users, and access-assignment grids.
+- Added dedicated admin pages for creation workflows:
+  - `/admin/projects/create`
+  - `/admin/groups/create`
+- Added row-level project metadata editing in `Project Management`, including a new `UpdateProject` application-service API.
+- Reworked `User management` into a three-column layout (`Users`, `Manage user groups`, `Manage user`) and added assigned/unassigned filtering in the group-membership panel.
+
+### Navigation and Page Flow
+
+- Updated primary navigation with nested admin shortcuts:
+  - `Create project` under `My Projects`
+  - `Create group` under `Create project`.
+- Updated `My Projects` layout to a two-column flex view with `Project Journal Entries` in the right column.
+- Added search and paging to the `My Projects` project list (left column).
+
+### Persistence and Query Reliability
+
+- Fixed EF Core translation failures in admin membership/access queries by reshaping problematic join/order query patterns.
+- Added assigned-state filtering support to user/group and project/group access queries across EF and SQLite store paths.
+- Reduced initialization query timeout risk by improving load ordering and adding supporting indexes in persistence initialization paths.
+
+### Tooling and Test Data
+
+- Added SQL Server high-volume seed script for load testing: `scripts/seed-load-testdata-sqlserver.sql`.
+- Updated `.gitignore` with current local/review workspace exclusions.
+
 ## 0.6.4 - 2026-02-28
 
 ### Security Hardening

@@ -11,7 +11,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h2>User management</h2>
-        <p>Select a user, choose memberships, and manage account state/password.</p>
+        <p>Manage user roles separately from user group memberships.</p>
     </div>
 </section>
 
@@ -41,187 +41,282 @@ else
         <section class="panel-card user-list-column">
             <div class="panel-card-header">
                 <h3>Users</h3>
-                <span class="text-muted">@_users.Count</span>
+                <div class="panel-card-header-actions">
+                    <span class="text-muted">@_userPage.TotalCount total</span>
+                    <label class="project-page-size-label" for="userPageSize">Page size</label>
+                    <select id="userPageSize"
+                            class="form-select form-select-sm project-page-size-select"
+                            @onchange="OnUserPageSizeChanged">
+                        @foreach (var option in _pageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == _userQuery.PageSize)">@option</option>
+                        }
+                    </select>
+                </div>
             </div>
 
-            @if (_users.Count == 0)
+            <div class="row g-2 mb-3">
+                <div class="col-12">
+                    <label class="form-label" for="userSearch">Search users</label>
+                    <input id="userSearch"
+                           class="form-control"
+                           type="text"
+                           value="@_userQuery.FilterText"
+                           @oninput="OnUserSearchChanged"
+                           placeholder="Filter username or display name..." />
+                </div>
+            </div>
+
+            @if (_userPage.TotalCount == 0)
             {
-                <p class="mb-0">No users created yet.</p>
+                <p class="mb-0">No users found.</p>
             }
             else
             {
-                <div class="user-list">
-                    @foreach (var user in _users)
-                    {
-                        <button type="button"
-                                class="user-list-item @(user.UserId == _selectedUserId ? "is-selected" : string.Empty)"
-                                @onclick="() => SelectUser(user.UserId)">
-                            <div class="user-list-item-top">
-                                <strong>@user.DisplayName</strong>
-                            </div>
-                            <div class="user-list-item-meta">
-                                <code>@user.Username</code>
-                                <span>@(user.IsLocalAccount ? "Local" : "External")</span>
-                            </div>
-                            <div class="user-list-item-meta">
-                                <span>Roles: @FormatRoles(user.Roles)</span>
-                                @if (user.IsDisabled)
-                                {
-                                    <span class="user-disabled-badge">Disabled</span>
-                                }
-                            </div>
-                        </button>
-                    }
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeUserSortAsync("username"))">Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _userQuery.SortField, _userQuery.SortDirection)</button></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in _userPage.Items)
+                            {
+                                <tr class="project-row @(user.UserId == _selectedUserId ? "is-selected" : string.Empty)"
+                                    @onclick="() => SelectUserAsync(user.UserId)">
+                                    <td><code>@user.Username</code></td>
+                                    <td>@user.DisplayName</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pager-bar">
+                    <span class="text-muted">Page @_userPage.Page of @_userPage.TotalPages</span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
+                    </div>
                 </div>
             }
         </section>
 
-        <div class="user-detail-column">
-            <section class="panel-card">
-                <div class="panel-card-header">
-                    <h3>Manage user</h3>
+        <section class="panel-card user-groups-column">
+            <div class="panel-card-header">
+                <h3>Manage user groups</h3>
+                <span class="text-muted">@_groupPage.TotalCount total groups</span>
+            </div>
+
+            @if (SelectedUser is null)
+            {
+                <p class="mb-0">Select a user to manage group memberships.</p>
+            }
+            else
+            {
+                <div class="row g-2 mb-3">
+                    <div class="col-lg-5 col-md-12">
+                        <label class="form-label" for="manageUserGroupSearch">Filter groups</label>
+                        <input id="manageUserGroupSearch"
+                               class="form-control"
+                               type="text"
+                               value="@_groupQuery.FilterText"
+                               @oninput="OnGroupSearchChanged"
+                               placeholder="Filter by group name..." />
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <label class="form-label" for="manageUserGroupAssigned">Assigned</label>
+                        <select id="manageUserGroupAssigned" class="form-select" @onchange="OnGroupAssignedFilterChanged">
+                            <option value="all" selected="@(!_groupQuery.Assigned.HasValue)">All</option>
+                            <option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option>
+                            <option value="unassigned" selected="@(_groupQuery.Assigned == false)">Unassigned</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <label class="form-label" for="manageUserGroupPageSize">Page size</label>
+                        <select id="manageUserGroupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                            @foreach (var option in _pageSizeOptions)
+                            {
+                                <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
+                            }
+                        </select>
+                    </div>
                 </div>
 
-                @if (SelectedUser is null)
+                @if (_groupPage.TotalCount == 0)
                 {
-                    <p class="mb-0">Select a user to manage memberships.</p>
+                    <p class="mb-0">No groups available for the current filter.</p>
                 }
                 else
                 {
-                    <p class="text-muted mb-3">
-                        Editing <strong>@SelectedUser.DisplayName</strong> (<code>@SelectedUser.Username</code>).
-                        Check to add membership, uncheck to remove.
-                    </p>
-                    @if (SelectedUser.IsDisabled)
-                    {
-                        <div class="alert alert-warning" role="alert">
-                            This user is disabled and cannot sign in.
-                        </div>
-                    }
-
-                    <div class="membership-grid">
-                        <div>
-                            <h4 class="membership-title">Groups</h4>
-                            @if (_groups.Count == 0)
-                            {
-                                <p class="mb-0">No groups available.</p>
-                            }
-                            else
-                            {
-                                <div class="membership-list">
-                                    @foreach (var group in _groups)
-                                    {
-                                        <label class="form-check membership-item">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                    <th>Description</th>
+                                    <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var group in _groupPage.Items)
+                                {
+                                    <tr>
+                                        <td>@group.Name</td>
+                                        <td>@RenderValueOrDash(group.Description)</td>
+                                        <td class="text-end">
                                             <input class="form-check-input"
                                                    type="checkbox"
-                                                   checked="@_editedGroupIds.Contains(group.GroupId)"
-                                                   @onchange="args => ToggleGroupLocal(group.GroupId, args)" />
-                                            <span class="form-check-label">@group.Name</span>
-                                        </label>
-                                    }
-                                </div>
-                            }
-                        </div>
-
-                        <div>
-                            <h4 class="membership-title">Roles</h4>
-                            <div class="membership-list">
-                                @foreach (var role in _roles)
-                                {
-                                    <label class="form-check membership-item">
-                                        <input class="form-check-input"
-                                               type="checkbox"
-                                               checked="@_editedRoles.Contains(role)"
-                                               @onchange="args => ToggleRoleLocal(role, args)" />
-                                        <span class="form-check-label">@role</span>
-                                    </label>
+                                                   checked="@IsGroupAssigned(group)"
+                                                   @onchange="args => ToggleGroupLocal(group, args)" />
+                                        </td>
+                                    </tr>
                                 }
-                            </div>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pager-bar">
+                        <span class="text-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
                         </div>
                     </div>
-
-                    <div class="mt-3 d-flex gap-2">
-                        <button type="button" class="btn btn-primary" @onclick="SaveMembershipsAsync" disabled="@_isSaving">@( _isSaving ? "Saving..." : "Save")</button>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
-                        <button type="button"
-                                class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-warning")"
-                                @onclick="ToggleSelectedUserEnabledAsync"
-                                disabled="@(_isSaving || IsSelectedCurrentUser)">
-                            @(SelectedUser.IsDisabled ? "Enable user" : "Disable user")
-                        </button>
-                        <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete user</button>
-                    </div>
-
-                    <hr />
-
-                    <section class="reset-password-panel">
-                        <h4 class="membership-title">Reset local password</h4>
-                        @if (!SelectedUser.IsLocalAccount)
-                        {
-                            <p class="text-muted mb-0">Password reset is available for local users only.</p>
-                        }
-                        else
-                        {
-                            <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
-                                <DataAnnotationsValidator />
-                                <ValidationSummary />
-
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label" for="manageResetPassword">New Password</label>
-                                        <InputText id="manageResetPassword"
-                                                   type="password"
-                                                   class="form-control"
-                                                   @bind-Value="_resetPasswordRequest.NewPassword" />
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
-                                        <InputText id="manageResetPasswordConfirm"
-                                                   type="password"
-                                                   class="form-control"
-                                                   @bind-Value="_confirmResetPassword" />
-                                    </div>
-                                </div>
-
-                                <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
-
-                                <div class="mt-3 d-flex gap-2">
-                                    <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset Password</button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
-                                </div>
-                            </EditForm>
-                        }
-                    </section>
                 }
-            </section>
-        </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="button" class="btn btn-primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save groups</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset groups</button>
+                </div>
+            }
+        </section>
+
+        <section class="panel-card user-detail-column">
+            <div class="panel-card-header">
+                <h3>Manage user</h3>
+            </div>
+
+            @if (SelectedUser is null)
+            {
+                <p class="mb-0">Select a user to manage profile and roles.</p>
+            }
+            else
+            {
+                <p class="text-muted mb-3">
+                    Editing <strong>@SelectedUser.DisplayName</strong> (<code>@SelectedUser.Username</code>).
+                </p>
+
+                @if (SelectedUser.IsDisabled)
+                {
+                    <div class="alert alert-warning" role="alert">
+                        This user is disabled and cannot sign in.
+                    </div>
+                }
+
+                <section class="mb-3">
+                    <h4 class="membership-title">Manage user roles</h4>
+                    <div class="membership-list">
+                        @foreach (var role in _roles)
+                        {
+                            <label class="form-check membership-item">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_editedRoles.Contains(role)"
+                                       @onchange="args => ToggleRoleLocal(role, args)" />
+                                <span class="form-check-label">@role</span>
+                            </label>
+                        }
+                    </div>
+                </section>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save roles</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset roles</button>
+                    <button type="button"
+                            class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-warning")"
+                            @onclick="ToggleSelectedUserEnabledAsync"
+                            disabled="@(_isSaving || IsSelectedCurrentUser)">
+                        @(SelectedUser.IsDisabled ? "Enable user" : "Disable user")
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete user</button>
+                </div>
+
+                <hr />
+
+                <section class="reset-password-panel">
+                    <h4 class="membership-title">Reset local password</h4>
+                    @if (!SelectedUser.IsLocalAccount)
+                    {
+                        <p class="text-muted mb-0">Password reset is available for local users only.</p>
+                    }
+                    else
+                    {
+                        <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="manageResetPassword">New Password</label>
+                                    <InputText id="manageResetPassword"
+                                               type="password"
+                                               class="form-control"
+                                               @bind-Value="_resetPasswordRequest.NewPassword" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                    <InputText id="manageResetPasswordConfirm"
+                                               type="password"
+                                               class="form-control"
+                                               @bind-Value="_confirmResetPassword" />
+                                </div>
+                            </div>
+
+                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                            <div class="mt-3 d-flex gap-2">
+                                <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset Password</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                            </div>
+                        </EditForm>
+                    }
+                </section>
+            }
+        </section>
     </div>
 }
 
 @code {
     private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
+    private readonly int[] _pageSizeOptions = [30, 50, 100];
 
     private UserContext? _currentUser;
-    private List<UserOverview> _users = new();
-    private List<GroupOverview> _groups = new();
+    private PagedResult<UserOverview> _userPage = new(Array.Empty<UserOverview>(), 0, 1, 30, 1);
+    private PagedResult<GroupAccessRow> _groupPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 30, 1);
+    private UserListQuery _userQuery = new() { PageSize = 30, SortField = "username" };
+    private UserGroupMembershipQuery _groupQuery = new() { PageSize = 30, SortField = "name" };
     private Guid? _selectedUserId;
 
-    private HashSet<Guid> _originalGroupIds = [];
     private HashSet<AppRole> _originalRoles = [];
-    private HashSet<Guid> _editedGroupIds = [];
     private HashSet<AppRole> _editedRoles = [];
+    private readonly Dictionary<Guid, bool> _pendingGroupAssignments = [];
+
     private AdminResetPasswordRequest _resetPasswordRequest = new();
     private string _confirmResetPassword = string.Empty;
     private int _localPasswordMinLength = 8;
-    private bool _isDirty;
     private bool _isSaving;
-
     private string? _message;
     private string? _error;
 
+    private bool _rolesDirty => !_editedRoles.SetEquals(_originalRoles);
+    private bool _groupsDirty => _pendingGroupAssignments.Count > 0;
+
     private UserOverview? SelectedUser
         => _selectedUserId is { } id
-            ? _users.FirstOrDefault(u => u.UserId == id)
+            ? _userPage.Items.FirstOrDefault(u => u.UserId == id)
             : null;
 
     private bool IsSelectedCurrentUser
@@ -237,8 +332,9 @@ else
                 return;
             }
 
+            _currentUser = await JournalApp.GetCurrentUserAsync();
             _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
-            await LoadDataAsync();
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
         }
         catch (Exception ex)
         {
@@ -247,96 +343,76 @@ else
         }
     }
 
-    private async Task LoadDataAsync()
+    private Task LoadUsersAsync(bool selectFirstUserIfNeeded = false)
     {
-        _currentUser = await JournalApp.GetCurrentUserAsync();
-        _users = JournalApp.GetUsers().ToList();
-        _groups = JournalApp.GetGroups().ToList();
-
-        if (_users.Count == 0)
+        _userPage = JournalApp.GetUsers(_userQuery);
+        if (_userPage.TotalCount == 0)
         {
             _selectedUserId = null;
-            _originalGroupIds.Clear();
+            _groupPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupQuery.PageSize, 1);
             _originalRoles.Clear();
-            _editedGroupIds.Clear();
             _editedRoles.Clear();
-            _isDirty = false;
-            return;
+            _pendingGroupAssignments.Clear();
+            return Task.CompletedTask;
         }
 
-        var selectedId = _selectedUserId is { } existingId && _users.Any(u => u.UserId == existingId)
-            ? existingId
-            : _users[0].UserId;
+        if (selectFirstUserIfNeeded || !_selectedUserId.HasValue || !_userPage.Items.Any(x => x.UserId == _selectedUserId.Value))
+        {
+            _selectedUserId = _userPage.Items.FirstOrDefault()?.UserId;
+            InitializeSelectedUserEdits();
+        }
 
-        SelectUser(selectedId);
+        return LoadGroupsAsync();
     }
 
-    private void SelectUser(Guid userId)
+    private Task LoadGroupsAsync()
     {
+        if (!_selectedUserId.HasValue)
+        {
+            _groupPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupQuery.PageSize, 1);
+            return Task.CompletedTask;
+        }
+
+        _groupQuery.UserId = _selectedUserId.Value;
+        _groupPage = JournalApp.GetUserGroups(_groupQuery);
+        return Task.CompletedTask;
+    }
+
+    private Task SelectUserAsync(Guid userId)
+    {
+        if (_selectedUserId == userId)
+        {
+            return Task.CompletedTask;
+        }
+
         _selectedUserId = userId;
         _message = null;
         _error = null;
+        _groupQuery.Page = 1;
+        InitializeSelectedUserEdits();
+        return LoadGroupsAsync();
+    }
 
+    private void InitializeSelectedUserEdits()
+    {
         var selected = SelectedUser;
         if (selected is null)
         {
-            _originalGroupIds.Clear();
             _originalRoles.Clear();
-            _editedGroupIds.Clear();
             _editedRoles.Clear();
-            _isDirty = false;
+            _pendingGroupAssignments.Clear();
             return;
         }
 
-        var groupNames = selected.Groups.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _originalGroupIds = _groups
-            .Where(g => groupNames.Contains(g.Name))
-            .Select(g => g.GroupId)
-            .ToHashSet();
-
-        _originalRoles = selected.Roles.Count > 0
-            ? selected.Roles.ToHashSet()
-            : [selected.Role];
-
-        _editedGroupIds = _originalGroupIds.ToHashSet();
+        _originalRoles = selected.Roles.Count > 0 ? selected.Roles.ToHashSet() : [selected.Role];
         _editedRoles = _originalRoles.ToHashSet();
+        _pendingGroupAssignments.Clear();
         _resetPasswordRequest.UserId = selected.UserId;
         _resetPasswordRequest.NewPassword = string.Empty;
         _confirmResetPassword = string.Empty;
-        _isDirty = false;
     }
 
-    private void ToggleGroupLocal(Guid groupId, ChangeEventArgs args)
-    {
-        var isChecked = ParseCheckboxValue(args);
-        if (isChecked)
-        {
-            _editedGroupIds.Add(groupId);
-        }
-        else
-        {
-            _editedGroupIds.Remove(groupId);
-        }
-
-        UpdateDirtyState();
-    }
-
-    private void ToggleRoleLocal(AppRole role, ChangeEventArgs args)
-    {
-        var isChecked = ParseCheckboxValue(args);
-        if (isChecked)
-        {
-            _editedRoles.Add(role);
-        }
-        else
-        {
-            _editedRoles.Remove(role);
-        }
-
-        UpdateDirtyState();
-    }
-
-    private async Task SaveMembershipsAsync()
+    private async Task SaveRolesAsync()
     {
         var selectedUser = SelectedUser;
         if (selectedUser is null)
@@ -345,9 +421,9 @@ else
             return;
         }
 
-        if (!_isDirty)
+        if (!_rolesDirty)
         {
-            _message = "No membership changes to save.";
+            _message = "No role changes to save.";
             _error = null;
             return;
         }
@@ -355,86 +431,123 @@ else
         try
         {
             _isSaving = true;
-            Logger.LogWarning("Starting membership save for {Username}", selectedUser.Username);
             _message = null;
             _error = null;
-            await Task.Yield();
 
-            var groupAdds = _editedGroupIds.Except(_originalGroupIds).ToList();
-            var groupRemoves = _originalGroupIds.Except(_editedGroupIds).ToList();
             var roleAdds = _editedRoles.Except(_originalRoles).ToList();
             var roleRemoves = _originalRoles.Except(_editedRoles).ToList();
-            var selectedUserId = selectedUser.UserId;
-
-            Logger.LogWarning(
-                "Saving user memberships for {Username}: GroupAdds={GroupAdds} GroupRemoves={GroupRemoves} RoleAdds={RoleAdds} RoleRemoves={RoleRemoves}",
-                selectedUser.Username,
-                groupAdds.Count,
-                groupRemoves.Count,
-                roleAdds.Count,
-                roleRemoves.Count);
-
-            foreach (var groupId in groupAdds)
-            {
-                Logger.LogWarning("Applying membership change: add user {UserId} to group {GroupId}", selectedUserId, groupId);
-                JournalApp.AssignUserToGroup(new AssignUserToGroupRequest
-                {
-                    UserId = selectedUserId,
-                    GroupId = groupId
-                });
-                await Task.Yield();
-            }
-
-            foreach (var groupId in groupRemoves)
-            {
-                Logger.LogWarning("Applying membership change: remove user {UserId} from group {GroupId}", selectedUserId, groupId);
-                JournalApp.RemoveUserFromGroup(new AssignUserToGroupRequest
-                {
-                    UserId = selectedUserId,
-                    GroupId = groupId
-                });
-                await Task.Yield();
-            }
 
             foreach (var role in roleAdds)
             {
-                Logger.LogWarning("Applying membership change: add role {Role} to user {UserId}", role, selectedUserId);
-                JournalApp.AddUserToRole(new UserRoleMembershipRequest
-                {
-                    UserId = selectedUserId,
-                    Role = role
-                });
-                await Task.Yield();
+                JournalApp.AddUserToRole(new UserRoleMembershipRequest { UserId = selectedUser.UserId, Role = role });
             }
 
             foreach (var role in roleRemoves)
             {
-                Logger.LogWarning("Applying membership change: remove role {Role} from user {UserId}", role, selectedUserId);
-                JournalApp.RemoveUserFromRole(new UserRoleMembershipRequest
-                {
-                    UserId = selectedUserId,
-                    Role = role
-                });
-                await Task.Yield();
+                JournalApp.RemoveUserFromRole(new UserRoleMembershipRequest { UserId = selectedUser.UserId, Role = role });
             }
 
-            Logger.LogWarning("Refreshing user/group data after membership save for {Username}", selectedUser.Username);
-            _users = JournalApp.GetUsers().ToList();
-            _groups = JournalApp.GetGroups().ToList();
-            SelectUser(selectedUserId);
-
-            Logger.LogWarning("Completed membership save for {Username}", selectedUser.Username);
-            _message = $"Membership changes saved for {selectedUser.Username}.";
+            await LoadUsersAsync();
+            InitializeSelectedUserEdits();
+            _message = $"Roles updated for user '{selectedUser.Username}'.";
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Saving user memberships failed");
+            Logger.LogError(ex, "Saving user roles failed");
             _error = ex.Message;
         }
         finally
         {
             _isSaving = false;
         }
+    }
+
+    private async Task SaveGroupsAsync()
+    {
+        var selectedUser = SelectedUser;
+        if (selectedUser is null)
+        {
+            _error = "Select a user first.";
+            return;
+        }
+
+        if (!_groupsDirty)
+        {
+            _message = "No group membership changes to save.";
+            _error = null;
+            return;
+        }
+
+        try
+        {
+            _isSaving = true;
+            _message = null;
+            _error = null;
+
+            foreach (var (groupId, shouldBeAssigned) in _pendingGroupAssignments)
+            {
+                if (shouldBeAssigned)
+                {
+                    JournalApp.AssignUserToGroup(new AssignUserToGroupRequest { UserId = selectedUser.UserId, GroupId = groupId });
+                }
+                else
+                {
+                    JournalApp.RemoveUserFromGroup(new AssignUserToGroupRequest { UserId = selectedUser.UserId, GroupId = groupId });
+                }
+            }
+
+            _pendingGroupAssignments.Clear();
+            await LoadUsersAsync();
+            await LoadGroupsAsync();
+            _message = $"Group memberships updated for user '{selectedUser.Username}'.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Saving user groups failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ToggleRoleLocal(AppRole role, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked)
+        {
+            _editedRoles.Add(role);
+            return;
+        }
+
+        _editedRoles.Remove(role);
+    }
+
+    private void ToggleGroupLocal(GroupAccessRow group, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked == group.IsAssigned)
+        {
+            _pendingGroupAssignments.Remove(group.GroupId);
+            return;
+        }
+
+        _pendingGroupAssignments[group.GroupId] = isChecked;
+    }
+
+    private bool IsGroupAssigned(GroupAccessRow row)
+        => _pendingGroupAssignments.TryGetValue(row.GroupId, out var value) ? value : row.IsAssigned;
+
+    private void ResetRoleEdits()
+    {
+        _editedRoles = _originalRoles.ToHashSet();
+    }
+
+    private Task ResetGroupEdits()
+    {
+        _pendingGroupAssignments.Clear();
+        return LoadGroupsAsync();
     }
 
     private async Task ToggleSelectedUserEnabledAsync()
@@ -468,7 +581,7 @@ else
             var changed = shouldEnable
                 ? await JournalApp.EnableUserAsync(selectedUser.UserId)
                 : await JournalApp.DisableUserAsync(selectedUser.UserId);
-            await LoadDataAsync();
+            await LoadUsersAsync();
             _message = changed
                 ? $"User '{selectedUser.Username}' was {actionVerb}d."
                 : $"User '{selectedUser.Username}' is already {actionVerb}d.";
@@ -508,7 +621,7 @@ else
             _error = null;
 
             await JournalApp.DeleteUserAsync(selectedUser.UserId);
-            await LoadDataAsync();
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
             _message = $"User '{selectedUser.Username}' was deleted.";
         }
         catch (Exception ex)
@@ -571,23 +684,125 @@ else
         }
     }
 
-    private void ResetEdits()
+    private async Task OnUserSearchChanged(ChangeEventArgs args)
     {
-        _editedGroupIds = _originalGroupIds.ToHashSet();
-        _editedRoles = _originalRoles.ToHashSet();
-        _isDirty = false;
+        _userQuery.FilterText = args.Value?.ToString() ?? string.Empty;
+        _userQuery.Page = 1;
+        await LoadUsersAsync(selectFirstUserIfNeeded: true);
+    }
+
+    private async Task OnUserPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
+        {
+            _userQuery.PageSize = pageSize;
+            _userQuery.Page = 1;
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+        }
+    }
+
+    private async Task GoToPreviousUserPageAsync()
+    {
+        if (_userQuery.Page > 1)
+        {
+            _userQuery.Page--;
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+        }
+    }
+
+    private async Task GoToNextUserPageAsync()
+    {
+        if (_userQuery.Page < _userPage.TotalPages)
+        {
+            _userQuery.Page++;
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+        }
+    }
+
+    private async Task ChangeUserSortAsync(string field)
+    {
+        if (string.Equals(_userQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _userQuery.SortDirection = _userQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        }
+        else
+        {
+            _userQuery.SortField = field;
+            _userQuery.SortDirection = SortDirection.Asc;
+        }
+
+        _userQuery.Page = 1;
+        await LoadUsersAsync(selectFirstUserIfNeeded: true);
+    }
+
+    private async Task OnGroupSearchChanged(ChangeEventArgs args)
+    {
+        _groupQuery.FilterText = args.Value?.ToString() ?? string.Empty;
+        _groupQuery.Page = 1;
+        await LoadGroupsAsync();
+    }
+
+    private async Task OnGroupAssignedFilterChanged(ChangeEventArgs args)
+    {
+        var raw = args.Value?.ToString()?.Trim().ToLowerInvariant();
+        _groupQuery.Assigned = raw switch
+        {
+            "assigned" => true,
+            "unassigned" => false,
+            _ => null
+        };
+        _groupQuery.Page = 1;
+        await LoadGroupsAsync();
+    }
+
+    private async Task OnGroupPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
+        {
+            _groupQuery.PageSize = pageSize;
+            _groupQuery.Page = 1;
+            await LoadGroupsAsync();
+        }
+    }
+
+    private async Task GoToPreviousGroupPageAsync()
+    {
+        if (_groupQuery.Page > 1)
+        {
+            _groupQuery.Page--;
+            await LoadGroupsAsync();
+        }
+    }
+
+    private async Task GoToNextGroupPageAsync()
+    {
+        if (_groupQuery.Page < _groupPage.TotalPages)
+        {
+            _groupQuery.Page++;
+            await LoadGroupsAsync();
+        }
+    }
+
+    private async Task ChangeGroupSortAsync(string field)
+    {
+        if (string.Equals(_groupQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _groupQuery.SortDirection = _groupQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        }
+        else
+        {
+            _groupQuery.SortField = field;
+            _groupQuery.SortDirection = SortDirection.Asc;
+        }
+
+        _groupQuery.Page = 1;
+        await LoadGroupsAsync();
     }
 
     private void ResetLocalPasswordForm()
     {
         _resetPasswordRequest.NewPassword = string.Empty;
         _confirmResetPassword = string.Empty;
-    }
-
-    private void UpdateDirtyState()
-    {
-        _isDirty = !_editedGroupIds.SetEquals(_originalGroupIds)
-            || !_editedRoles.SetEquals(_originalRoles);
     }
 
     private static bool ParseCheckboxValue(ChangeEventArgs args)
@@ -600,6 +815,11 @@ else
         return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
     }
 
-    private static string FormatRoles(IReadOnlyList<AppRole> roles)
-        => roles.Count == 0 ? "-" : string.Join(", ", roles);
+    private static string SortGlyph(string field, string currentField, SortDirection currentDirection)
+        => string.Equals(currentField, field, StringComparison.OrdinalIgnoreCase)
+            ? currentDirection == SortDirection.Asc ? "\u2191" : "\u2193"
+            : string.Empty;
+
+    private static string RenderValueOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
 }

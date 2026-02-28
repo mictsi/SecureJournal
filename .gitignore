@@ -62,3 +62,4 @@ SecureJournal.Web/*.db
 SecureJournal.Web/securejournal.identity.dev.db
 SecureJournal.Web/appsettings.Development.json
 fresh_code_security_review_2026-02-28.md
+todo.md

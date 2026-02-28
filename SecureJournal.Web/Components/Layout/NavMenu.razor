@@ -11,6 +11,15 @@
             <NavLink class="sj-nav-link" href="projects" Match="NavLinkMatch.Prefix">
                 My Projects
             </NavLink>
+            @if (_showAdminLinks)
+            {
+                <NavLink class="sj-nav-sub-link" href="admin/projects/create">
+                    Create project
+                </NavLink>
+                <NavLink class="sj-nav-sub-link sj-nav-sub-link-child" href="admin/groups/create">
+                    Create group
+                </NavLink>
+            }
             <NavLink class="sj-nav-link" href="journal">
                 New Journal Entry
             </NavLink>

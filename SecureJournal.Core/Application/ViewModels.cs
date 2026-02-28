@@ -14,12 +14,18 @@ public sealed record ProjectOverview(
     string Code,
     string Name,
     string Description,
+    string ProjectOwnerName,
+    string ProjectEmail,
+    string ProjectPhone,
+    string ProjectOwner,
+    string Department,
     IReadOnlyList<string> AssignedGroups,
     bool HasAccessForCurrentUser);
 
 public sealed record GroupOverview(
     Guid GroupId,
     string Name,
+    string Description,
     IReadOnlyList<string> Members,
     IReadOnlyList<string> ProjectCodes);
 

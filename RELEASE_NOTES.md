@@ -1,5 +1,38 @@
 # Release Notes
 
+## v0.7.0 - 2026-02-28
+
+### Highlights
+
+- Expanded admin list management with server-side filtering/sorting/paging for projects, groups, users, and access assignment views.
+- Added dedicated creation pages:
+  - `/admin/projects/create`
+  - `/admin/groups/create`
+- Added row-level project metadata editing in `Project Management` with explicit save flow.
+- Reworked `User management` into a three-column layout and added assigned/unassigned filtering for `Manage user groups`.
+- Updated `My Projects` layout to two flex columns with `Project Journal Entries` in the right column, and added search/paging for the projects list.
+- Improved query/runtime reliability by reshaping EF Core queries that previously failed translation and by tightening store query behavior for assignment filtering.
+- Added SQL Server load-test seed script: `scripts/seed-load-testdata-sqlserver.sql`.
+
+### Technical Notes
+
+- Application contract/data model additions:
+  - `SecureJournal.Core/Application/AdminQueryModels.cs`
+  - `SecureJournal.Web/Services/AdminStoreModels.cs`
+  - `UpdateProjectRequest` + `UpdateProject(...)` in app service contracts/implementation.
+- UI updates:
+  - `SecureJournal.Web/Components/Pages/ProjectManagement.razor`
+  - `SecureJournal.Web/Components/Pages/GroupManagement.razor`
+  - `SecureJournal.Web/Components/Pages/UserManagement.razor`
+  - `SecureJournal.Web/Components/Pages/Projects.razor`
+  - `SecureJournal.Web/Components/Pages/ProjectCreate.razor`
+  - `SecureJournal.Web/Components/Pages/GroupCreate.razor`
+  - `SecureJournal.Web/Components/Layout/NavMenu.razor`
+- Store/persistence reliability updates:
+  - `SecureJournal.Web/Services/EfCorePrototypeStore.cs`
+  - `SecureJournal.Web/Services/SqlitePrototypeStore.cs`
+  - `SecureJournal.Web/Infrastructure/Persistence/SecureJournalAppDbContext.cs`.
+
 ## v0.6.4 - 2026-02-28
 
 ### Highlights

@@ -642,11 +642,61 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.Code,
                     project.Name,
                     project.Description,
+                    project.ProjectOwnerName,
+                    project.ProjectEmail,
+                    project.ProjectPhone,
+                    project.ProjectOwner,
+                    project.Department,
                     GetAssignedGroupNames(project.ProjectId),
                     readableProjectIds.Contains(project.ProjectId)))
                 .ToList();
 
             return query;
+        }
+    }
+
+    public PagedResult<ProjectOverview> GetProjects(ProjectListQuery request)
+    {
+        request ??= new ProjectListQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            var readableProjectIds = GetReadableProjectIds(currentUser);
+            var isPrivileged = HasRole(currentUser, AppRole.Administrator) || HasRole(currentUser, AppRole.Auditor);
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize);
+
+            IReadOnlyCollection<Guid>? visibleProjectIds = isPrivileged ? null : readableProjectIds.ToList();
+            var storeResult = _sqliteStore.QueryProjects(normalized, visibleProjectIds);
+            var projectIds = storeResult.Items.Select(x => x.ProjectId).ToList();
+            var assignmentRows = _sqliteStore.LoadProjectGroupNamesForProjects(projectIds);
+            var assignmentsLookup = assignmentRows
+                .GroupBy(x => x.ProjectId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<string>)g.Select(x => x.GroupName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+
+            var items = storeResult.Items
+                .Select(project => new ProjectOverview(
+                    project.ProjectId,
+                    project.Code,
+                    project.Name,
+                    project.Description,
+                    project.ProjectOwnerName,
+                    project.ProjectEmail,
+                    project.ProjectPhone,
+                    project.ProjectOwner,
+                    project.Department,
+                    assignmentsLookup.GetValueOrDefault(project.ProjectId, Array.Empty<string>()),
+                    isPrivileged || readableProjectIds.Contains(project.ProjectId)))
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
         }
     }
 
@@ -665,15 +715,96 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 .Select(group => new GroupOverview(
                     group.GroupId,
                     group.Name,
+                    group.Description,
                     _users.Where(u => IsUserInGroup(u.UserId, group.GroupId))
                           .Select(u => u.DisplayName)
                           .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
                           .ToList(),
                     _projectGroups.Where(pg => pg.GroupId == group.GroupId)
                                   .Join(_projects, pg => pg.ProjectId, p => p.ProjectId, (_, p) => p.Code)
-                                  .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
-                                  .ToList()))
+                                   .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                                   .ToList()))
                 .ToList();
+        }
+    }
+
+    public PagedResult<GroupOverview> GetGroups(GroupListQuery request)
+    {
+        request ??= new GroupListQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            if (!HasRole(currentUser, AppRole.Administrator))
+            {
+                return BuildPagedResult(Array.Empty<GroupOverview>(), 0, 1, Math.Max(1, request.PageSize));
+            }
+
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize);
+            var storeResult = _sqliteStore.QueryGroups(normalized);
+            var groupIds = storeResult.Items.Select(x => x.GroupId).ToList();
+            var memberRows = _sqliteStore.LoadGroupMemberNames(groupIds);
+            var projectRows = _sqliteStore.LoadGroupProjectCodes(groupIds);
+
+            var membersLookup = memberRows
+                .GroupBy(x => x.GroupId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<string>)g.Select(x => x.DisplayName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+
+            var projectsLookup = projectRows
+                .GroupBy(x => x.GroupId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<string>)g.Select(x => x.ProjectCode).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+
+            var items = storeResult.Items
+                .Select(group => new GroupOverview(
+                    group.GroupId,
+                    group.Name,
+                    group.Description,
+                    membersLookup.GetValueOrDefault(group.GroupId, Array.Empty<string>()),
+                    projectsLookup.GetValueOrDefault(group.GroupId, Array.Empty<string>())))
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
+        }
+    }
+
+    public PagedResult<GroupAccessRow> GetProjectGroupAccess(ProjectGroupAccessQuery request)
+    {
+        request ??= new ProjectGroupAccessQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            if (!HasRole(currentUser, AppRole.Administrator))
+            {
+                return BuildPagedResult(Array.Empty<GroupAccessRow>(), 0, 1, Math.Max(1, request.PageSize));
+            }
+
+            if (request.ProjectId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Project is required.");
+            }
+
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize);
+            var storeResult = _sqliteStore.QueryProjectGroups(request.ProjectId, normalized);
+            var items = storeResult.Items
+                .Select(x => new GroupAccessRow(x.GroupId, x.Name, x.Description, x.IsAssigned))
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
         }
     }
 
@@ -702,6 +833,95 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    public PagedResult<UserOverview> GetUsers(UserListQuery request)
+    {
+        request ??= new UserListQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            if (!HasRole(currentUser, AppRole.Administrator))
+            {
+                return BuildPagedResult(Array.Empty<UserOverview>(), 0, 1, Math.Max(1, request.PageSize));
+            }
+
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize);
+            var storeResult = _sqliteStore.QueryUsers(normalized);
+            var userIds = storeResult.Items.Select(x => x.UserId).ToList();
+            var roleRows = _sqliteStore.LoadUserRolesForUsers(userIds);
+            var groupRows = _sqliteStore.LoadUserGroupNamesForUsers(userIds);
+
+            var rolesLookup = roleRows
+                .GroupBy(x => x.UserId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<AppRole>)g.Select(x => x.Role).Distinct().OrderBy(x => x).ToList());
+
+            var groupsLookup = groupRows
+                .GroupBy(x => x.UserId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<string>)g.Select(x => x.GroupName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+
+            var items = storeResult.Items
+                .Select(user =>
+                {
+                    var roles = rolesLookup.GetValueOrDefault(user.UserId, [user.Role]);
+                    var effectiveRole = ResolveEffectiveRole(roles);
+                    return new UserOverview(
+                        user.UserId,
+                        user.Username,
+                        user.DisplayName,
+                        effectiveRole,
+                        user.IsLocalAccount,
+                        groupsLookup.GetValueOrDefault(user.UserId, Array.Empty<string>()),
+                        roles,
+                        user.IsDisabled);
+                })
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
+        }
+    }
+
+    public PagedResult<GroupAccessRow> GetUserGroups(UserGroupMembershipQuery request)
+    {
+        request ??= new UserGroupMembershipQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            if (!HasRole(currentUser, AppRole.Administrator))
+            {
+                return BuildPagedResult(Array.Empty<GroupAccessRow>(), 0, 1, Math.Max(1, request.PageSize));
+            }
+
+            if (request.UserId == Guid.Empty)
+            {
+                throw new InvalidOperationException("User is required.");
+            }
+
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize,
+                request.Assigned);
+            var storeResult = _sqliteStore.QueryUserGroups(request.UserId, normalized);
+            var items = storeResult.Items
+                .Select(x => new GroupAccessRow(x.GroupId, x.Name, x.Description, x.IsAssigned))
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
+        }
+    }
+
     public ProjectOverview CreateProject(CreateProjectRequest request)
     {
         lock (_sync)
@@ -709,21 +929,44 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var actor = RequireAdmin();
             ValidateAdminRequest(request);
 
-            var requestedCode = InputNormalizer.NormalizeOptional(request.Code, 20);
+            var requestedCode = InputNormalizer.NormalizeOptional(request.Code, FieldLimits.ProjectCodeMax);
             var code = string.IsNullOrWhiteSpace(requestedCode)
                 ? GenerateUniqueProjectCode()
                 : requestedCode.ToUpperInvariant();
-            var name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), 100);
-            var description = InputNormalizer.NormalizeOptional(request.Description, 500);
+            var name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.ProjectNameMax);
+            var description = InputNormalizer.NormalizeOptional(request.Description, FieldLimits.DescriptionMax);
+            var projectOwnerName = InputNormalizer.NormalizeOptional(request.ProjectOwnerName, FieldLimits.DisplayNameMax);
+            var projectEmail = InputNormalizer.NormalizeOptional(request.ProjectEmail, FieldLimits.EmailMax);
+            var projectPhone = InputNormalizer.NormalizeOptional(request.ProjectPhone, FieldLimits.PhoneMax);
+            var projectOwner = InputNormalizer.NormalizeOptional(request.ProjectOwner, FieldLimits.DisplayNameMax);
+            var department = InputNormalizer.NormalizeOptional(request.Department, FieldLimits.DepartmentMax);
 
             if (_projects.Any(p => string.Equals(p.Code, code, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new InvalidOperationException($"A project with code '{code}' already exists.");
             }
 
-            var project = new Project(Guid.NewGuid(), code, name, description);
+            var project = new Project(
+                Guid.NewGuid(),
+                code,
+                name,
+                description,
+                projectOwnerName,
+                projectEmail,
+                projectPhone,
+                projectOwner,
+                department);
             _projects.Add(project);
-            _sqliteStore.UpsertProject(new StoredProjectRow(project.ProjectId, project.Code, project.Name, project.Description));
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                project.ProjectId,
+                project.Code,
+                project.Name,
+                project.Description,
+                project.ProjectOwnerName,
+                project.ProjectEmail,
+                project.ProjectPhone,
+                project.ProjectOwner,
+                project.Department));
             _logger.LogInformation(
                 "Project created by {ActorUsername}: {ProjectCode} ({ProjectId})",
                 actor.Username,
@@ -744,7 +987,84 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.Code,
                 project.Name,
                 project.Description,
+                project.ProjectOwnerName,
+                project.ProjectEmail,
+                project.ProjectPhone,
+                project.ProjectOwner,
+                project.Department,
                 AssignedGroups: Array.Empty<string>(),
+                HasAccessForCurrentUser: true);
+        }
+    }
+
+    public ProjectOverview UpdateProject(UpdateProjectRequest request)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            ValidateAdminRequest(request);
+
+            if (request.ProjectId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Project is required.");
+            }
+
+            var projectIndex = _projects.FindIndex(p => p.ProjectId == request.ProjectId);
+            if (projectIndex < 0)
+            {
+                throw new InvalidOperationException("Project was not found.");
+            }
+
+            var existingProject = _projects[projectIndex];
+            var updatedProject = existingProject with
+            {
+                Name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.ProjectNameMax),
+                Description = InputNormalizer.NormalizeOptional(request.Description, FieldLimits.DescriptionMax),
+                ProjectOwnerName = InputNormalizer.NormalizeOptional(request.ProjectOwnerName, FieldLimits.DisplayNameMax),
+                ProjectEmail = InputNormalizer.NormalizeOptional(request.ProjectEmail, FieldLimits.EmailMax),
+                ProjectPhone = InputNormalizer.NormalizeOptional(request.ProjectPhone, FieldLimits.PhoneMax),
+                ProjectOwner = InputNormalizer.NormalizeOptional(request.ProjectOwner, FieldLimits.DisplayNameMax),
+                Department = InputNormalizer.NormalizeOptional(request.Department, FieldLimits.DepartmentMax)
+            };
+
+            _projects[projectIndex] = updatedProject;
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                updatedProject.ProjectId,
+                updatedProject.Code,
+                updatedProject.Name,
+                updatedProject.Description,
+                updatedProject.ProjectOwnerName,
+                updatedProject.ProjectEmail,
+                updatedProject.ProjectPhone,
+                updatedProject.ProjectOwner,
+                updatedProject.Department));
+
+            _logger.LogInformation(
+                "Project metadata updated by {ActorUsername}: {ProjectCode} ({ProjectId})",
+                actor.Username,
+                updatedProject.Code,
+                updatedProject.ProjectId);
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Project,
+                entityId: updatedProject.ProjectId.ToString(),
+                projectId: updatedProject.ProjectId,
+                AuditOutcome.Success,
+                $"Project '{updatedProject.Code}' metadata updated.");
+
+            return new ProjectOverview(
+                updatedProject.ProjectId,
+                updatedProject.Code,
+                updatedProject.Name,
+                updatedProject.Description,
+                updatedProject.ProjectOwnerName,
+                updatedProject.ProjectEmail,
+                updatedProject.ProjectPhone,
+                updatedProject.ProjectOwner,
+                updatedProject.Department,
+                AssignedGroups: GetAssignedGroupNames(updatedProject.ProjectId),
                 HasAccessForCurrentUser: true);
         }
     }
@@ -930,15 +1250,16 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var actor = RequireAdmin();
             ValidateAdminRequest(request);
 
-            var name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), 100);
+            var name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.GroupNameMax);
+            var description = InputNormalizer.NormalizeOptional(request.Description, FieldLimits.DescriptionMax);
             if (_groups.Any(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new InvalidOperationException($"A group named '{name}' already exists.");
             }
 
-            var group = new Group(Guid.NewGuid(), name);
+            var group = new Group(Guid.NewGuid(), name, description);
             _groups.Add(group);
-            _sqliteStore.UpsertGroup(new StoredGroupRow(group.GroupId, group.Name));
+            _sqliteStore.UpsertGroup(new StoredGroupRow(group.GroupId, group.Name, group.Description));
             _logger.LogInformation(
                 "Group created by {ActorUsername}: {GroupName} ({GroupId})",
                 actor.Username,
@@ -957,6 +1278,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             return new GroupOverview(
                 group.GroupId,
                 group.Name,
+                group.Description,
                 Members: Array.Empty<string>(),
                 ProjectCodes: Array.Empty<string>());
         }
@@ -2338,14 +2660,20 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 storedProject.ProjectId,
                 storedProject.Code,
                 storedProject.Name,
-                storedProject.Description));
+                storedProject.Description,
+                storedProject.ProjectOwnerName,
+                storedProject.ProjectEmail,
+                storedProject.ProjectPhone,
+                storedProject.ProjectOwner,
+                storedProject.Department));
         }
 
         foreach (var storedGroup in _sqliteStore.LoadGroups())
         {
             _groups.Add(new Group(
                 storedGroup.GroupId,
-                storedGroup.Name));
+                storedGroup.Name,
+                storedGroup.Description));
         }
 
         var knownUserIds = _users.Select(u => u.UserId).ToHashSet();
@@ -3341,6 +3669,32 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private bool CanAccessProject(AppUser user, Guid projectId)
         => GetReadableProjectIds(user).Contains(projectId);
+
+    private static StoreListQuery NormalizeStoreListQuery(
+        string? filterText,
+        string? sortField,
+        SortDirection sortDirection,
+        int page,
+        int pageSize,
+        bool? assigned = null)
+    {
+        var normalizedPage = Math.Max(1, page);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, 250);
+        return new StoreListQuery(
+            filterText?.Trim() ?? string.Empty,
+            sortField?.Trim() ?? string.Empty,
+            sortDirection == SortDirection.Desc,
+            normalizedPage,
+            normalizedPageSize,
+            assigned);
+    }
+
+    private static PagedResult<T> BuildPagedResult<T>(IReadOnlyList<T> items, int totalCount, int page, int pageSize)
+    {
+        var normalizedPageSize = Math.Max(1, pageSize);
+        var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)normalizedPageSize);
+        return new PagedResult<T>(items, totalCount, page, normalizedPageSize, totalPages);
+    }
 
     private bool CanSeeSoftDeletedEntries(AppUser user)
         => HasRole(user, AppRole.Administrator);

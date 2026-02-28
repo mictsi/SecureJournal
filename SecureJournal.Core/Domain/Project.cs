@@ -4,4 +4,9 @@ public sealed record Project(
     Guid ProjectId,
     string Code,
     string Name,
-    string Description);
+    string Description,
+    string ProjectOwnerName,
+    string ProjectEmail,
+    string ProjectPhone,
+    string ProjectOwner,
+    string Department);

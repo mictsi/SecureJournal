@@ -20,7 +20,12 @@ public sealed record StoredProjectRow(
     Guid ProjectId,
     string Code,
     string Name,
-    string Description);
+    string Description,
+    string ProjectOwnerName,
+    string ProjectEmail,
+    string ProjectPhone,
+    string ProjectOwner,
+    string Department);
 
 public sealed record StoredUserRoleRow(
     Guid UserId,
@@ -28,7 +33,8 @@ public sealed record StoredUserRoleRow(
 
 public sealed record StoredGroupRow(
     Guid GroupId,
-    string Name);
+    string Name,
+    string Description);
 
 public sealed record StoredUserGroupRow(
     Guid UserId,
@@ -107,12 +113,18 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     project_id TEXT PRIMARY KEY,
                     code TEXT NOT NULL UNIQUE,
                     name TEXT NOT NULL,
-                    description TEXT NOT NULL
+                    description TEXT NOT NULL,
+                    project_owner_name TEXT NOT NULL DEFAULT '',
+                    project_email TEXT NOT NULL DEFAULT '',
+                    project_phone TEXT NOT NULL DEFAULT '',
+                    project_owner TEXT NOT NULL DEFAULT '',
+                    department TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS groups_ref (
                     group_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS user_groups (
@@ -170,9 +182,20 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     details_ciphertext TEXT NOT NULL,
                     details_checksum TEXT NOT NULL
                 );
+
+                CREATE INDEX IF NOT EXISTS ix_projects_name ON projects(name);
+                CREATE INDEX IF NOT EXISTS ix_projects_description ON projects(description);
+                CREATE INDEX IF NOT EXISTS ix_app_users_display_name ON app_users(display_name);
+                CREATE INDEX IF NOT EXISTS ix_groups_ref_description ON groups_ref(description);
+                CREATE INDEX IF NOT EXISTS ix_user_groups_group_id ON user_groups(group_id);
+                CREATE INDEX IF NOT EXISTS ix_project_groups_group_id ON project_groups(group_id);
+                CREATE INDEX IF NOT EXISTS ix_journal_entries_created_at_utc ON journal_entries(created_at_utc);
+                CREATE INDEX IF NOT EXISTS ix_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);
                 """;
             command.ExecuteNonQuery();
             EnsureAppUserColumns(connection);
+            EnsureProjectColumns(connection);
+            EnsureGroupColumns(connection);
 
             _initialized = true;
         }
@@ -218,7 +241,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT project_id, code, name, description
+            SELECT project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department
             FROM projects
             ORDER BY code;
             """;
@@ -231,7 +254,12 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 ProjectId: Guid.Parse(reader.GetString(0)),
                 Code: reader.GetString(1),
                 Name: reader.GetString(2),
-                Description: reader.GetString(3)));
+                Description: reader.GetString(3),
+                ProjectOwnerName: reader.GetString(4),
+                ProjectEmail: reader.GetString(5),
+                ProjectPhone: reader.GetString(6),
+                ProjectOwner: reader.GetString(7),
+                Department: reader.GetString(8)));
         }
 
         return rows;
@@ -270,7 +298,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT group_id, name
+            SELECT group_id, name, description
             FROM groups_ref
             ORDER BY name;
             """;
@@ -281,7 +309,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             rows.Add(new StoredGroupRow(
                 GroupId: Guid.Parse(reader.GetString(0)),
-                Name: reader.GetString(1)));
+                Name: reader.GetString(1),
+                Description: reader.GetString(2)));
         }
 
         return rows;
@@ -337,6 +366,543 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         return rows;
     }
 
+    public StorePagedResult<StoredProjectRow> QueryProjects(StoreListQuery query, IReadOnlyCollection<Guid>? visibleProjectIds = null)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveProjectSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+        var whereClauses = new List<string>();
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereClauses.Add("(name LIKE $filter ESCAPE '\\' OR description LIKE $filter ESCAPE '\\')");
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        if (visibleProjectIds is { Count: > 0 })
+        {
+            var parameterNames = new List<string>(visibleProjectIds.Count);
+            var index = 0;
+            foreach (var id in visibleProjectIds)
+            {
+                var parameterName = $"$project_scope_{index++}";
+                parameterNames.Add(parameterName);
+                countCommand.Parameters.AddWithValue(parameterName, id.ToString("D"));
+                itemsCommand.Parameters.AddWithValue(parameterName, id.ToString("D"));
+            }
+
+            whereClauses.Add($"project_id IN ({string.Join(", ", parameterNames)})");
+        }
+        else if (visibleProjectIds is { Count: 0 })
+        {
+            return new StorePagedResult<StoredProjectRow>(Array.Empty<StoredProjectRow>(), 0);
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : $"WHERE {string.Join(" AND ", whereClauses)}";
+
+        countCommand.CommandText = $"SELECT COUNT(1) FROM projects {whereSql};";
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department
+            FROM projects
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, project_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredProjectRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredProjectRow(
+                ProjectId: Guid.Parse(reader.GetString(0)),
+                Code: reader.GetString(1),
+                Name: reader.GetString(2),
+                Description: reader.GetString(3),
+                ProjectOwnerName: reader.GetString(4),
+                ProjectEmail: reader.GetString(5),
+                ProjectPhone: reader.GetString(6),
+                ProjectOwner: reader.GetString(7),
+                Department: reader.GetString(8)));
+        }
+
+        return new StorePagedResult<StoredProjectRow>(rows, totalCount);
+    }
+
+    public StorePagedResult<StoredUserRow> QueryUsers(StoreListQuery query)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveUserSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        var whereSql = string.Empty;
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereSql = "WHERE (username LIKE $filter ESCAPE '\\' OR display_name LIKE $filter ESCAPE '\\')";
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        countCommand.CommandText = $"SELECT COUNT(1) FROM app_users {whereSql};";
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT user_id, username, display_name, role, is_local_account, is_disabled, password_hash, external_issuer, external_subject
+            FROM app_users
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, user_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredUserRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredUserRow(
+                UserId: Guid.Parse(reader.GetString(0)),
+                Username: reader.GetString(1),
+                DisplayName: reader.GetString(2),
+                Role: (AppRole)reader.GetInt32(3),
+                IsLocalAccount: reader.GetInt64(4) == 1,
+                IsDisabled: reader.GetInt64(5) == 1,
+                PasswordHash: reader.IsDBNull(6) ? null : reader.GetString(6),
+                ExternalIssuer: reader.IsDBNull(7) ? null : reader.GetString(7),
+                ExternalSubject: reader.IsDBNull(8) ? null : reader.GetString(8)));
+        }
+
+        return new StorePagedResult<StoredUserRow>(rows, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupRow> QueryGroups(StoreListQuery query)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveGroupSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        var whereSql = string.Empty;
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereSql = "WHERE (name LIKE $filter ESCAPE '\\' OR description LIKE $filter ESCAPE '\\')";
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        countCommand.CommandText = $"SELECT COUNT(1) FROM groups_ref {whereSql};";
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT group_id, name, description
+            FROM groups_ref
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, group_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredGroupRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredGroupRow(
+                GroupId: Guid.Parse(reader.GetString(0)),
+                Name: reader.GetString(1),
+                Description: reader.GetString(2)));
+        }
+
+        return new StorePagedResult<StoredGroupRow>(rows, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupAccessRow> QueryProjectGroups(Guid projectId, StoreListQuery query)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveGroupAccessSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        countCommand.Parameters.AddWithValue("$project_id", projectId.ToString("D"));
+        itemsCommand.Parameters.AddWithValue("$project_id", projectId.ToString("D"));
+
+        var whereClauses = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereClauses.Add("(g.name LIKE $filter ESCAPE '\\' OR g.description LIKE $filter ESCAPE '\\')");
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            whereClauses.Add(query.Assigned.Value ? "pg.group_id IS NOT NULL" : "pg.group_id IS NULL");
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : $"WHERE {string.Join(" AND ", whereClauses)}";
+
+        countCommand.CommandText =
+            $$"""
+            SELECT COUNT(1)
+            FROM groups_ref g
+            LEFT JOIN project_groups pg ON pg.group_id = g.group_id AND pg.project_id = $project_id
+            {{whereSql}};
+            """;
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT
+                g.group_id,
+                g.name,
+                g.description,
+                CASE WHEN pg.group_id IS NULL THEN 0 ELSE 1 END AS is_assigned
+            FROM groups_ref g
+            LEFT JOIN project_groups pg ON pg.group_id = g.group_id AND pg.project_id = $project_id
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, g.group_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredGroupAccessRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredGroupAccessRow(
+                GroupId: Guid.Parse(reader.GetString(0)),
+                Name: reader.GetString(1),
+                Description: reader.GetString(2),
+                IsAssigned: reader.GetInt64(3) == 1));
+        }
+
+        return new StorePagedResult<StoredGroupAccessRow>(rows, totalCount);
+    }
+
+    public StorePagedResult<StoredGroupAccessRow> QueryUserGroups(Guid userId, StoreListQuery query)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveGroupAccessSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        countCommand.Parameters.AddWithValue("$user_id", userId.ToString("D"));
+        itemsCommand.Parameters.AddWithValue("$user_id", userId.ToString("D"));
+
+        var whereClauses = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereClauses.Add("(g.name LIKE $filter ESCAPE '\\' OR g.description LIKE $filter ESCAPE '\\')");
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            whereClauses.Add(query.Assigned.Value ? "ug.group_id IS NOT NULL" : "ug.group_id IS NULL");
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : $"WHERE {string.Join(" AND ", whereClauses)}";
+
+        countCommand.CommandText =
+            $$"""
+            SELECT COUNT(1)
+            FROM groups_ref g
+            LEFT JOIN user_groups ug ON ug.group_id = g.group_id AND ug.user_id = $user_id
+            {{whereSql}};
+            """;
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT
+                g.group_id,
+                g.name,
+                g.description,
+                CASE WHEN ug.group_id IS NULL THEN 0 ELSE 1 END AS is_assigned
+            FROM groups_ref g
+            LEFT JOIN user_groups ug ON ug.group_id = g.group_id AND ug.user_id = $user_id
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, g.group_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredGroupAccessRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredGroupAccessRow(
+                GroupId: Guid.Parse(reader.GetString(0)),
+                Name: reader.GetString(1),
+                Description: reader.GetString(2),
+                IsAssigned: reader.GetInt64(3) == 1));
+        }
+
+        return new StorePagedResult<StoredGroupAccessRow>(rows, totalCount);
+    }
+
+    public IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds)
+    {
+        Initialize();
+        if (projectIds.Count == 0)
+        {
+            return Array.Empty<StoredProjectGroupNameRow>();
+        }
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+
+        var parameterNames = new List<string>(projectIds.Count);
+        var index = 0;
+        foreach (var projectId in projectIds)
+        {
+            var parameterName = $"$project_id_{index++}";
+            parameterNames.Add(parameterName);
+            command.Parameters.AddWithValue(parameterName, projectId.ToString("D"));
+        }
+
+        command.CommandText =
+            $$"""
+            SELECT pg.project_id, g.name
+            FROM project_groups pg
+            INNER JOIN groups_ref g ON g.group_id = pg.group_id
+            WHERE pg.project_id IN ({{string.Join(", ", parameterNames)}})
+            ORDER BY pg.project_id, g.name;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredProjectGroupNameRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredProjectGroupNameRow(
+                ProjectId: Guid.Parse(reader.GetString(0)),
+                GroupName: reader.GetString(1)));
+        }
+
+        return rows;
+    }
+
+    public IReadOnlyList<StoredUserGroupNameRow> LoadUserGroupNamesForUsers(IReadOnlyCollection<Guid> userIds)
+    {
+        Initialize();
+        if (userIds.Count == 0)
+        {
+            return Array.Empty<StoredUserGroupNameRow>();
+        }
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+
+        var parameterNames = new List<string>(userIds.Count);
+        var index = 0;
+        foreach (var userId in userIds)
+        {
+            var parameterName = $"$user_id_{index++}";
+            parameterNames.Add(parameterName);
+            command.Parameters.AddWithValue(parameterName, userId.ToString("D"));
+        }
+
+        command.CommandText =
+            $$"""
+            SELECT ug.user_id, g.name
+            FROM user_groups ug
+            INNER JOIN groups_ref g ON g.group_id = ug.group_id
+            WHERE ug.user_id IN ({{string.Join(", ", parameterNames)}})
+            ORDER BY ug.user_id, g.name;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredUserGroupNameRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredUserGroupNameRow(
+                UserId: Guid.Parse(reader.GetString(0)),
+                GroupName: reader.GetString(1)));
+        }
+
+        return rows;
+    }
+
+    public IReadOnlyList<StoredUserRoleRow> LoadUserRolesForUsers(IReadOnlyCollection<Guid> userIds)
+    {
+        Initialize();
+        if (userIds.Count == 0)
+        {
+            return Array.Empty<StoredUserRoleRow>();
+        }
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+
+        var parameterNames = new List<string>(userIds.Count);
+        var index = 0;
+        foreach (var userId in userIds)
+        {
+            var parameterName = $"$role_user_id_{index++}";
+            parameterNames.Add(parameterName);
+            command.Parameters.AddWithValue(parameterName, userId.ToString("D"));
+        }
+
+        command.CommandText =
+            $$"""
+            SELECT user_id, role
+            FROM user_roles
+            WHERE user_id IN ({{string.Join(", ", parameterNames)}})
+            ORDER BY user_id, role;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredUserRoleRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredUserRoleRow(
+                UserId: Guid.Parse(reader.GetString(0)),
+                Role: (AppRole)reader.GetInt32(1)));
+        }
+
+        return rows;
+    }
+
+    public IReadOnlyList<StoredGroupMemberNameRow> LoadGroupMemberNames(IReadOnlyCollection<Guid> groupIds)
+    {
+        Initialize();
+        if (groupIds.Count == 0)
+        {
+            return Array.Empty<StoredGroupMemberNameRow>();
+        }
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+
+        var parameterNames = new List<string>(groupIds.Count);
+        var index = 0;
+        foreach (var groupId in groupIds)
+        {
+            var parameterName = $"$member_group_id_{index++}";
+            parameterNames.Add(parameterName);
+            command.Parameters.AddWithValue(parameterName, groupId.ToString("D"));
+        }
+
+        command.CommandText =
+            $$"""
+            SELECT ug.group_id, u.display_name
+            FROM user_groups ug
+            INNER JOIN app_users u ON u.user_id = ug.user_id
+            WHERE ug.group_id IN ({{string.Join(", ", parameterNames)}})
+            ORDER BY ug.group_id, u.display_name;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredGroupMemberNameRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredGroupMemberNameRow(
+                GroupId: Guid.Parse(reader.GetString(0)),
+                DisplayName: reader.GetString(1)));
+        }
+
+        return rows;
+    }
+
+    public IReadOnlyList<StoredGroupProjectCodeRow> LoadGroupProjectCodes(IReadOnlyCollection<Guid> groupIds)
+    {
+        Initialize();
+        if (groupIds.Count == 0)
+        {
+            return Array.Empty<StoredGroupProjectCodeRow>();
+        }
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+
+        var parameterNames = new List<string>(groupIds.Count);
+        var index = 0;
+        foreach (var groupId in groupIds)
+        {
+            var parameterName = $"$project_group_id_{index++}";
+            parameterNames.Add(parameterName);
+            command.Parameters.AddWithValue(parameterName, groupId.ToString("D"));
+        }
+
+        command.CommandText =
+            $$"""
+            SELECT pg.group_id, p.code
+            FROM project_groups pg
+            INNER JOIN projects p ON p.project_id = pg.project_id
+            WHERE pg.group_id IN ({{string.Join(", ", parameterNames)}})
+            ORDER BY pg.group_id, p.code;
+            """;
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<StoredGroupProjectCodeRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredGroupProjectCodeRow(
+                GroupId: Guid.Parse(reader.GetString(0)),
+                ProjectCode: reader.GetString(1)));
+        }
+
+        return rows;
+    }
+
     public IReadOnlyList<JournalEntryRecord> LoadJournalEntries()
     {
         Initialize();
@@ -350,8 +916,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 category_ciphertext, subject_ciphertext, description_ciphertext, notes_ciphertext, result_ciphertext,
                 category_checksum, subject_checksum, description_checksum, notes_checksum, result_checksum,
                 full_record_checksum, is_soft_deleted, deleted_at_utc, deleted_by_user_id, deleted_by_username, delete_reason
-            FROM journal_entries
-            ORDER BY created_at_utc DESC;
+            FROM journal_entries;
             """;
 
         using var reader = command.ExecuteReader();
@@ -405,8 +970,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             SELECT
                 audit_id, timestamp_utc, actor_user_id, actor_username, action,
                 entity_type, entity_id, project_id, outcome, details_ciphertext, details_checksum
-            FROM audit_logs
-            ORDER BY timestamp_utc DESC;
+            FROM audit_logs;
             """;
 
         using var reader = command.ExecuteReader();
@@ -517,18 +1081,28 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO projects (project_id, code, name, description)
-            VALUES ($project_id, $code, $name, $description)
+            INSERT INTO projects (project_id, code, name, description, project_owner_name, project_email, project_phone, project_owner, department)
+            VALUES ($project_id, $code, $name, $description, $project_owner_name, $project_email, $project_phone, $project_owner, $department)
             ON CONFLICT(project_id) DO UPDATE SET
                 code = excluded.code,
                 name = excluded.name,
-                description = excluded.description;
+                description = excluded.description,
+                project_owner_name = excluded.project_owner_name,
+                project_email = excluded.project_email,
+                project_phone = excluded.project_phone,
+                project_owner = excluded.project_owner,
+                department = excluded.department;
             """;
 
         command.Parameters.AddWithValue("$project_id", project.ProjectId.ToString("D"));
         command.Parameters.AddWithValue("$code", project.Code);
         command.Parameters.AddWithValue("$name", project.Name);
         command.Parameters.AddWithValue("$description", project.Description);
+        command.Parameters.AddWithValue("$project_owner_name", project.ProjectOwnerName);
+        command.Parameters.AddWithValue("$project_email", project.ProjectEmail);
+        command.Parameters.AddWithValue("$project_phone", project.ProjectPhone);
+        command.Parameters.AddWithValue("$project_owner", project.ProjectOwner);
+        command.Parameters.AddWithValue("$department", project.Department);
         command.ExecuteNonQuery();
     }
 
@@ -540,14 +1114,16 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO groups_ref (group_id, name)
-            VALUES ($group_id, $name)
+            INSERT INTO groups_ref (group_id, name, description)
+            VALUES ($group_id, $name, $description)
             ON CONFLICT(group_id) DO UPDATE SET
-                name = excluded.name;
+                name = excluded.name,
+                description = excluded.description;
             """;
 
         command.Parameters.AddWithValue("$group_id", group.GroupId.ToString("D"));
         command.Parameters.AddWithValue("$name", group.Name);
+        command.Parameters.AddWithValue("$description", group.Description);
         command.ExecuteNonQuery();
     }
 
@@ -756,6 +1332,45 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$delete_reason", record.SoftDelete?.Reason ?? (object)DBNull.Value);
     }
 
+    private static string ResolveProjectSortColumn(string? sortField)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "name" => "name",
+            "projectownername" or "project_owner_name" => "project_owner_name",
+            "projectemail" or "project_email" => "project_email",
+            "projectphone" or "project_phone" => "project_phone",
+            "projectowner" or "project_owner" => "project_owner",
+            "department" => "department",
+            _ => "code"
+        };
+
+    private static string ResolveUserSortColumn(string? sortField)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "displayname" or "display_name" => "display_name",
+            _ => "username"
+        };
+
+    private static string ResolveGroupSortColumn(string? sortField)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "description" => "description",
+            _ => "name"
+        };
+
+    private static string ResolveGroupAccessSortColumn(string? sortField)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => "is_assigned",
+            _ => "g.name"
+        };
+
+    private static string EscapeLikeLikePattern(string value)
+        => value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal);
+
     private SqliteConnection OpenConnectionInternal()
     {
         for (var attempt = 1; attempt <= ConnectionOpenRetryCount; attempt++)
@@ -838,6 +1453,82 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "ALTER TABLE app_users ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private static void EnsureProjectColumns(SqliteConnection connection)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pragma = connection.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA table_info(projects);";
+            using var reader = pragma.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    columns.Add(reader.GetString(1));
+                }
+            }
+        }
+
+        if (!columns.Contains("project_owner_name"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner_name TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("project_email"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_email TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("project_phone"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_phone TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("project_owner"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN project_owner TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("department"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN department TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private static void EnsureGroupColumns(SqliteConnection connection)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var pragma = connection.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA table_info(groups_ref);";
+            using var reader = pragma.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    columns.Add(reader.GetString(1));
+                }
+            }
+        }
+
+        if (!columns.Contains("description"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE groups_ref ADD COLUMN description TEXT NOT NULL DEFAULT '';";
             cmd.ExecuteNonQuery();
         }
     }

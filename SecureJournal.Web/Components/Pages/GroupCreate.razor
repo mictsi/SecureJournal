@@ -1,0 +1,120 @@
+@page "/admin/groups/create"
+@attribute [Authorize(Roles = "Administrator")]
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<GroupCreate> Logger
+
+<PageTitle>Create group</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Create group</h2>
+        <p>Create a group and then assign users and project access in the admin pages.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <section class="panel-card group-create-card">
+        <div class="panel-card-header">
+            <h3>Create group</h3>
+        </div>
+
+        <EditForm Model="GroupDraft" OnValidSubmit="CreateGroupAsync" FormName="admin-group-create">
+            <AntiforgeryToken />
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label" for="groupName">Group Name</label>
+                    <InputText id="groupName" class="form-control" maxlength="100" @bind-Value="GroupDraft.Name" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="groupDescription">Description</label>
+                    <InputTextArea id="groupDescription" class="form-control" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" />
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create group</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupForm">Reset</button>
+                <a href="/admin/groups" class="btn btn-outline-secondary">Group Management</a>
+            </div>
+        </EditForm>
+    </section>
+}
+
+@code {
+    [SupplyParameterFromForm(FormName = "admin-group-create")]
+    private CreateGroupRequest? PostedGroupDraft { get; set; }
+    private CreateGroupRequest GroupDraft => PostedGroupDraft ??= new();
+
+    private UserContext? _currentUser;
+    private string? _message;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await JournalApp.HasCurrentUserAsync())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+    }
+
+    private Task CreateGroupAsync()
+    {
+        ClearMessages();
+        Logger.LogInformation("Admin group form submit: CreateGroup {GroupName}", GroupDraft.Name);
+
+        try
+        {
+            var group = JournalApp.CreateGroup(GroupDraft);
+            _message = $"Group '{group.Name}' created.";
+            ResetGroupForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin group create failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ResetGroupForm()
+    {
+        GroupDraft.Name = string.Empty;
+        GroupDraft.Description = string.Empty;
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+}

@@ -9,6 +9,19 @@ namespace SecureJournal.Tests;
 public sealed class CsrfEndpointIntegrationTests
 {
     [Fact]
+    public async Task HealthEndpoint_ReturnsOk()
+    {
+        await using var factory = new SecureJournalWebAppFactory();
+        using var client = factory.CreateSecureClient();
+
+        using var response = await client.GetAsync("/health");
+        var details = await DescribeResponseAsync(response);
+
+        Assert.True(response.IsSuccessStatusCode, details);
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task CSRF_LocalLogin_RejectsMissingAntiforgeryToken()
     {
         await using var factory = new SecureJournalWebAppFactory();

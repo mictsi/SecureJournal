@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.3 - 2026-02-28
+
+### Hotfix
+
+- Added platform health probe endpoint at `/health` returning `200 OK` for Azure App Service Health Check.
+- Fixed startup failure in mixed auth configurations by enabling authentication/authorization middleware and auth endpoints only when both are enabled:
+  - `Authentication:EnableAspNetIdentity=true`
+  - `Persistence:EnableProductionIdentityDatabase=true`
+- Added startup warning (instead of crash) for misaligned identity/auth flags.
+- Updated operational documentation (`README`, `docs/BUILDING.md`, `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md`, and `INSTALL_INSTRUCTIONS.md`) with health-check and startup-safety guidance.
+
 ## 0.8.2 - 2026-02-28
 
 ### Hotfix

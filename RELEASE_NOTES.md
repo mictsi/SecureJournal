@@ -1,5 +1,36 @@
 # Release Notes
 
+## v0.8.3 - 2026-02-28
+
+### Highlights
+
+- Added `GET /health` endpoint behavior for Azure App Service instance health probes (`200 OK`).
+- Fixed startup crashes when authentication middleware was activated without a registered identity/auth stack.
+- Added startup guardrails so auth middleware and auth endpoints activate only when both Identity auth and Identity DB are enabled.
+
+### Technical Notes
+
+- Startup/middleware guard updates:
+  - `SecureJournal.Web/Program.cs`
+- Documentation updates:
+  - `README.md`
+  - `docs/BUILDING.md`
+  - `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md`
+  - `INSTALL_INSTRUCTIONS.md`
+
+### Auth Flag Behavior
+
+| `Authentication:EnableAspNetIdentity` | `Persistence:EnableProductionIdentityDatabase` | Startup Behavior |
+| --- | --- | --- |
+| `true` | `true` | Auth middleware + auth endpoints enabled. |
+| `true` | `false` | App starts, logs warning, auth middleware/endpoints disabled. |
+| `false` | `true` | App starts, auth middleware/endpoints disabled. |
+| `false` | `false` | App starts, auth middleware/endpoints disabled. |
+
+### Validation
+
+- `SecureJournal.Tests/CsrfEndpointIntegrationTests.cs` passes with `/health` integration coverage.
+
 ## v0.8.2 - 2026-02-28
 
 ### Highlights

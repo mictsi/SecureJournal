@@ -74,6 +74,11 @@ These scripts:
 - delete both local SQLite databases (`SecureJournal` app DB + `Identity` DB) when using `start-clean.ps1`
 - run the app with the local SDK workaround flags
 
+Runtime hotfix notes:
+
+- The app now exposes `GET /health` with `200 OK` for App Service Health Check probes.
+- Authentication middleware is activated only when Identity auth + Identity DB are both enabled, avoiding startup crashes in non-identity configurations.
+
 ## Optional Troubleshooting File Logging
 
 You can enable buffered file logging for local troubleshooting:

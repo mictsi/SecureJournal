@@ -104,6 +104,16 @@ Azure App Service automation scripts are included:
 - `scripts/provision-azure.ps1` to provision Azure resources and optional Entra OIDC app registration.
 - `scripts/deploy-appservice.ps1` to publish and deploy `SecureJournal.Web` to App Service.
 
+App Service health-check setting:
+
+- Configure App Service Health check path to `/health`.
+- The endpoint returns `200 OK` and is intended for platform instance probes.
+
+Startup safety hotfix:
+
+- Authentication middleware now runs only when both `Authentication:EnableAspNetIdentity=true` and `Persistence:EnableProductionIdentityDatabase=true`.
+- Misaligned settings no longer crash startup; the app logs a warning and continues.
+
 If you are using Entra group-to-role mapping, configure group claims in ID tokens during provisioning:
 
 - `-OidcGroupMembershipClaims SecurityGroup`
@@ -207,6 +217,7 @@ dotnet run --project SecureJournal.Web -p:RestoreIgnoreFailedSources=true
 ```
 
 Note:
+
 - `-p:RequiresAspNetWebAssets=false` can break Blazor framework asset routing (`/_framework/*.js`) and should only be used as a last-resort troubleshooting flag.
 
 Recommended permanent fix:

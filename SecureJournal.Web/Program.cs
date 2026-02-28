@@ -43,8 +43,11 @@ if (fileLoggingSettings.Enabled)
 var requestLoggingSettings = RequestLoggingSettings.FromConfiguration(builder.Configuration);
 var useProductionAppDatabase = bool.TryParse(builder.Configuration["Persistence:EnableProductionAppDatabase"], out var parsedProdAppDb)
     && parsedProdAppDb;
+var useProductionIdentityDatabase = bool.TryParse(builder.Configuration["Persistence:EnableProductionIdentityDatabase"], out var parsedProdIdentityDb)
+    && parsedProdIdentityDb;
 var enableAspNetIdentity = bool.TryParse(builder.Configuration["Authentication:EnableAspNetIdentity"], out var parsedEnableIdentity) && parsedEnableIdentity;
 var enableOidc = bool.TryParse(builder.Configuration["Authentication:EnableOidc"], out var parsedEnableOidc) && parsedEnableOidc;
+var authStackEnabled = enableAspNetIdentity && useProductionIdentityDatabase;
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -100,6 +103,19 @@ if (!app.Environment.IsDevelopment())
 app.UseForwardedHeaders();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsGet(context.Request.Method) &&
+        context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status200OK;
+        context.Response.ContentType = "text/plain";
+        await context.Response.WriteAsync("Healthy");
+        return;
+    }
+
+    await next();
+});
 app.Use(async (context, next) =>
 {
     context.Response.OnStarting(() =>
@@ -202,44 +218,52 @@ app.Use(async (context, next) =>
 
     await next();
 });
-app.UseAuthentication();
-app.Use(async (context, next) =>
+if (authStackEnabled)
 {
-    if (enableAspNetIdentity && context.User.Identity?.IsAuthenticated == true)
+    app.UseAuthentication();
+    app.Use(async (context, next) =>
     {
-        var path = context.Request.Path;
-        var skipValidation =
-            path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/css", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/js", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/auth/local-login", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/auth/logout", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/auth/oidc-login", StringComparison.OrdinalIgnoreCase);
-
-        if (!skipValidation)
+        if (context.User.Identity?.IsAuthenticated == true)
         {
-            var journalApp = context.RequestServices.GetRequiredService<ISecureJournalAppService>();
-            var hasCurrentUser = await journalApp.HasCurrentUserAsync(context.RequestAborted);
-            if (!hasCurrentUser)
-            {
-                await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+            var path = context.Request.Path;
+            var skipValidation =
+                path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/css", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/js", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/auth/local-login", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/auth/logout", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWithSegments("/auth/oidc-login", StringComparison.OrdinalIgnoreCase);
 
-                if (HttpMethods.IsGet(context.Request.Method) &&
-                    !path.StartsWithSegments("/login", StringComparison.OrdinalIgnoreCase))
+            if (!skipValidation)
+            {
+                var journalApp = context.RequestServices.GetRequiredService<ISecureJournalAppService>();
+                var hasCurrentUser = await journalApp.HasCurrentUserAsync(context.RequestAborted);
+                if (!hasCurrentUser)
                 {
-                    context.Response.Redirect("/login?error=Account%20is%20disabled%20or%20no%20longer%20valid.");
-                    return;
+                    await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+
+                    if (HttpMethods.IsGet(context.Request.Method) &&
+                        !path.StartsWithSegments("/login", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.Redirect("/login?error=Account%20is%20disabled%20or%20no%20longer%20valid.");
+                        return;
+                    }
                 }
             }
         }
-    }
 
-    await next();
-});
-app.UseAuthorization();
+        await next();
+    });
+    app.UseAuthorization();
+}
+else if (enableAspNetIdentity)
+{
+    app.Logger.LogWarning(
+        "Authentication:EnableAspNetIdentity=true but Persistence:EnableProductionIdentityDatabase=false. Authentication middleware and auth endpoints are disabled for this startup.");
+}
 
-if (enableAspNetIdentity)
+if (authStackEnabled)
 {
     static string SafeRelative(string? path, string fallback)
         => !string.IsNullOrWhiteSpace(path) && Uri.IsWellFormedUriString(path, UriKind.Relative)

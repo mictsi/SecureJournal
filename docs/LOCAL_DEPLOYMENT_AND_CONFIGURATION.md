@@ -174,6 +174,32 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\provision-azure.ps
 
 `deploy-appservice.ps1` publishes `SecureJournal.Web`, sets App Service application settings using current configuration keys (`Authentication__*`, `Security__*`, `BootstrapAdmin__*`, `Logging__*`), and deploys a zip package.
 
+### Azure App Service Health Check
+
+For production App Service deployments, configure the platform health probe path to:
+
+- `/health`
+
+Expected behavior:
+
+- Returns HTTP `200 OK` when the instance is healthy.
+- Does not require user authentication.
+
+App Service portal setting:
+
+- Web App -> Monitoring -> Health check -> Path = `/health`
+
+### Authentication Middleware Hotfix (Startup Safety)
+
+Current startup behavior protects mixed/partial auth configurations:
+
+- Authentication middleware and auth endpoints are enabled only when both are true:
+  - `Authentication:EnableAspNetIdentity=true`
+  - `Persistence:EnableProductionIdentityDatabase=true`
+- If Identity auth is requested but Identity DB support is disabled, the app logs a warning and keeps starting.
+
+This prevents startup failures caused by missing authentication services in non-identity deployments.
+
 Example:
 
 ```powershell

@@ -103,6 +103,16 @@ Container runtime security:
 - The image runs as a non-root user (`UID/GID 10001`) by default.
 - `docker-compose.yml` also pins the runtime user to `10001:10001`.
 
+Azure App Service health check:
+
+- The application exposes a health endpoint at `/health` that returns HTTP `200 OK` for instance probes.
+- In Azure App Service, set **Health check path** to `/health`.
+
+Authentication startup hotfix:
+
+- Startup now safely skips auth middleware/endpoints when Identity database auth is not enabled.
+- If `Authentication:EnableAspNetIdentity=true` while `Persistence:EnableProductionIdentityDatabase=false`, the app logs a warning and continues to run (instead of failing at startup).
+
 ## Documentation
 
 - Build instructions: `docs/BUILDING.md`

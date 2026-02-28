@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.8.1 - 2026-02-28
+
+### Highlights
+
+- Fixed production SQL Server insert failures on legacy `journal_entries` schemas that still contained removed `category_*` columns marked `NOT NULL`.
+- Enforced explicit journal encryption key configuration across all environments (removed deterministic fallback behavior).
+- Improved `Audit Search` results table readability and stability with compact fixed-width key columns, `Details` width at `25%`, and wrapped long content.
+
+### Technical Notes
+
+- SQL Server compatibility fix added during app DB initialization in:
+  - `SecureJournal.Web/Infrastructure/ProductionInfrastructureRegistration.cs`
+- Security key parsing/startup updates:
+  - `SecureJournal.Core/Security/EncryptionKeyParser.cs`
+  - `SecureJournal.Web/Program.cs`
+- Audit table UX/layout updates:
+  - `SecureJournal.Web/Components/Pages/Audit.razor`
+  - `SecureJournal.Web/wwwroot/app.css`
+
+### Validation
+
+- Tests passing after changes (`SecureJournal.Tests`: 34/34).
+
 ## v0.8.0 - 2026-02-28
 
 ### Highlights

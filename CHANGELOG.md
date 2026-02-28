@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1 - 2026-02-28
+
+### Hotfix
+
+- Fixed SQL Server write failures on legacy `journal_entries` schemas where removed `category_*` columns remained `NOT NULL` by adding startup compatibility handling that backfills nulls and applies default constraints.
+- Removed deterministic journal encryption key fallback behavior and now require an explicit non-placeholder `Security:JournalEncryptionKey` value in all environments.
+- Refined `Audit Search` results table sizing/wrapping behavior with compact fixed-width timestamp/action/outcome columns, `Details` at `25%`, and improved multi-line wrapping for long values.
+
 ## 0.8.0 - 2026-02-28
 
 ### UX and Workflow Updates

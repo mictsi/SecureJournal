@@ -130,13 +130,13 @@
             <table class="table table-sm audit-results-table">
                 <thead>
                     <tr>
-                        <th>Timestamp (UTC)</th>
+                        <th class="audit-timestamp-column">Timestamp (UTC)</th>
                         <th>User</th>
-                        <th>Action</th>
+                        <th class="audit-action-column">Action</th>
                         <th>Entity</th>
                         <th>Project</th>
-                        <th>Outcome</th>
-                        <th>Details</th>
+                        <th class="audit-outcome-column">Outcome</th>
+                        <th class="audit-details-column">Details</th>
                         <th>Integrity</th>
                     </tr>
                 </thead>
@@ -144,9 +144,9 @@
                     @foreach (var row in PagedRows)
                     {
                         <tr>
-                            <td>@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="audit-timestamp-column">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td><code>@row.ActorUsername</code></td>
-                            <td>@row.Action</td>
+                            <td class="audit-action-column">@row.Action</td>
                             <td>
                                 <div>@row.EntityType</div>
                                 @if (!string.IsNullOrWhiteSpace(row.EntityId))
@@ -155,12 +155,12 @@
                                 }
                             </td>
                             <td>@(row.ProjectCode ?? "-")</td>
-                            <td>
+                            <td class="audit-outcome-column">
                                 <span class="badge @(row.Outcome == AuditOutcome.Success ? "text-bg-success" : row.Outcome == AuditOutcome.Denied ? "text-bg-danger" : "text-bg-warning")">
                                     @row.Outcome
                                 </span>
                             </td>
-                            <td>
+                            <td class="audit-details-column">
                                 <div>@row.Details</div>
                                 @if (row.RelatedJournalEntry is not null)
                                 {

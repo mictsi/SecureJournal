@@ -205,6 +205,7 @@ public static class ProductionInfrastructureRegistration
             var appDbFactory = appScope.ServiceProvider.GetRequiredService<IDbContextFactory<SecureJournalAppDbContext>>();
             await using var appDb = await appDbFactory.CreateDbContextAsync();
             await EnsureContextDatabaseReadyAsync(appDb, persistenceOptions.Provider, persistenceOptions.AutoMigrateOnStartup, "app_users");
+            await EnsureLegacyJournalCategoryColumnsCompatibilityAsync(appDb.Database, persistenceOptions.Provider);
         }
 
         if (!identityOptions.EnableAspNetIdentity || !persistenceOptions.EnableProductionIdentityDatabase)
@@ -375,6 +376,63 @@ public static class ProductionInfrastructureRegistration
             {
                 await connection.CloseAsync();
             }
+        }
+    }
+
+    private static async Task EnsureLegacyJournalCategoryColumnsCompatibilityAsync(
+        DatabaseFacade database,
+        ProductionDatabaseProvider provider)
+    {
+        if (provider == ProductionDatabaseProvider.SqlServer)
+        {
+            const string sqlServerCompatibilitySql = """
+IF OBJECT_ID(N'[dbo].[journal_entries]', N'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('dbo.journal_entries', 'category_ciphertext') IS NOT NULL
+    BEGIN
+        UPDATE [dbo].[journal_entries]
+        SET [category_ciphertext] = N''
+        WHERE [category_ciphertext] IS NULL;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.default_constraints dc
+            INNER JOIN sys.columns c
+                ON c.object_id = dc.parent_object_id
+                AND c.column_id = dc.parent_column_id
+            WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[journal_entries]')
+              AND c.name = N'category_ciphertext')
+        BEGIN
+            ALTER TABLE [dbo].[journal_entries]
+            ADD CONSTRAINT [DF_journal_entries_category_ciphertext]
+            DEFAULT (N'') FOR [category_ciphertext];
+        END
+    END
+
+    IF COL_LENGTH('dbo.journal_entries', 'category_checksum') IS NOT NULL
+    BEGIN
+        UPDATE [dbo].[journal_entries]
+        SET [category_checksum] = N''
+        WHERE [category_checksum] IS NULL;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.default_constraints dc
+            INNER JOIN sys.columns c
+                ON c.object_id = dc.parent_object_id
+                AND c.column_id = dc.parent_column_id
+            WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[journal_entries]')
+              AND c.name = N'category_checksum')
+        BEGIN
+            ALTER TABLE [dbo].[journal_entries]
+            ADD CONSTRAINT [DF_journal_entries_category_checksum]
+            DEFAULT (N'') FOR [category_checksum];
+        END
+    END
+END
+""";
+
+            await database.ExecuteSqlRawAsync(sqlServerCompatibilitySql);
         }
     }
 }

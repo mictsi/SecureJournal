@@ -5,21 +5,16 @@ namespace SecureJournal.Core.Security;
 
 public static class EncryptionKeyParser
 {
-    public static byte[] GetKeyBytes(string? configuredValue, string purpose, bool requireExplicitKey = false)
+    public static byte[] GetKeyBytes(string? configuredValue, string purpose)
     {
         var normalized = configuredValue?.Trim() ?? string.Empty;
         var isMissing = string.IsNullOrWhiteSpace(normalized);
         var isPlaceholder = !isMissing && normalized.StartsWith('<') && normalized.EndsWith('>');
 
-        if (requireExplicitKey && (isMissing || isPlaceholder))
-        {
-            throw new InvalidOperationException(
-                $"Security key for '{purpose}' is required in Production. Set a non-placeholder value for 'Security:JournalEncryptionKey'.");
-        }
-
         if (isMissing || isPlaceholder)
         {
-            return SHA256.HashData(Encoding.UTF8.GetBytes($"SecureJournal::{purpose}::dev-fallback"));
+            throw new InvalidOperationException(
+                $"Security key for '{purpose}' is required. Set a non-placeholder value for 'Security:JournalEncryptionKey'.");
         }
 
         try

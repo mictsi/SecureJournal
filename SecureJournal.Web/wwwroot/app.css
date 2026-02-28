@@ -799,6 +799,51 @@ body[data-theme="dark"] .landing-login-card {
     border-color: transparent;
 }
 
+.audit-results-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.audit-results-table th,
+.audit-results-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: top;
+}
+
+.audit-results-table .audit-timestamp-column {
+    width: 19ch;
+    min-width: 19ch;
+    max-width: 19ch;
+    white-space: nowrap;
+}
+
+.audit-results-table .audit-action-column {
+    width: 12ch;
+    min-width: 12ch;
+    max-width: 12ch;
+}
+
+.audit-results-table .audit-outcome-column {
+    width: 10ch;
+    min-width: 10ch;
+    max-width: 10ch;
+}
+
+.audit-results-table .audit-details-column {
+    width: 25%;
+}
+
+.audit-results-table td.audit-details-column {
+    overflow: hidden;
+}
+
+.audit-results-table td.audit-details-column > * {
+    max-width: 100%;
+    overflow: hidden;
+}
+
 .audit-journal-preview {
     margin-top: 0.5rem;
     border: 1px solid var(--sj-panel-border);
@@ -893,7 +938,7 @@ body[data-theme="dark"] .audit-journal-preview {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
-    min-width: 14rem;
+    min-width: 10rem;
     font-size: 0.84rem;
     line-height: 1.25;
 }
@@ -993,7 +1038,7 @@ body[data-theme="dark"] .checksum-status-invalid {
     }
 
     .audit-integrity-cell {
-        min-width: 11.5rem;
+        min-width: 8.5rem;
     }
 }
 

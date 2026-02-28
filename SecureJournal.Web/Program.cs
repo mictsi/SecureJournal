@@ -55,8 +55,7 @@ builder.Services.AddSingleton<IChecksumService, Sha256ChecksumService>();
 builder.Services.AddSingleton<IJournalFieldEncryptor>(_ =>
     new JournalFieldEncryptor(EncryptionKeyParser.GetKeyBytes(
         builder.Configuration["Security:JournalEncryptionKey"],
-        "journal",
-        requireExplicitKey: builder.Environment.IsProduction())));
+        "journal")));
 builder.Services.AddSingleton<IAuditFieldEncryptor, PlaintextAuditFieldEncryptor>();
 builder.Services.AddSingleton<IJournalEntryRecordFactory, JournalEntryRecordFactory>();
 builder.Services.AddSingleton<IAuditLogRecordFactory, AuditLogRecordFactory>();

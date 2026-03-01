@@ -89,7 +89,7 @@ else
                             {
                                 <tr class="project-row @(project.ProjectId == _selectedProjectId ? "is-selected" : string.Empty)"
                                     @onclick="() => SelectProjectAsync(project.ProjectId)">
-                                    <td class="project-code-cell"><code>@project.Code</code></td>
+                                    <td class="project-code-cell">@project.Code</td>
                                     <td class="project-name-cell">@project.Name</td>
                                     <td class="project-group-cell assigned-group-col">
                                         @if (project.AssignedGroups.Count == 0)

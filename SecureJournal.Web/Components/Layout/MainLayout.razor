@@ -1,7 +1,6 @@
 @inherits LayoutComponentBase
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
 
 @if (!_authChecked)
 {
@@ -32,14 +31,11 @@ else
                             <span class="session-chip-user">@_currentUser!.Username</span>
                         </div>
                         <div class="session-chip-row">
-                            <span class="session-chip-label">Role</span>
+                            <span class="session-chip-label">Role:</span>
                             <span class="session-chip-role">@_currentUser.Role</span>
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-outline-secondary theme-toggle" @onclick="ToggleTheme">
-                        Toggle Theme
-                    </button>
                     <form method="post" action="/auth/logout" class="d-inline">
                         <AntiforgeryToken />
                         <input type="hidden" name="returnUrl" value="/" />
@@ -62,7 +58,6 @@ else
 </div>
 
 @code {
-    private bool _themeInitialized;
     private bool _authChecked;
     private bool _isAuthenticated;
     private UserContext? _currentUser;
@@ -78,17 +73,5 @@ else
             Navigation.NavigateTo("/", forceLoad: false);
         }
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !_themeInitialized)
-        {
-            _themeInitialized = true;
-            await JS.InvokeVoidAsync("secureJournalTheme.init");
-        }
-    }
-
-    private async Task ToggleTheme()
-        => await JS.InvokeVoidAsync("secureJournalTheme.toggle");
 
 }

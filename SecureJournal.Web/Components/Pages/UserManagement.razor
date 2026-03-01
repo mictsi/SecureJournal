@@ -74,7 +74,7 @@ else
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
+                    <table class="table table-sm align-middle mb-0 user-list-table">
                         <thead>
                             <tr>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeUserSortAsync("username"))">Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)</button></th>
@@ -86,7 +86,7 @@ else
                             {
                                 <tr class="project-row @(user.UserId == _selectedUserId ? "is-selected" : string.Empty)"
                                     @onclick="() => SelectUserAsync(user.UserId)">
-                                    <td><code>@user.Username</code></td>
+                                    <td>@user.Username</td>
                                     <td>@user.DisplayName</td>
                                 </tr>
                             }
@@ -206,7 +206,7 @@ else
             else
             {
                 <p class="text-muted mb-3">
-                    Editing <strong>@SelectedUser.DisplayName</strong> (<code>@SelectedUser.Username</code>).
+                    Editing <strong>@SelectedUser.DisplayName</strong> (@SelectedUser.Username).
                 </p>
 
                 @if (SelectedUser.IsDisabled)

@@ -145,7 +145,7 @@
                     {
                         <tr>
                             <td class="audit-timestamp-column">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                            <td><code>@row.ActorUsername</code></td>
+                            <td>@row.ActorUsername</td>
                             <td class="audit-action-column">@row.Action</td>
                             <td>
                                 <div>@row.EntityType</div>
@@ -166,7 +166,7 @@
                                 {
                                     <div class="audit-journal-preview mt-2">
                                         <div class="audit-journal-preview-title">
-                                            Journal Entry <code>@row.RelatedJournalEntry.RecordId</code>
+                                            Journal Entry @row.RelatedJournalEntry.RecordId
                                             @if (row.RelatedJournalEntry.IsSoftDeleted)
                                             {
                                                 <span class="badge text-bg-warning ms-2">Soft-deleted</span>
@@ -195,7 +195,7 @@
                             <td>
                                 <div class="audit-integrity-cell">
                                     <small class="text-muted">Checksum</small>
-                                    <code class="audit-checksum">@row.DetailsChecksum</code>
+                                    <span class="audit-checksum">@row.DetailsChecksum</span>
                                     <div class="audit-integrity-actions">
                                         <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
                                             Validate checksum

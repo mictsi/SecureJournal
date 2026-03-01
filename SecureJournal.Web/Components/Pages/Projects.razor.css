@@ -59,6 +59,12 @@
     table-layout: fixed;
 }
 
+.my-projects-table th,
+.my-projects-table td {
+    text-align: left;
+    vertical-align: top;
+}
+
 .my-projects-col-code {
     width: 7.5rem;
 }
@@ -71,12 +77,7 @@
     width: 18rem;
 }
 
-.my-projects-col-access {
-    width: 8rem;
-}
-
-.my-projects-code-cell,
-.my-projects-access-cell {
+.my-projects-code-cell {
     white-space: nowrap;
 }
 

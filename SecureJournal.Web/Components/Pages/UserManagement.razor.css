@@ -1,20 +1,37 @@
 .user-admin-layout {
     display: grid;
-    grid-template-columns: minmax(18rem, 24rem) minmax(22rem, 1.05fr) minmax(22rem, 1fr);
+    grid-template-columns: minmax(20rem, 24rem) minmax(30rem, 1fr);
     align-items: start;
     gap: 1rem;
 }
 
 .user-list-column {
     min-width: 0;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    order: 1;
 }
 
 .user-groups-column {
     min-width: 0;
+    grid-column: 2;
+    order: 3;
 }
 
 .user-detail-column {
     min-width: 0;
+    grid-column: 2;
+    order: 2;
+}
+
+.user-list-table th:first-child,
+.user-list-table td:first-child {
+    padding-right: 1.1rem;
+}
+
+.user-list-table th:nth-child(2),
+.user-list-table td:nth-child(2) {
+    padding-left: 0.8rem;
 }
 
 .membership-grid {
@@ -83,11 +100,7 @@
 
 @media (max-width: 1500px) {
     .user-admin-layout {
-        grid-template-columns: minmax(18rem, 22rem) minmax(20rem, 1fr);
-    }
-
-    .user-detail-column {
-        grid-column: 1 / -1;
+        grid-template-columns: minmax(18rem, 22rem) minmax(24rem, 1fr);
     }
 }
 
@@ -96,7 +109,11 @@
         grid-template-columns: 1fr;
     }
 
-    .user-list-column {
+    .user-list-column,
+    .user-detail-column,
+    .user-groups-column {
         width: 100%;
+        grid-column: auto;
+        grid-row: auto;
     }
 }

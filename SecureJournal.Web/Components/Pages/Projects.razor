@@ -67,19 +67,17 @@
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0 my-projects-table">
+                    <table class="table table-sm mb-0 my-projects-table">
                         <colgroup>
                             <col class="my-projects-col-code" />
                             <col class="my-projects-col-name" />
                             <col class="my-projects-col-groups" />
-                            <col class="my-projects-col-access" />
                         </colgroup>
                         <thead>
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
                                 <th>Assigned Groups</th>
-                                <th>Access</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -88,7 +86,7 @@
                                 var isSelected = _selectedProjectId == project.ProjectId;
                                 <tr class="my-projects-row @(isSelected ? "table-active" : string.Empty)"
                                     @onclick="() => SelectProject(project.ProjectId)">
-                                    <td class="my-projects-code-cell"><code>@project.Code</code></td>
+                                    <td class="my-projects-code-cell">@project.Code</td>
                                     <td class="my-projects-name-cell">
                                         <div class="my-projects-name">@project.Name</div>
                                         @if (!string.IsNullOrWhiteSpace(project.Description))
@@ -109,16 +107,6 @@
                                                     <span class="my-projects-group-tag" title="@groupName">@groupName</span>
                                                 }
                                             </div>
-                                        }
-                                    </td>
-                                    <td class="my-projects-access-cell">
-                                        @if (project.HasAccessForCurrentUser)
-                                        {
-                                            <span class="badge text-bg-success">Allowed</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge text-bg-secondary">No access</span>
                                         }
                                     </td>
                                 </tr>
@@ -146,7 +134,7 @@
                 </div>
                 <div class="projects-user-context-item">
                     <span class="project-user-context-label">Username</span>
-                    <code class="projects-user-context-value">@_currentUser?.Username</code>
+                    <span class="projects-user-context-value">@_currentUser?.Username</span>
                 </div>
                 <div class="projects-user-context-item">
                     <span class="project-user-context-label">Role</span>

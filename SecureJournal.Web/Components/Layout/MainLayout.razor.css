@@ -78,7 +78,7 @@ body[data-theme="dark"] .sidebar-panel {
 }
 
 .session-chip-label {
-    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--sj-muted);
 }
 

@@ -1,39 +1,13 @@
 window.secureJournalTheme = (() => {
-    const storageKey = "securejournal.theme";
-
-    function applyTheme(theme) {
-        const next = theme === "dark" ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", next);
-        document.body.setAttribute("data-theme", next);
-        try {
-            localStorage.setItem(storageKey, next);
-        } catch {
-            // ignore storage failures in restricted environments
-        }
-        return next;
-    }
-
-    function getPreferredTheme() {
-        try {
-            const saved = localStorage.getItem(storageKey);
-            if (saved === "dark" || saved === "light") {
-                return saved;
-            }
-        } catch {
-            // ignore storage failures
-        }
-
-        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light";
+    function applyTheme() {
+        document.documentElement.setAttribute("data-theme", "dark");
+        document.body.setAttribute("data-theme", "dark");
+        return "dark";
     }
 
     return {
-        init: () => applyTheme(getPreferredTheme()),
-        toggle: () => {
-            const current = document.documentElement.getAttribute("data-theme") || getPreferredTheme();
-            return applyTheme(current === "dark" ? "light" : "dark");
-        }
+        init: () => applyTheme(),
+        toggle: () => applyTheme()
     };
 })();
 

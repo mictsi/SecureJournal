@@ -1,21 +1,4 @@
 :root {
-    --sj-bg-top: #f8fafc;
-    --sj-bg-bottom: #f1f5f9;
-    --sj-ink: #0f172a;
-    --sj-muted: #64748b;
-    --sj-panel-border: rgba(15, 23, 42, 0.1);
-    --sj-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-    --sj-accent: #2563eb;
-    --sj-accent-2: #059669;
-    --sj-card: #ffffff;
-    --sj-input-bg: #f8fafc;
-    --sj-input-border: #cbd5e1;
-    --sj-code-bg: rgba(15, 23, 42, 0.05);
-    color-scheme: light;
-}
-
-html[data-theme="dark"],
-body[data-theme="dark"] {
     --sj-bg-top: #0f172a;
     --sj-bg-bottom: #020617;
     --sj-ink: #f8fafc;
@@ -27,7 +10,6 @@ body[data-theme="dark"] {
     --sj-card: rgba(30, 41, 59, 0.7);
     --sj-input-bg: #0f172a;
     --sj-input-border: #334155;
-    --sj-code-bg: rgba(255, 255, 255, 0.1);
     color-scheme: dark;
 }
 
@@ -53,10 +35,13 @@ h1, h2, h3 {
 }
 
 code {
-    background: var(--sj-code-bg);
     color: inherit;
-    padding: 0.1rem 0.3rem;
-    border-radius: 0.3rem;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    border-radius: 0;
+    font-family: inherit;
+    font-size: inherit;
 }
 
 .text-muted {
@@ -514,10 +499,6 @@ h1:focus, h2:focus, h3:focus {
     min-height: 2.5rem;
 }
 
-.format-preview-body code {
-    font-size: 0.9em;
-}
-
 .checksum {
     display: inline-block;
     max-width: 100%;
@@ -749,24 +730,6 @@ body[data-theme="dark"] .text-muted,
 html[data-theme="dark"] small,
 body[data-theme="dark"] small {
     color: #aebdd3 !important;
-}
-
-html[data-theme="dark"] code,
-body[data-theme="dark"] code {
-    color: #e7efff;
-    background: rgba(120, 174, 252, 0.12);
-    border: 1px solid rgba(120, 174, 252, 0.14);
-}
-
-html[data-theme="dark"] .text-muted code,
-body[data-theme="dark"] .text-muted code,
-html[data-theme="dark"] .session-chip code,
-body[data-theme="dark"] .session-chip code,
-html[data-theme="dark"] .table code,
-body[data-theme="dark"] .table code {
-    color: #dfe9fb !important;
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.1);
 }
 
 html[data-theme="dark"] .checksum,

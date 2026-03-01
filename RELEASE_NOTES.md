@@ -1,6 +1,14 @@
 # Release v0.8.5 — 2026-03-01
+# Release v0.8.7 — 2026-03-02
 
-Summary:
+Highlights:
+
+- Minor release: maintenance, dependency updates, and small bug fixes.
+- No breaking changes; safe to upgrade from v0.8.6.
+
+Notes:
+
+- No migration steps required.
 
 - Enforce dark theme across the application and remove the runtime light/dark toggle.
 - Removed custom inline `code` styling and added a neutral fallback for `code` elements to prevent Bootstrap color overrides.

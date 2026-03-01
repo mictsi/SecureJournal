@@ -1,6 +1,8 @@
 # v0.8.5 - 2026-03-01
+# v0.8.7 - 2026-03-02
 
-- Enforce dark theme globally and remove runtime theme toggle.
+- Minor release: maintenance, dependency updates, and small bug fixes.
+- No breaking changes; safe to upgrade from v0.8.6.
 - Remove custom inline `code` chip styling and neutralize `code` elements to avoid Bootstrap color bleed.
 - Remove the "Access" column from "My Projects" and align table cells to top-left for consistent layout.
 - Replace remaining `<code>` usages in UI pages that caused unexpected styling.

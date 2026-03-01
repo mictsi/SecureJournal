@@ -1,27 +1,28 @@
 .user-admin-layout {
-    display: grid;
-    grid-template-columns: minmax(20rem, 24rem) minmax(30rem, 1fr);
+    display: flex;
     align-items: start;
     gap: 1rem;
 }
 
 .user-list-column {
-    min-width: 0;
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    order: 1;
+    flex: 0 0 min(24rem, 34%);
+    max-width: 24rem;
+    min-width: 30%;
 }
 
-.user-groups-column {
+.user-right-column {
+    flex: 1 1 auto;
     min-width: 0;
-    grid-column: 2;
-    order: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
-.user-detail-column {
+.user-roles-card,
+.user-security-card,
+.user-groups-card,
+.user-danger-card {
     min-width: 0;
-    grid-column: 2;
-    order: 2;
 }
 
 .user-list-table th:first-child,
@@ -100,20 +101,23 @@
 
 @media (max-width: 1500px) {
     .user-admin-layout {
-        grid-template-columns: minmax(18rem, 22rem) minmax(24rem, 1fr);
+        gap: 0.9rem;
+    }
+
+    .user-list-column {
+        flex-basis: min(22rem, 36%);
+        max-width: 22rem;
     }
 }
 
 @media (max-width: 1100px) {
     .user-admin-layout {
-        grid-template-columns: 1fr;
+        flex-direction: column;
     }
 
     .user-list-column,
-    .user-detail-column,
-    .user-groups-column {
+    .user-right-column {
         width: 100%;
-        grid-column: auto;
-        grid-row: auto;
+        max-width: none;
     }
 }

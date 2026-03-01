@@ -104,9 +104,94 @@ else
             }
         </section>
 
-        <section class="panel-card user-groups-column">
+        <div class="user-right-column">
+        <section class="panel-card user-roles-card">
             <div class="panel-card-header">
-                <h3>Manage user groups</h3>
+                <h3>Roles</h3>
+            </div>
+
+            @if (SelectedUser is null)
+            {
+                <p class="mb-0">Select a user to manage roles.</p>
+            }
+            else
+            {
+                <p class="text-muted mb-3">
+                    Editing <strong>@SelectedUser.DisplayName</strong> (@SelectedUser.Username).
+                </p>
+
+                <div class="membership-list">
+                    @foreach (var role in _roles)
+                    {
+                        <label class="form-check membership-item">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   checked="@_editedRoles.Contains(role)"
+                                   @onchange="args => ToggleRoleLocal(role, args)" />
+                            <span class="form-check-label">@role</span>
+                        </label>
+                    }
+                </div>
+
+                <div class="mt-3 d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save roles</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset roles</button>
+                </div>
+            }
+        </section>
+
+        <section class="panel-card user-security-card">
+            <div class="panel-card-header">
+                <h3>Security</h3>
+            </div>
+
+            @if (SelectedUser is null)
+            {
+                <p class="mb-0">Select a user to manage security settings.</p>
+            }
+            else
+            {
+                @if (!SelectedUser.IsLocalAccount)
+                {
+                    <p class="text-muted mb-0">Password reset is available for local users only.</p>
+                }
+                else
+                {
+                    <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="manageResetPassword">New Password</label>
+                                <InputText id="manageResetPassword"
+                                           type="password"
+                                           class="form-control"
+                                           @bind-Value="_resetPasswordRequest.NewPassword" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                <InputText id="manageResetPasswordConfirm"
+                                           type="password"
+                                           class="form-control"
+                                           @bind-Value="_confirmResetPassword" />
+                            </div>
+                        </div>
+
+                        <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset password</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                        </div>
+                    </EditForm>
+                }
+            }
+        </section>
+
+        <section class="panel-card user-groups-card">
+            <div class="panel-card-header">
+                <h3>Groups</h3>
                 <span class="text-muted">@_groupPage.TotalCount total groups</span>
             </div>
 
@@ -194,47 +279,25 @@ else
             }
         </section>
 
-        <section class="panel-card user-detail-column">
+        <section class="panel-card user-danger-card">
             <div class="panel-card-header">
-                <h3>Manage user</h3>
+                <h3>Danger zone</h3>
             </div>
 
             @if (SelectedUser is null)
             {
-                <p class="mb-0">Select a user to manage profile and roles.</p>
+                <p class="mb-0">Select a user to manage account state.</p>
             }
             else
             {
-                <p class="text-muted mb-3">
-                    Editing <strong>@SelectedUser.DisplayName</strong> (@SelectedUser.Username).
-                </p>
-
                 @if (SelectedUser.IsDisabled)
                 {
-                    <div class="alert alert-warning" role="alert">
+                    <div class="alert alert-warning mb-3" role="alert">
                         This user is disabled and cannot sign in.
                     </div>
                 }
 
-                <section class="mb-3">
-                    <h4 class="membership-title">Manage user roles</h4>
-                    <div class="membership-list">
-                        @foreach (var role in _roles)
-                        {
-                            <label class="form-check membership-item">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       checked="@_editedRoles.Contains(role)"
-                                       @onchange="args => ToggleRoleLocal(role, args)" />
-                                <span class="form-check-label">@role</span>
-                            </label>
-                        }
-                    </div>
-                </section>
-
                 <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save roles</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset roles</button>
                     <button type="button"
                             class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-warning")"
                             @onclick="ToggleSelectedUserEnabledAsync"
@@ -243,49 +306,9 @@ else
                     </button>
                     <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete user</button>
                 </div>
-
-                <hr />
-
-                <section class="reset-password-panel">
-                    <h4 class="membership-title">Reset local password</h4>
-                    @if (!SelectedUser.IsLocalAccount)
-                    {
-                        <p class="text-muted mb-0">Password reset is available for local users only.</p>
-                    }
-                    else
-                    {
-                        <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary />
-
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label" for="manageResetPassword">New Password</label>
-                                    <InputText id="manageResetPassword"
-                                               type="password"
-                                               class="form-control"
-                                               @bind-Value="_resetPasswordRequest.NewPassword" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
-                                    <InputText id="manageResetPasswordConfirm"
-                                               type="password"
-                                               class="form-control"
-                                               @bind-Value="_confirmResetPassword" />
-                                </div>
-                            </div>
-
-                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
-
-                            <div class="mt-3 d-flex gap-2">
-                                <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset Password</button>
-                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
-                            </div>
-                        </EditForm>
-                    }
-                </section>
             }
         </section>
+        </div>
     </div>
 }
 

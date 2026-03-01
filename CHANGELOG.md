@@ -1,3 +1,12 @@
+# v0.8.5 - 2026-03-01
+
+- Enforce dark theme globally and remove runtime theme toggle.
+- Remove custom inline `code` chip styling and neutralize `code` elements to avoid Bootstrap color bleed.
+- Remove the "Access" column from "My Projects" and align table cells to top-left for consistent layout.
+- Replace remaining `<code>` usages in UI pages that caused unexpected styling.
+- Rework User Management into a two-column responsive layout (users on left; manage user above manage user groups on right); add spacing between username and display name columns.
+- Minor CSS and component cleanup related to the above changes.
+
 # Changelog
 
 ## 0.8.4 - 2026-03-01

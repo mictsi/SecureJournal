@@ -1,3 +1,18 @@
+# Release v0.8.5 — 2026-03-01
+
+Summary:
+
+- Enforce dark theme across the application and remove the runtime light/dark toggle.
+- Removed custom inline `code` styling and added a neutral fallback for `code` elements to prevent Bootstrap color overrides.
+- Removed the "Access" column from the "My Projects" table and aligned table data to the top-left for improved readability.
+- Replaced remaining `<code>` tags used for UI labels with plain text or neutral spans to avoid inconsistent colors.
+- Reworked the User Management page into a two-column layout: users on the left, and the right column stacking Manage User above Manage User Groups; added spacing improvements between username and display name.
+
+Notes:
+
+- After pulling these changes, perform a hard-refresh in your browser to clear cached styles.
+- If you want me to also clean up redundant `html[data-theme="dark"]` selectors in `app.css`, I can do that in a follow-up.
+
 # Release Notes
 
 ## v0.8.4 - 2026-03-01

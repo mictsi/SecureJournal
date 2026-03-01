@@ -633,9 +633,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         {
             var currentUser = GetCurrentUserInternal();
             var readableProjectIds = GetReadableProjectIds(currentUser);
+            var isAdministrator = HasRole(currentUser, AppRole.Administrator);
 
             var query = _projects
-                .Where(p => HasRole(currentUser, AppRole.Administrator) || HasRole(currentUser, AppRole.Auditor) || readableProjectIds.Contains(p.ProjectId))
+                .Where(p => isAdministrator || readableProjectIds.Contains(p.ProjectId))
                 .OrderBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
                 .Select(project => new ProjectOverview(
                     project.ProjectId,
@@ -662,7 +663,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         {
             var currentUser = GetCurrentUserInternal();
             var readableProjectIds = GetReadableProjectIds(currentUser);
-            var isPrivileged = HasRole(currentUser, AppRole.Administrator) || HasRole(currentUser, AppRole.Auditor);
+            var isPrivileged = HasRole(currentUser, AppRole.Administrator);
             var normalized = NormalizeStoreListQuery(
                 request.FilterText,
                 request.SortField,

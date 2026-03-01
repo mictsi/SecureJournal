@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.4 - 2026-03-01
+
+### Hotfix
+
+- Fixed `My Projects` visibility so only projects the current user can actually access are listed.
+- Removed unintended auditor-wide project listing behavior from both project list retrieval paths:
+  - `GetProjects()`
+  - `GetProjects(ProjectListQuery request)`
+- Added regression coverage to verify unauthorized projects are not returned in either standard or paged project list queries.
+
 ## 0.8.3 - 2026-02-28
 
 ### Hotfix

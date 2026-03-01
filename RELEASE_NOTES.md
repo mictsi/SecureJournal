@@ -1,5 +1,24 @@
 # Release Notes
 
+## v0.8.4 - 2026-03-01
+
+### Highlights
+
+- Fixed project list authorization in `My Projects` so users only see projects they have actual access to.
+- Removed auditor-global project visibility from both standard and paged project list service methods.
+- Added regression test coverage to ensure inaccessible projects are never returned.
+
+### Technical Notes
+
+- Authorization filtering updates:
+  - `SecureJournal.Web/Services/SecureJournalAppService.cs`
+- Regression tests:
+  - `SecureJournal.Tests/SecureJournalAppServiceTests.cs`
+
+### Validation
+
+- Targeted test run passes for `SecureJournal.Tests/SecureJournalAppServiceTests.cs` (`30/30`).
+
 ## v0.8.3 - 2026-02-28
 
 ### Highlights

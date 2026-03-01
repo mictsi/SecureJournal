@@ -1152,6 +1152,67 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public void MyProjects_ListsOnlyProjectsUserCanAccess()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+
+        var visibleProject = ctx.App.CreateProject(new CreateProjectRequest
+        {
+            Code = "PRJ-V",
+            Name = "Visible Project",
+            Description = "Should be visible"
+        });
+        var hiddenProject = ctx.App.CreateProject(new CreateProjectRequest
+        {
+            Code = "PRJ-H",
+            Name = "Hidden Project",
+            Description = "Should be hidden"
+        });
+        var group = ctx.App.CreateGroup(new CreateGroupRequest
+        {
+            Name = "Visible Group"
+        });
+        var user = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "onlyvisible",
+            DisplayName = "Only Visible",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "OnlyVisible123!"
+        });
+
+        Assert.True(ctx.App.AssignUserToGroup(new AssignUserToGroupRequest
+        {
+            UserId = user.UserId,
+            GroupId = group.GroupId
+        }));
+        Assert.True(ctx.App.AssignGroupToProject(new AssignGroupToProjectRequest
+        {
+            GroupId = group.GroupId,
+            ProjectId = visibleProject.ProjectId
+        }));
+
+        Assert.True(ctx.App.TryLocalLogin("onlyvisible", "OnlyVisible123!").Success);
+
+        var projects = ctx.App.GetProjects();
+        Assert.Single(projects);
+        Assert.Equal(visibleProject.ProjectId, projects[0].ProjectId);
+        Assert.True(projects[0].HasAccessForCurrentUser);
+
+        var pagedProjects = ctx.App.GetProjects(new ProjectListQuery
+        {
+            Page = 1,
+            PageSize = 20
+        });
+        Assert.Single(pagedProjects.Items);
+        Assert.Equal(1, pagedProjects.TotalCount);
+        Assert.Equal(visibleProject.ProjectId, pagedProjects.Items[0].ProjectId);
+        Assert.DoesNotContain(projects, p => p.ProjectId == hiddenProject.ProjectId);
+        Assert.DoesNotContain(pagedProjects.Items, p => p.ProjectId == hiddenProject.ProjectId);
+    }
+
+    [Fact]
     public void GroupsQuery_PersistsDescription_AndSupportsFilterSortPaging()
     {
         using var ctx = TestAppContext.Create();

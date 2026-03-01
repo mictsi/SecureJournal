@@ -7,6 +7,14 @@
 - Rework User Management into a two-column responsive layout (users on left; manage user above manage user groups on right); add spacing between username and display name columns.
 - Minor CSS and component cleanup related to the above changes.
 
+# v0.8.6 - 2026-03-01
+
+- Redesign User Management: two-column layout with left Users list and right stacked cards: Roles, Security, Groups, Danger zone.
+- Implemented paging and filtering for user group memberships on the Groups card.
+- Improved spacing and layout consistency for the administration pages.
+- Tests updated and passing for related changes.
+
+
 # Changelog
 
 ## 0.8.4 - 2026-03-01

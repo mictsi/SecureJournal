@@ -13,6 +13,20 @@ Notes:
 - After pulling these changes, perform a hard-refresh in your browser to clear cached styles.
 - If you want me to also clean up redundant `html[data-theme="dark"]` selectors in `app.css`, I can do that in a follow-up.
 
+## Release v0.8.6 — 2026-03-01
+
+Highlights:
+
+- User Management redesigned: two-column interface. Left column holds the Users list; the right column stacks four cards in order — Roles, Security (password reset), Groups (with paging/filtering for the selected user), and Danger zone (disable/delete).
+- Group membership card supports paging, page-size selection, assigned/unassigned filter, and group name filtering to efficiently manage large numbers of groups.
+- Small CSS and layout improvements to align with the new design; unit tests updated.
+
+Notes:
+
+- After pulling, hard-refresh the browser to ensure cached CSS/JS are cleared.
+- If you want a fresh build artifact instead of the copied publish ZIP, I can run a publish and update the release assets.
+
+
 # Release Notes
 
 ## v0.8.4 - 2026-03-01

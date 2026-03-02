@@ -2,7 +2,7 @@
 param(
     [string]$VersionTag,
     [string]$ReleaseTitle = "Release $VersionTag",
-    [string]$ReleaseNotesFile = "RELEASE_NOTES.md",
+    [string]$ReleaseNotesFile = "..\docs\releases\$VersionTag.md",
     [string]$ProjectPath = "..\SecureJournal.Web\SecureJournal.Web.csproj",
     [string]$ArtifactDir = "..\artifacts\releases",
     [string]$ZipName = "SecureJournal.Web-$VersionTag-publish.zip"

@@ -34,6 +34,8 @@ if (!sqlQueryLoggingSettings.Enabled)
 {
     builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 }
+var appInsightsEnabled = bool.TryParse(builder.Configuration["ApplicationInsights:Enabled"], out var parsedEnableAppInsights)
+    && parsedEnableAppInsights;
 var fileLoggingSettings = FileLoggingSettings.FromConfiguration(builder.Configuration);
 if (fileLoggingSettings.Enabled)
 {
@@ -79,6 +81,17 @@ else
 builder.Services.AddScoped<ISecureJournalAppService, SecureJournalAppService>();
 builder.Services.AddScoped<PrototypeSessionCookieCoordinator>();
 builder.Services.AddProductionIdentityAndDatabaseFoundation(builder.Configuration);
+if (appInsightsEnabled)
+{
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        var connectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            options.ConnectionString = connectionString;
+        }
+    });
+}
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

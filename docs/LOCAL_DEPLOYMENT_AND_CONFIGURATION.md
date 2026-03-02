@@ -68,6 +68,13 @@ Recommended workflow:
 - `Authentication:Oidc:GroupClaimType`
 - `Authentication:Oidc:RoleGroupMappings:*`
 
+### Application Insights
+
+- `ApplicationInsights:Enabled` (default `false`)
+- `ApplicationInsights:ConnectionString` (default empty)
+
+Enable Azure Application Insights telemetry by setting `ApplicationInsights:Enabled` to `true` and providing a valid connection string. This is optional and can be configured via environment variables for cloud deployments.
+
 ## 2.1 Environment Variable Configuration (Docker / Azure App Service)
 
 The app can be configured fully through environment variables.

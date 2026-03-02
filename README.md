@@ -113,6 +113,17 @@ Authentication startup hotfix:
 - Startup now safely skips auth middleware/endpoints when Identity database auth is not enabled.
 - If `Authentication:EnableAspNetIdentity=true` while `Persistence:EnableProductionIdentityDatabase=false`, the app logs a warning and continues to run (instead of failing at startup).
 
+## Application Insights Telemetry
+
+Secure Journal supports optional Azure Application Insights telemetry for monitoring and diagnostics.
+
+To enable:
+- Set `ApplicationInsights:Enabled` to `true` in your appsettings or environment variables.
+- Provide your Azure Application Insights connection string in `ApplicationInsights:ConnectionString`.
+- The app will automatically register telemetry if enabled.
+
+See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
+
 ## Documentation
 
 - Build instructions: `docs/BUILDING.md`

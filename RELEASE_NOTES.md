@@ -1,56 +1,55 @@
-# Release v0.8.5 — 2026-03-01
-# Release v0.8.7 — 2026-03-02
+# Release Notes
 
-Highlights:
+## v0.8.8 — 2026-03-02
 
+### Highlights
+- Added optional Application Insights telemetry integration for Azure monitoring and diagnostics.
+- New config section: `ApplicationInsights` with `Enabled` and `ConnectionString` keys in appsettings templates.
+- No breaking changes; safe to upgrade from v0.8.7.
+
+### Notes
+- To enable telemetry, set `ApplicationInsights:Enabled` to `true` and provide a valid connection string.
+- See README and deployment docs for setup instructions.
+
+## v0.8.7 — 2026-03-02
+
+### Highlights
 - Minor release: maintenance, dependency updates, and small bug fixes.
 - No breaking changes; safe to upgrade from v0.8.6.
 
-Notes:
-
+### Notes
 - No migration steps required.
-
 - Enforce dark theme across the application and remove the runtime light/dark toggle.
 - Removed custom inline `code` styling and added a neutral fallback for `code` elements to prevent Bootstrap color overrides.
 - Removed the "Access" column from the "My Projects" table and aligned table data to the top-left for improved readability.
 - Replaced remaining `<code>` tags used for UI labels with plain text or neutral spans to avoid inconsistent colors.
 - Reworked the User Management page into a two-column layout: users on the left, and the right column stacking Manage User above Manage User Groups; added spacing improvements between username and display name.
-
-Notes:
-
 - After pulling these changes, perform a hard-refresh in your browser to clear cached styles.
 - If you want me to also clean up redundant `html[data-theme="dark"]` selectors in `app.css`, I can do that in a follow-up.
 
-## Release v0.8.6 — 2026-03-01
+## v0.8.6 — 2026-03-01
 
-Highlights:
-
+### Highlights
 - User Management redesigned: two-column interface. Left column holds the Users list; the right column stacks four cards in order — Roles, Security (password reset), Groups (with paging/filtering for the selected user), and Danger zone (disable/delete).
 - Group membership card supports paging, page-size selection, assigned/unassigned filter, and group name filtering to efficiently manage large numbers of groups.
 - Small CSS and layout improvements to align with the new design; unit tests updated.
 
-Notes:
-
+### Notes
 - After pulling, hard-refresh the browser to ensure cached CSS/JS are cleared.
 - If you want a fresh build artifact instead of the copied publish ZIP, I can run a publish and update the release assets.
 
 
-# Release Notes
-# Release v0.8.8 — 2026-03-02
 
-Highlights:
+## v0.8.5 — 2026-03-01
 
-- Added optional Application Insights telemetry integration for Azure monitoring and diagnostics.
-- New config section: `ApplicationInsights` with `Enabled` and `ConnectionString` keys in appsettings templates.
-- No breaking changes; safe to upgrade from v0.8.7.
+### Highlights
+- Minor release: maintenance, dependency updates, and small bug fixes.
+- No breaking changes; safe to upgrade from v0.8.4.
 
-Notes:
+### Notes
+- No migration steps required.
 
-- To enable telemetry, set `ApplicationInsights:Enabled` to `true` and provide a valid connection string.
-- See README and deployment docs for setup instructions.
-
-
-## v0.8.4 - 2026-03-01
+## v0.8.4 — 2026-03-01
 
 ### Highlights
 
@@ -69,7 +68,8 @@ Notes:
 
 - Targeted test run passes for `SecureJournal.Tests/SecureJournalAppServiceTests.cs` (`30/30`).
 
-## v0.8.3 - 2026-02-28
+
+## v0.8.3 — 2026-02-28
 
 ### Highlights
 
@@ -100,7 +100,8 @@ Notes:
 
 - `SecureJournal.Tests/CsrfEndpointIntegrationTests.cs` passes with `/health` integration coverage.
 
-## v0.8.2 - 2026-02-28
+
+## v0.8.2 — 2026-02-28
 
 ### Highlights
 
@@ -129,7 +130,8 @@ Notes:
 
 - Tests passing after changes (`SecureJournal.Tests`: 34/34).
 
-## v0.8.1 - 2026-02-28
+
+## v0.8.1 — 2026-02-28
 
 ### Highlights
 
@@ -152,7 +154,8 @@ Notes:
 
 - Tests passing after changes (`SecureJournal.Tests`: 34/34).
 
-## v0.8.0 - 2026-02-28
+
+## v0.8.0 — 2026-02-28
 
 ### Highlights
 
@@ -201,7 +204,8 @@ Notes:
 - Solution build succeeded (`dotnet build SecureJournal.slnx`).
 - Tests passing after changes (current workspace runs report all passing).
 
-## v0.7.0 - 2026-02-28
+
+## v0.7.0 — 2026-02-28
 
 ### Highlights
 
@@ -234,7 +238,8 @@ Notes:
   - `SecureJournal.Web/Services/SqlitePrototypeStore.cs`
   - `SecureJournal.Web/Infrastructure/Persistence/SecureJournalAppDbContext.cs`.
 
-## v0.6.4 - 2026-02-28
+
+## v0.6.4 — 2026-02-28
 
 ### Highlights
 
@@ -279,7 +284,8 @@ Notes:
   - `SecureJournal.Web/wwwroot/favicon.png`
   - `SecureJournal.Web/wwwroot/images/logo_125_by_125.png`.
 
-## v0.6.3 - 2026-02-27
+
+## v0.6.3 — 2026-02-27
 
 ### Highlights
 
@@ -302,7 +308,8 @@ Notes:
   - expanded `SecureJournal.Tests/SecureJournalAppServiceTests.cs`
   - added `SecureJournal.Tests/InMemoryAuthenticationTicketStoreTests.cs`.
 
-## v0.6.2 - 2026-02-27
+
+## v0.6.2 — 2026-02-27
 
 ### Highlights
 
@@ -315,7 +322,8 @@ Notes:
 - Added explicit table text color variables and base `color` for `.table`.
 - Added dark-theme `td`/`th` color override for reliable table readability.
 
-## v0.6.1 - 2026-02-27
+
+## v0.6.1 — 2026-02-27
 
 ### Highlights
 
@@ -329,7 +337,8 @@ Notes:
   - `SecureJournal.Web/Components/Pages/Login.razor`
 - Added `btn-oidc` styles and light/dark variants in `SecureJournal.Web/wwwroot/app.css`.
 
-## v0.6.0 - 2026-02-27
+
+## v0.6.0 — 2026-02-27
 
 ### Highlights
 
@@ -352,7 +361,8 @@ Notes:
   - `MainLayout.razor` now renders `<ReconnectModal />`
   - `ReconnectModal.razor.js` now applies reconnect state classes deterministically for UI visibility.
 
-## v0.5.0 - 2026-02-27
+
+## v0.5.0 — 2026-02-27
 
 ### Highlights
 
@@ -378,7 +388,8 @@ Notes:
 - Improved admin page routing/navigation (`NavMenu`, `UserManagement`, new `UserAccounts` page) and reconnect modal styling/readability.
 - Deployment scripts were streamlined for App Service usage (`scripts/provision-azure.ps1`, `scripts/deploy-appservice.ps1`) and now include stronger configuration validation.
 
-## v0.4.5 - 2026-02-27
+
+## v0.4.5 — 2026-02-27
 
 ### Highlights
 
@@ -413,7 +424,8 @@ Notes:
   - `Authentication__Oidc__RoleGroupMappings__ProjectUser__*`
 - Tag-build workflow now includes `docker build -t securejournal:${{ github.ref_name }} .`.
 
-## v0.4.2 - 2026-02-27
+
+## v0.4.2 — 2026-02-27
 
 ### Highlights
 
@@ -429,7 +441,8 @@ Notes:
 - Tag-build workflow no longer forces `CompressionEnabled=false`.
 - Startup script no longer copies framework runtime files into `SecureJournal.Web/wwwroot/_framework`.
 
-## v0.4.1 - 2026-02-27
+
+## v0.4.1 — 2026-02-27
 
 ### Highlights
 
@@ -442,7 +455,8 @@ Notes:
 - Project-level setting: `CompressionEnabled=true` in `SecureJournal.Web.csproj`.
 - Workflow build/publish commands no longer force compression off.
 
-## v0.4.0 - 2026-02-27
+
+## v0.4.0 — 2026-02-27
 
 ### Highlights
 
@@ -465,7 +479,8 @@ Notes:
 - Updated template appsettings files to include the new persistence override keys.
 - Updated deployment and build documentation for CI, Docker, and environment-variable workflows.
 
-## v0.3.0 - 2026-02-27
+
+## v0.3.0 — 2026-02-27
 
 ### Highlights
 

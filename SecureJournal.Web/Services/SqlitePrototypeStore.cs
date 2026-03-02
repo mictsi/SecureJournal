@@ -58,8 +58,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         var builder = new SqliteConnectionStringBuilder(configuredConnectionString)
         {
             Mode = SqliteOpenMode.ReadWriteCreate,
-            Cache = SqliteCacheMode.Shared,
-            Pooling = true
+            Cache = SqliteCacheMode.Private,
+            Pooling = false
         };
         _connectionString = builder.ToString();
     }

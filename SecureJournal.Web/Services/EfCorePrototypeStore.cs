@@ -1242,8 +1242,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     CREATE INDEX IX_project_groups_group_id ON project_groups(group_id);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_project_id' AND object_id = OBJECT_ID('journal_entries'))
                     CREATE INDEX IX_journal_entries_project_id ON journal_entries(project_id);
-                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_user_id' AND object_id = OBJECT_ID('journal_entries'))
-                    CREATE INDEX IX_journal_entries_user_id ON journal_entries(user_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_created_by_user_id' AND object_id = OBJECT_ID('journal_entries'))
+                    CREATE INDEX IX_journal_entries_created_by_user_id ON journal_entries(created_by_user_id);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_created_at_utc' AND object_id = OBJECT_ID('journal_entries'))
                     CREATE INDEX IX_journal_entries_created_at_utc ON journal_entries(created_at_utc);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_logs_timestamp_utc' AND object_id = OBJECT_ID('audit_logs'))
@@ -1272,7 +1272,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_project_groups_project_id ON project_groups(project_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_project_groups_group_id ON project_groups(group_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_project_id ON journal_entries(project_id);");
-            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_user_id ON journal_entries(user_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_created_by_user_id ON journal_entries(created_by_user_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_created_at_utc ON journal_entries(created_at_utc);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_actor_user_id ON audit_logs(actor_user_id);");

@@ -17,4 +17,21 @@ public sealed class PrototypeSharedState
     public Dictionary<Guid, string> LocalPasswordHashes { get; } = new();
     public List<JournalEntryRecord> JournalEntries { get; } = new();
     public List<AuditLogRecord> AuditLogs { get; } = new();
+
+    // Version counters used by in-memory read caches for deterministic invalidation.
+    public long UsersVersion { get; set; }
+    public long ProjectsVersion { get; set; }
+    public long GroupsVersion { get; set; }
+    public long MembershipsVersion { get; set; }
+    public long JournalsVersion { get; set; }
+
+    public Dictionary<Guid, ReadableProjectIdsCacheEntry> ReadableProjectIdsCache { get; } = new();
+}
+
+public sealed class ReadableProjectIdsCacheEntry
+{
+    public long UsersVersion { get; init; }
+    public long ProjectsVersion { get; init; }
+    public long MembershipsVersion { get; init; }
+    public HashSet<Guid> ProjectIds { get; init; } = new();
 }

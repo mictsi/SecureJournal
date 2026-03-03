@@ -47,6 +47,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     private Dictionary<Guid, string> _localPasswordHashes => _shared.LocalPasswordHashes;
     private List<JournalEntryRecord> _journalEntries => _shared.JournalEntries;
     private List<AuditLogRecord> _auditLogs => _shared.AuditLogs;
+    private Dictionary<Guid, ReadableProjectIdsCacheEntry> _readableProjectIdsCache => _shared.ReadableProjectIdsCache;
 
     private Guid _currentUserId;
 
@@ -627,22 +628,19 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         {
             var currentUser = GetCurrentUserInternal();
             var readableProjectIds = GetReadableProjectIds(currentUser);
-            var allProjects = _sqliteStore.LoadProjects();
-            var allJournalEntries = _sqliteStore.LoadJournalEntries();
-            var allAuditLogs = _sqliteStore.LoadAuditLogs();
             var visibleEntries = IsAuditorOnly(currentUser)
                 ? new List<JournalEntryRecord>()
-                : allJournalEntries
+                : _journalEntries
                     .Where(e => readableProjectIds.Contains(e.ProjectId))
                     .Where(e => !e.IsSoftDeleted || CanSeeSoftDeletedEntries(currentUser))
                     .ToList();
 
             var visibleAuditCount = HasRole(currentUser, AppRole.Administrator) || HasRole(currentUser, AppRole.Auditor)
-                ? allAuditLogs.Count
+                ? _auditLogs.Count
                 : 0;
 
             return new DashboardSummary(
-                TotalProjects: allProjects.Count,
+                TotalProjects: _projects.Count,
                 AccessibleProjects: readableProjectIds.Count,
                 VisibleJournalEntries: visibleEntries.Count,
                 SoftDeletedEntriesVisible: visibleEntries.Count(e => e.IsSoftDeleted),
@@ -659,16 +657,15 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var currentUser = GetCurrentUserInternal();
             var readableProjectIds = GetReadableProjectIds(currentUser);
             var isAdministrator = HasRole(currentUser, AppRole.Administrator);
-            var projects = _sqliteStore.LoadProjects();
-            var projectIds = projects.Select(project => project.ProjectId).ToList();
-            var assignmentRows = _sqliteStore.LoadProjectGroupNamesForProjects(projectIds);
-            var assignmentsLookup = assignmentRows
-                .GroupBy(x => x.ProjectId)
+            var groupNameById = _groups.ToDictionary(g => g.GroupId, g => g.Name);
+            var assignmentsLookup = _projectGroups
+                .Where(pg => groupNameById.ContainsKey(pg.GroupId))
+                .GroupBy(pg => pg.ProjectId)
                 .ToDictionary(
                     g => g.Key,
-                    g => (IReadOnlyList<string>)g.Select(x => x.GroupName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+                    g => (IReadOnlyList<string>)g.Select(pg => groupNameById[pg.GroupId]).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
 
-            var query = projects
+            var query = _projects
                 .Where(p => isAdministrator || readableProjectIds.Contains(p.ProjectId))
                 .OrderBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
                 .Select(project => new ProjectOverview(
@@ -997,6 +994,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.ProjectPhone,
                 project.ProjectOwner,
                 project.Department));
+            InvalidateProjectsCache();
             _logger.LogInformation(
                 "Project created by {ActorUsername}: {ProjectCode} ({ProjectId})",
                 actor.Username,
@@ -1065,6 +1063,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
                 updatedProject.Department));
+            InvalidateProjectsCache();
 
             _logger.LogInformation(
                 "Project metadata updated by {ActorUsername}: {ProjectCode} ({ProjectId})",
@@ -1180,6 +1179,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _sqliteStore.UpsertUser(ToStoredUserRow(user, passwordHash));
             _sqliteStore.AddUserRole(user.UserId, user.Role);
+            InvalidateUsersCache();
             _logger.LogInformation(
                 "User created by {ActorUsername}: {Username} ({Role}) Local={IsLocal}",
                 actor.Username,
@@ -1242,6 +1242,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _sqliteStore.UpsertUser(ToStoredUserRow(user, passwordHash));
             _sqliteStore.AddUserRole(user.UserId, user.Role);
+            InvalidateUsersCache();
             _logger.LogInformation(
                 "User created by {ActorUsername}: {Username} ({Role}) Local={IsLocal}",
                 actor.Username,
@@ -1286,6 +1287,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var group = new Group(Guid.NewGuid(), name, description);
             _groups.Add(group);
             _sqliteStore.UpsertGroup(new StoredGroupRow(group.GroupId, group.Name, group.Description));
+            InvalidateGroupsCache();
             _logger.LogInformation(
                 "Group created by {ActorUsername}: {GroupName} ({GroupId})",
                 actor.Username,
@@ -1340,6 +1342,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             _sqliteStore.RemoveGroup(groupId);
+            InvalidateGroupsCache();
+            InvalidateMembershipsCache();
             _logger.LogInformation(
                 "Group deleted by {ActorUsername}: {GroupName} ({GroupId}) MembersRemoved={MembersRemoved} ProjectAssignmentsRemoved={ProjectAssignmentsRemoved}",
                 actor.Username,
@@ -1407,6 +1411,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
             _sqliteStore.AddUserRole(updatedUser.UserId, request.Role);
+            InvalidateUsersCache();
 
             if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
             {
@@ -1490,6 +1495,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
             _sqliteStore.RemoveUserRole(updatedUser.UserId, request.Role);
+            InvalidateUsersCache();
 
             if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
             {
@@ -1552,6 +1558,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             _sqliteStore.AddUserToGroup(user.UserId, group.GroupId);
+            InvalidateMembershipsCache();
             _logger.LogInformation(
                 "User-to-group assignment by {ActorUsername}: {Username} -> {GroupName}",
                 actor.Username,
@@ -1600,6 +1607,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             _sqliteStore.RemoveUserFromGroup(user.UserId, group.GroupId);
+            InvalidateMembershipsCache();
             _logger.LogInformation(
                 "User removed from group by {ActorUsername}: {Username} -X-> {GroupName}",
                 actor.Username,
@@ -1657,6 +1665,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+            InvalidateUsersCache();
 
             if (_currentUserId == updatedUser.UserId)
             {
@@ -1720,6 +1729,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+            InvalidateUsersCache();
 
             if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
             {
@@ -1790,6 +1800,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+            InvalidateUsersCache();
 
             _logger.LogInformation(
                 "User enabled by {ActorUsername}: {Username} ({UserId})",
@@ -1843,6 +1854,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             var passwordHash = updatedUser.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updatedUser.UserId) : null;
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedUser, passwordHash));
+            InvalidateUsersCache();
 
             if (_enableAspNetIdentity && updatedUser.IsLocalAccount)
             {
@@ -1910,6 +1922,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             _sqliteStore.RemoveUser(targetUser.UserId);
+            InvalidateUsersCache();
+            InvalidateMembershipsCache();
 
             _logger.LogInformation(
                 "User deleted by {ActorUsername}: {Username} ({UserId})",
@@ -1964,6 +1978,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             _sqliteStore.RemoveUser(targetUser.UserId);
+            InvalidateUsersCache();
+            InvalidateMembershipsCache();
             if (_enableAspNetIdentity && targetUser.IsLocalAccount)
             {
                 identityUsernameToDelete = targetUser.Username;
@@ -2016,6 +2032,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _projectGroups.Add(new ProjectGroupAssignment(project.ProjectId, group.GroupId));
             _sqliteStore.AddGroupToProject(project.ProjectId, group.GroupId);
+            InvalidateMembershipsCache();
             _logger.LogInformation(
                 "Group-to-project assignment by {ActorUsername}: {GroupName} -> {ProjectCode}",
                 actor.Username,
@@ -2059,6 +2076,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _projectGroups.Remove(membership);
             _sqliteStore.RemoveGroupFromProject(project.ProjectId, group.GroupId);
+            InvalidateMembershipsCache();
             _logger.LogInformation(
                 "Group-to-project removal by {ActorUsername}: {GroupName} -X-> {ProjectCode}",
                 actor.Username,
@@ -2190,6 +2208,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var newHash = _passwordHasher.HashPassword(targetUser, request.NewPassword);
             _localPasswordHashes[targetUser.UserId] = newHash;
             _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, newHash));
+            InvalidateUsersCache();
 
             _logger.LogInformation(
                 "Password reset by admin {ActorUsername} for user {TargetUsername}",
@@ -2255,6 +2274,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 var newHash = _passwordHasher.HashPassword(targetUser, request.NewPassword);
                 _localPasswordHashes[targetUser.UserId] = newHash;
                 _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, newHash));
+                InvalidateUsersCache();
 
                 _logger.LogInformation(
                     "Password reset by admin {ActorUsername} for user {TargetUsername}",
@@ -2303,25 +2323,12 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var canSeeSoftDeleted = includeSoftDeleted && CanSeeSoftDeletedEntries(currentUser);
-            var journalEntries = _sqliteStore.LoadJournalEntries();
-            var projects = _sqliteStore.LoadProjects()
-                .Select(row => new Project(
-                    row.ProjectId,
-                    row.Code,
-                    row.Name,
-                    row.Description,
-                    row.ProjectEmail,
-                    row.ProjectPhone,
-                    row.ProjectOwner,
-                    row.Department))
-                .ToList();
-
-            return journalEntries
+            return _journalEntries
                 .Where(e => readableProjectIds.Contains(e.ProjectId))
                 .Where(e => !projectId.HasValue || e.ProjectId == projectId.Value)
                 .Where(e => !e.IsSoftDeleted || canSeeSoftDeleted)
                 .OrderByDescending(e => e.CreatedAtUtc)
-                .Select(record => _recordViewMapper.MapJournalEntry(record, projects))
+                .Select(record => _recordViewMapper.MapJournalEntry(record, _projects))
                 .ToList();
         }
     }
@@ -2381,6 +2388,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _journalEntries.Add(record);
             _sqliteStore.UpsertJournalEntry(record);
+            InvalidateJournalsCache();
 
             AppendAudit(
                 actor,
@@ -2449,6 +2457,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 DeletedByUsername: actor.Username,
                 Reason: normalizedReason));
             _sqliteStore.UpsertJournalEntry(entry);
+            InvalidateJournalsCache();
 
             AppendAudit(
                 actor,
@@ -2809,6 +2818,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         EnsureBootstrapAdminConfiguredAccount();
         _currentUserId = Guid.Empty;
         _logger.LogInformation("No authenticated user session is active at startup.");
+        InitializeCacheVersions();
     }
 
     private JournalEntryRecord SeedJournalEntry(
@@ -2843,167 +2853,52 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private void RefreshSharedStateFromStore()
     {
-        _sqliteStore.Initialize();
-
-        var refreshedUsers = new List<AppUser>();
-        var refreshedUserRoles = new Dictionary<Guid, HashSet<AppRole>>();
-        var refreshedUserGroups = new Dictionary<Guid, HashSet<Guid>>();
-        var refreshedPasswordHashes = new Dictionary<Guid, string>();
-        var refreshedProjects = new List<Project>();
-        var refreshedGroups = new List<Group>();
-        var refreshedProjectGroups = new List<ProjectGroupAssignment>();
-
-        var storedUsers = _sqliteStore.LoadUsers();
-        foreach (var stored in storedUsers)
+        // Write-through cache mode: state is kept in memory and updated on every write.
+        // This method remains as a compatibility hook for existing call sites.
+        if (!_shared.IsInitialized)
         {
-            var user = new AppUser(
-                stored.UserId,
-                stored.Username,
-                stored.DisplayName,
-                stored.Role,
-                stored.IsLocalAccount,
-                stored.ExternalIssuer,
-                stored.ExternalSubject,
-                stored.IsDisabled);
-
-            refreshedUsers.Add(user);
-            refreshedUserRoles[user.UserId] = new HashSet<AppRole> { user.Role };
-            refreshedUserGroups[user.UserId] = new HashSet<Guid>();
-
-            if (stored.IsLocalAccount && !string.IsNullOrWhiteSpace(stored.PasswordHash))
-            {
-                refreshedPasswordHashes[user.UserId] = stored.PasswordHash;
-            }
+            Seed();
+            _shared.IsInitialized = true;
         }
+    }
 
-        foreach (var storedProject in _sqliteStore.LoadProjects())
-        {
-            refreshedProjects.Add(new Project(
-                storedProject.ProjectId,
-                storedProject.Code,
-                storedProject.Name,
-                storedProject.Description,
-                storedProject.ProjectEmail,
-                storedProject.ProjectPhone,
-                storedProject.ProjectOwner,
-                storedProject.Department));
-        }
+    private void InitializeCacheVersions()
+    {
+        _shared.UsersVersion = 1;
+        _shared.ProjectsVersion = 1;
+        _shared.GroupsVersion = 1;
+        _shared.MembershipsVersion = 1;
+        _shared.JournalsVersion = 1;
+        _readableProjectIdsCache.Clear();
+    }
 
-        foreach (var storedGroup in _sqliteStore.LoadGroups())
-        {
-            refreshedGroups.Add(new Group(
-                storedGroup.GroupId,
-                storedGroup.Name,
-                storedGroup.Description));
-        }
+    private void InvalidateUsersCache()
+    {
+        _shared.UsersVersion++;
+        _readableProjectIdsCache.Clear();
+    }
 
-        var knownUserIds = refreshedUsers.Select(u => u.UserId).ToHashSet();
-        var knownGroupIds = refreshedGroups.Select(g => g.GroupId).ToHashSet();
-        var knownProjectIds = refreshedProjects.Select(p => p.ProjectId).ToHashSet();
+    private void InvalidateProjectsCache()
+    {
+        _shared.ProjectsVersion++;
+        _readableProjectIdsCache.Clear();
+    }
 
-        foreach (var storedUserRole in _sqliteStore.LoadUserRoles())
-        {
-            if (!knownUserIds.Contains(storedUserRole.UserId))
-            {
-                continue;
-            }
+    private void InvalidateGroupsCache()
+    {
+        _shared.GroupsVersion++;
+        _readableProjectIdsCache.Clear();
+    }
 
-            if (!refreshedUserRoles.TryGetValue(storedUserRole.UserId, out var roles))
-            {
-                roles = new HashSet<AppRole>();
-                refreshedUserRoles[storedUserRole.UserId] = roles;
-            }
+    private void InvalidateMembershipsCache()
+    {
+        _shared.MembershipsVersion++;
+        _readableProjectIdsCache.Clear();
+    }
 
-            roles.Add(storedUserRole.Role);
-        }
-
-        foreach (var user in refreshedUsers)
-        {
-            if (!refreshedUserRoles.TryGetValue(user.UserId, out var roles) || roles.Count == 0)
-            {
-                refreshedUserRoles[user.UserId] = new HashSet<AppRole> { user.Role };
-            }
-        }
-
-        foreach (var storedUserGroup in _sqliteStore.LoadUserGroups())
-        {
-            if (!knownUserIds.Contains(storedUserGroup.UserId) || !knownGroupIds.Contains(storedUserGroup.GroupId))
-            {
-                continue;
-            }
-
-            if (!refreshedUserGroups.TryGetValue(storedUserGroup.UserId, out var memberships))
-            {
-                memberships = new HashSet<Guid>();
-                refreshedUserGroups[storedUserGroup.UserId] = memberships;
-            }
-
-            memberships.Add(storedUserGroup.GroupId);
-        }
-
-        foreach (var storedProjectGroup in _sqliteStore.LoadProjectGroups())
-        {
-            if (!knownProjectIds.Contains(storedProjectGroup.ProjectId) || !knownGroupIds.Contains(storedProjectGroup.GroupId))
-            {
-                continue;
-            }
-
-            refreshedProjectGroups.Add(new ProjectGroupAssignment(
-                storedProjectGroup.ProjectId,
-                storedProjectGroup.GroupId));
-        }
-
-        var refreshedJournalEntries = _sqliteStore.LoadJournalEntries()
-            .Where(e => knownProjectIds.Contains(e.ProjectId))
-            .ToList();
-        var refreshedAuditLogs = _sqliteStore.LoadAuditLogs()
-            .Where(a => !a.ProjectId.HasValue || knownProjectIds.Contains(a.ProjectId.Value))
-            .ToList();
-
-        _users.Clear();
-        _users.AddRange(refreshedUsers);
-
-        _projects.Clear();
-        _projects.AddRange(refreshedProjects);
-
-        _groups.Clear();
-        _groups.AddRange(refreshedGroups);
-
-        _projectGroups.Clear();
-        _projectGroups.AddRange(refreshedProjectGroups);
-
-        _userRoles.Clear();
-        foreach (var pair in refreshedUserRoles)
-        {
-            _userRoles[pair.Key] = pair.Value;
-        }
-
-        _userGroups.Clear();
-        foreach (var pair in refreshedUserGroups)
-        {
-            _userGroups[pair.Key] = pair.Value;
-        }
-
-        _localPasswordHashes.Clear();
-        foreach (var pair in refreshedPasswordHashes)
-        {
-            _localPasswordHashes[pair.Key] = pair.Value;
-        }
-
-        _journalEntries.Clear();
-        _journalEntries.AddRange(refreshedJournalEntries);
-
-        _auditLogs.Clear();
-        _auditLogs.AddRange(refreshedAuditLogs);
-
-        if (_currentUserId != Guid.Empty)
-        {
-            var currentUserExists = _users.Any(u => u.UserId == _currentUserId && !u.IsDisabled);
-            if (!currentUserExists)
-            {
-                _currentUserId = Guid.Empty;
-            }
-        }
+    private void InvalidateJournalsCache()
+    {
+        _shared.JournalsVersion++;
     }
 
     private void ValidateRequest(CreateJournalEntryRequest request)
@@ -3242,6 +3137,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         var newHash = _passwordHasher.HashPassword(actor, newPassword);
         _localPasswordHashes[actor.UserId] = newHash;
         _sqliteStore.UpsertUser(ToStoredUserRow(actor, newHash));
+        InvalidateUsersCache();
         _logger.LogInformation("Password change succeeded for user {Username}", actor.Username);
 
         AppendAudit(
@@ -3312,6 +3208,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         lock (_sync)
         {
             _sqliteStore.UpsertUser(ToStoredUserRow(actor, passwordHash: null));
+            InvalidateUsersCache();
             _logger.LogInformation("Password change succeeded for user {Username} via Identity", actor.Username);
             AppendAudit(actor, AuditActionType.Update, AuditEntityType.Authentication, actor.UserId.ToString(), null, AuditOutcome.Success,
                 "Local password changed for current user.");
@@ -3349,6 +3246,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         lock (_sync)
         {
             _sqliteStore.UpsertUser(ToStoredUserRow(targetUser, passwordHash: null));
+            InvalidateUsersCache();
             _logger.LogInformation(
                 "Password reset by admin {ActorUsername} for user {TargetUsername} via Identity",
                 actor.Username,
@@ -3625,6 +3523,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 }
 
                 _sqliteStore.UpsertUser(ToStoredUserRow(existing, passwordHash: null));
+                InvalidateUsersCache();
             }
         }
 
@@ -3686,6 +3585,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             _userGroups[created.UserId] = new HashSet<Guid>();
             _sqliteStore.UpsertUser(ToStoredUserRow(created, passwordHash: null));
             _sqliteStore.AddUserRole(created.UserId, created.Role);
+            InvalidateUsersCache();
             _logger.LogInformation("App user provisioned from authenticated principal: {Username} ({Role})", created.Username, created.Role);
             AppendAudit(
                 created,
@@ -3725,6 +3625,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             ReplaceUserRoles(updated.UserId, [mappedRole]);
             _sqliteStore.UpsertUser(ToStoredUserRow(updated, existing.IsLocalAccount ? _localPasswordHashes.GetValueOrDefault(updated.UserId) : null));
+            InvalidateUsersCache();
             _currentUserId = updated.UserId;
             user = updated;
             return true;
@@ -3774,6 +3675,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             ReplaceUserRoles(updated.UserId, [resolvedRole]);
             _sqliteStore.UpsertUser(ToStoredUserRow(updated, passwordHash: null));
+            InvalidateUsersCache();
         }
     }
 
@@ -3861,27 +3763,42 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private HashSet<Guid> GetReadableProjectIds(AppUser user)
     {
+        if (_readableProjectIdsCache.TryGetValue(user.UserId, out var cachedEntry) &&
+            cachedEntry.UsersVersion == _shared.UsersVersion &&
+            cachedEntry.ProjectsVersion == _shared.ProjectsVersion &&
+            cachedEntry.MembershipsVersion == _shared.MembershipsVersion)
+        {
+            return cachedEntry.ProjectIds;
+        }
+
+        HashSet<Guid> projectIds;
         if (HasRole(user, AppRole.Administrator))
         {
-            return _sqliteStore.LoadProjects()
+            projectIds = _projects
                 .Select(project => project.ProjectId)
                 .ToHashSet();
         }
-
-        var userGroupIds = _sqliteStore.LoadUserGroups()
-            .Where(ug => ug.UserId == user.UserId)
-            .Select(ug => ug.GroupId)
-            .ToHashSet();
-
-        if (userGroupIds.Count == 0)
+        else if (!_userGroups.TryGetValue(user.UserId, out var userGroupIds) || userGroupIds.Count == 0)
         {
-            return new HashSet<Guid>();
+            projectIds = new HashSet<Guid>();
+        }
+        else
+        {
+            projectIds = _projectGroups
+                .Where(pg => userGroupIds.Contains(pg.GroupId))
+                .Select(pg => pg.ProjectId)
+                .ToHashSet();
         }
 
-        return _sqliteStore.LoadProjectGroups()
-            .Where(pg => userGroupIds.Contains(pg.GroupId))
-            .Select(pg => pg.ProjectId)
-            .ToHashSet();
+        _readableProjectIdsCache[user.UserId] = new ReadableProjectIdsCacheEntry
+        {
+            UsersVersion = _shared.UsersVersion,
+            ProjectsVersion = _shared.ProjectsVersion,
+            MembershipsVersion = _shared.MembershipsVersion,
+            ProjectIds = projectIds
+        };
+
+        return projectIds;
     }
 
     private bool CanAccessProject(AppUser user, Guid projectId)
@@ -4107,10 +4024,12 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private void ReplaceUserRoles(Guid userId, IReadOnlyCollection<AppRole> desiredRoles)
     {
+        var changed = false;
         if (!_userRoles.TryGetValue(userId, out var currentRoles))
         {
             currentRoles = new HashSet<AppRole>();
             _userRoles[userId] = currentRoles;
+            changed = true;
         }
 
         foreach (var existingRole in currentRoles.ToList())
@@ -4119,6 +4038,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             {
                 currentRoles.Remove(existingRole);
                 _sqliteStore.RemoveUserRole(userId, existingRole);
+                changed = true;
             }
         }
 
@@ -4127,6 +4047,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             if (currentRoles.Add(desiredRole))
             {
                 _sqliteStore.AddUserRole(userId, desiredRole);
+                changed = true;
             }
         }
 
@@ -4134,6 +4055,12 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         {
             currentRoles.Add(AppRole.ProjectUser);
             _sqliteStore.AddUserRole(userId, AppRole.ProjectUser);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            InvalidateUsersCache();
         }
     }
 
@@ -4220,6 +4147,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             _sqliteStore.UpsertUser(ToStoredUserRow(bootstrapUser, passwordHash));
             _sqliteStore.AddUserRole(bootstrapUser.UserId, AppRole.Administrator);
+            InvalidateUsersCache();
 
             _logger.LogInformation("Bootstrap administrator {Username} created from appsettings", bootstrapUser.Username);
 
@@ -4245,8 +4173,11 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             roles = new HashSet<AppRole>();
             _userRoles[bootstrapUser.UserId] = roles;
         }
-        roles.Add(AppRole.Administrator);
-        _sqliteStore.AddUserRole(bootstrapUser.UserId, AppRole.Administrator);
+        if (roles.Add(AppRole.Administrator))
+        {
+            _sqliteStore.AddUserRole(bootstrapUser.UserId, AppRole.Administrator);
+            InvalidateUsersCache();
+        }
 
         var updatedBootstrapUser = bootstrapUser;
         var metadataUpdated = false;
@@ -4296,6 +4227,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         if (metadataUpdated || passwordUpdated)
         {
             _sqliteStore.UpsertUser(ToStoredUserRow(updatedBootstrapUser, passwordHashToPersist));
+            InvalidateUsersCache();
 
             AppendAudit(
                 updatedBootstrapUser,

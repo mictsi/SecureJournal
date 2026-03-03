@@ -1216,22 +1216,42 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         {
             db.Database.ExecuteSqlRaw(
                 """
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_app_users_username' AND object_id = OBJECT_ID('app_users'))
+                    CREATE INDEX IX_app_users_username ON app_users(username);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_app_users_display_name' AND object_id = OBJECT_ID('app_users'))
+                    CREATE INDEX IX_app_users_display_name ON app_users(display_name);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_app_users_external' AND object_id = OBJECT_ID('app_users'))
+                    CREATE INDEX IX_app_users_external ON app_users(external_issuer, external_subject);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_projects_code' AND object_id = OBJECT_ID('projects'))
+                    CREATE INDEX IX_projects_code ON projects(code);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_projects_name' AND object_id = OBJECT_ID('projects'))
                     CREATE INDEX IX_projects_name ON projects(name);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_projects_description' AND object_id = OBJECT_ID('projects'))
                     CREATE INDEX IX_projects_description ON projects(description);
-                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_app_users_display_name' AND object_id = OBJECT_ID('app_users'))
-                    CREATE INDEX IX_app_users_display_name ON app_users(display_name);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_groups_ref_name' AND object_id = OBJECT_ID('groups_ref'))
+                    CREATE INDEX IX_groups_ref_name ON groups_ref(name);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_groups_ref_description' AND object_id = OBJECT_ID('groups_ref'))
                     CREATE INDEX IX_groups_ref_description ON groups_ref(description);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_groups_user_id' AND object_id = OBJECT_ID('user_groups'))
+                    CREATE INDEX IX_user_groups_user_id ON user_groups(user_id);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_groups_group_id' AND object_id = OBJECT_ID('user_groups'))
                     CREATE INDEX IX_user_groups_group_id ON user_groups(group_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_project_groups_project_id' AND object_id = OBJECT_ID('project_groups'))
+                    CREATE INDEX IX_project_groups_project_id ON project_groups(project_id);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_project_groups_group_id' AND object_id = OBJECT_ID('project_groups'))
                     CREATE INDEX IX_project_groups_group_id ON project_groups(group_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_project_id' AND object_id = OBJECT_ID('journal_entries'))
+                    CREATE INDEX IX_journal_entries_project_id ON journal_entries(project_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_user_id' AND object_id = OBJECT_ID('journal_entries'))
+                    CREATE INDEX IX_journal_entries_user_id ON journal_entries(user_id);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_journal_entries_created_at_utc' AND object_id = OBJECT_ID('journal_entries'))
                     CREATE INDEX IX_journal_entries_created_at_utc ON journal_entries(created_at_utc);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_logs_timestamp_utc' AND object_id = OBJECT_ID('audit_logs'))
                     CREATE INDEX IX_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_logs_actor_user_id' AND object_id = OBJECT_ID('audit_logs'))
+                    CREATE INDEX IX_audit_logs_actor_user_id ON audit_logs(actor_user_id);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_logs_project_id' AND object_id = OBJECT_ID('audit_logs'))
+                    CREATE INDEX IX_audit_logs_project_id ON audit_logs(project_id);
                 """);
             return;
         }
@@ -1239,14 +1259,24 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         if (provider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) ||
             provider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
         {
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_app_users_username ON app_users(username);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_app_users_display_name ON app_users(display_name);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_app_users_external ON app_users(external_issuer, external_subject);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_projects_code ON projects(code);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_projects_name ON projects(name);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_projects_description ON projects(description);");
-            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_app_users_display_name ON app_users(display_name);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_groups_ref_name ON groups_ref(name);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_groups_ref_description ON groups_ref(description);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_user_groups_user_id ON user_groups(user_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_user_groups_group_id ON user_groups(group_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_project_groups_project_id ON project_groups(project_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_project_groups_group_id ON project_groups(group_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_project_id ON journal_entries(project_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_user_id ON journal_entries(user_id);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_journal_entries_created_at_utc ON journal_entries(created_at_utc);");
             db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_timestamp_utc ON audit_logs(timestamp_utc);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_actor_user_id ON audit_logs(actor_user_id);");
+            db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS ix_audit_logs_project_id ON audit_logs(project_id);");
         }
     }
 

@@ -8,6 +8,10 @@
 
 Secure Journal is a role-based project event journaling application for a single organization with multiple projects.
 
+<p>
+  <H1>Not for production use. This is an experiment</H1>
+</p>
+
 It is designed for:
 
 - `Administrators` who manage users, groups, projects, and audit/export workflows

@@ -1,15 +1,15 @@
 :root {
-    --sj-bg-top: #0f172a;
-    --sj-bg-bottom: #020617;
-    --sj-ink: #f8fafc;
-    --sj-muted: #94a3b8;
-    --sj-panel-border: rgba(255, 255, 255, 0.1);
-    --sj-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    --sj-accent: #60a5fa;
-    --sj-accent-2: #34d399;
-    --sj-card: rgba(30, 41, 59, 0.7);
-    --sj-input-bg: #0f172a;
-    --sj-input-border: #334155;
+    --sj-bg-top: #f4f8ff;
+    --sj-bg-bottom: #e7eefc;
+    --sj-ink: #122033;
+    --sj-muted: #5b6c86;
+    --sj-panel-border: rgba(20, 38, 73, 0.12);
+    --sj-shadow: 0 18px 45px -28px rgba(12, 24, 44, 0.55);
+    --sj-accent: #3f7ae0;
+    --sj-accent-2: #2fba95;
+    --sj-card: rgba(255, 255, 255, 0.84);
+    --sj-input-bg: #ffffff;
+    --sj-input-border: rgba(25, 47, 88, 0.2);
     color-scheme: dark;
 }
 
@@ -23,8 +23,8 @@ body {
     line-height: 1.45;
     font-family: "Aptos", "Segoe UI", "Segoe UI Variable Text", system-ui, sans-serif;
     background:
-        radial-gradient(circle at 10% 10%, rgba(30, 102, 209, 0.14), transparent 42%),
-        radial-gradient(circle at 90% 12%, rgba(11, 138, 111, 0.1), transparent 44%),
+        radial-gradient(circle at 8% 8%, rgba(63, 122, 224, 0.18), transparent 40%),
+        radial-gradient(circle at 92% 10%, rgba(47, 186, 149, 0.14), transparent 43%),
         linear-gradient(180deg, var(--sj-bg-top), var(--sj-bg-bottom));
 }
 
@@ -53,12 +53,12 @@ a, .btn-link {
 }
 
 .btn-primary {
-    --bs-btn-bg: var(--sj-accent);
-    --bs-btn-border-color: var(--sj-accent);
-    --bs-btn-hover-bg: #1a58b2;
-    --bs-btn-hover-border-color: #1a58b2;
-    --bs-btn-active-bg: #174a95;
-    --bs-btn-active-border-color: #174a95;
+    --bs-btn-bg: linear-gradient(135deg, var(--sj-accent), #2f66c0);
+    --bs-btn-border-color: rgba(35, 83, 163, 0.92);
+    --bs-btn-hover-bg: linear-gradient(135deg, #3169c7, #2757a8);
+    --bs-btn-hover-border-color: #244f9a;
+    --bs-btn-active-bg: #244f9a;
+    --bs-btn-active-border-color: #22488d;
     --bs-btn-color: #fff;
 }
 
@@ -116,6 +116,7 @@ body[data-theme="dark"] .btn-oidc {
     background-color: var(--sj-input-bg);
     color: var(--sj-ink);
     border-color: var(--sj-input-border);
+    box-shadow: inset 0 1px 2px rgba(14, 27, 51, 0.05);
 }
 
 .form-control,
@@ -250,7 +251,7 @@ h1:focus, h2:focus, h3:focus {
     background: var(--sj-card);
     box-shadow: var(--sj-shadow);
     padding: 1rem;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
 }
 
 .panel-card h3 {
@@ -553,11 +554,11 @@ h1:focus, h2:focus, h3:focus {
 }
 
 .table tbody tr:nth-child(odd):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger) {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.72);
 }
 
 .table tbody tr:nth-child(even):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger) {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(247, 250, 255, 0.62);
 }
 
 .alert {
@@ -590,11 +591,11 @@ h1:focus, h2:focus, h3:focus {
 }
 
 .landing-login-card {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
+    border-radius: 1.1rem;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--sj-panel-border);
+    box-shadow: var(--sj-shadow);
+    padding: 1.35rem 1.25rem;
 }
 
 .landing-brand {
@@ -645,8 +646,8 @@ h1:focus, h2:focus, h3:focus {
 
 html[data-theme="dark"] .app-header,
 body[data-theme="dark"] .app-header {
-    background: rgba(8, 12, 20, 0.9);
-    border-color: rgba(231, 237, 247, 0.08);
+    background: rgba(8, 12, 20, 0.86);
+    border-color: rgba(231, 237, 247, 0.1);
 }
 
 html[data-theme="dark"] .session-chip,
@@ -717,12 +718,12 @@ body[data-theme="dark"] .table th {
 
 html[data-theme="dark"] .table tbody tr:nth-child(odd):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger),
 body[data-theme="dark"] .table tbody tr:nth-child(odd):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger) {
-    background: rgba(13, 19, 31, 0.72);
+    background: rgba(13, 19, 31, 0.76);
 }
 
 html[data-theme="dark"] .table tbody tr:nth-child(even):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger),
 body[data-theme="dark"] .table tbody tr:nth-child(even):not(.table-active):not(.table-warning):not(.table-success):not(.table-danger) {
-    background: rgba(8, 12, 21, 0.56);
+    background: rgba(8, 12, 21, 0.62);
 }
 
 html[data-theme="dark"] .text-muted,

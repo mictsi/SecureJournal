@@ -4,6 +4,7 @@
 
 | Version | Release Notes |
 | ------- | ------------- |
+| v0.9.3  | [docs/release_notes/v0.9.3.md](docs/release_notes/v0.9.3.md) |
 | v0.9.2  | [docs/release_notes/v0.9.2.md](docs/release_notes/v0.9.2.md) |
 | v0.9.1  | [docs/release_notes/v0.9.1.md](docs/release_notes/v0.9.1.md) |
 | v0.9.0  | [docs/release_notes/v0.9.0.md](docs/release_notes/v0.9.0.md) |

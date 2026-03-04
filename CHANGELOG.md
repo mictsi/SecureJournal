@@ -13,6 +13,16 @@
 
 # v0.9.0 - 2026-03-04
 
+# v0.9.3 - 2026-03-04
+
+## Maintenance Release
+- No breaking changes or new features.
+- Includes minor code, documentation, or deployment improvements since v0.9.2.
+- All tests pass and diagnostics are clean.
+
+## Validation
+- Full solution build and test run succeeded.
+
 # v0.9.2 - 2026-03-04
 
 ## Features

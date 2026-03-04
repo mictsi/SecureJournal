@@ -27,4 +27,9 @@ public sealed class JournalEntryRecord
     {
         SoftDelete ??= metadata;
     }
+
+    public void Restore()
+    {
+        SoftDelete = null;
+    }
 }

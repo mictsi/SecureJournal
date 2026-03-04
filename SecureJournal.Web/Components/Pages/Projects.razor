@@ -244,8 +244,8 @@
                         {
                             <article class="entry-inline-row @(entry.IsSoftDeleted ? "entry-inline-row-soft-deleted" : string.Empty)" role="listitem">
                                 <div class="entry-inline-field entry-inline-field-created">
-                                    <span class="entry-inline-text" title="@($"{entry.CreatedAtUtc:yyyy-MM-dd HH:mm} by {entry.CreatedBy}")">
-                                        @entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") by @entry.CreatedBy
+                                    <span class="entry-inline-text" title="@($"{entry.CreatedAtUtc:yyyy-MM-dd} by {entry.CreatedBy}")">
+                                        @entry.CreatedAtUtc.ToString("yyyy-MM-dd") by @entry.CreatedBy
                                     </span>
                                 </div>
 

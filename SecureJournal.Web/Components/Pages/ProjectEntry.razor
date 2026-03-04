@@ -30,13 +30,13 @@
 
         <dl class="meta-list">
             <dt>Created (UTC)</dt>
-            <dd>@_entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") by @_entry.CreatedBy</dd>
+            <dd>@_entry.CreatedAtUtc.ToString("yyyy-MM-dd") by @_entry.CreatedBy</dd>
             <dt>Status</dt>
             <dd>@(_entry.IsSoftDeleted ? "Soft-deleted" : "Active")</dd>
             @if (_entry.IsSoftDeleted)
             {
                 <dt>Deleted (UTC)</dt>
-                <dd>@_entry.DeletedAtUtc?.ToString("yyyy-MM-dd HH:mm") by @_entry.DeletedBy</dd>
+                <dd>@_entry.DeletedAtUtc?.ToString("yyyy-MM-dd") by @_entry.DeletedBy</dd>
             }
         </dl>
     </section>

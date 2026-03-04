@@ -144,7 +144,7 @@
                     @foreach (var row in PagedRows)
                     {
                         <tr>
-                            <td class="audit-timestamp-column">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td class="audit-timestamp-column">@row.TimestampUtc.ToString("yyyy-MM-dd")</td>
                             <td>@row.ActorUsername</td>
                             <td class="audit-action-column">@row.Action</td>
                             <td>
@@ -174,7 +174,7 @@
                                         </div>
                                         <div class="audit-journal-preview-meta">
                                             <span><strong>Project:</strong> @row.RelatedJournalEntry.ProjectCode</span>
-                                            <span><strong>Created:</strong> @row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+                                            <span><strong>Created:</strong> @row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd") UTC</span>
                                             <span><strong>By:</strong> @row.RelatedJournalEntry.CreatedBy</span>
                                         </div>
                                         <div class="audit-journal-preview-field"><strong>Subject:</strong> @row.RelatedJournalEntry.Subject</div>

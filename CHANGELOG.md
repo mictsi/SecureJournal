@@ -1,3 +1,16 @@
+# v0.9.1 - 2026-03-04
+
+## Highlights
+- Standardized user-facing date display format to `yyyy-MM-dd` in key project and audit UI views.
+
+## Details
+- Updated date-only display formatting in:
+  - `My Projects` journal entry created date
+  - `Journal Entry Details` created/deleted dates
+  - `Project Trash` deleted/scheduled deletion dates
+  - `Audit` timestamp and related journal entry created date
+- No schema, API, or persistence changes.
+
 # v0.9.0 - 2026-03-04
 
 ## Highlights

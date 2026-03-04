@@ -209,7 +209,7 @@
                                    checked="@_includeSoftDeleted"
                                    disabled="@(_currentUser?.Role != AppRole.Administrator)"
                                    @onchange="OnIncludeSoftDeletedChanged" />
-                            <label class="form-check-label" for="projectIncludeDeleted">Include soft-deleted (Admin only)</label>
+                            <label class="form-check-label" for="projectIncludeDeleted">Include deleted (Admin only)</label>
                         </div>
                     </div>
                 </div>
@@ -273,7 +273,7 @@
                                     @if (!entry.IsSoftDeleted)
                                     {
                                         <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
-                                            Soft-delete
+                                            Delete
                                         </button>
                                     }
                                     else if (_currentUser?.Role == AppRole.Administrator)

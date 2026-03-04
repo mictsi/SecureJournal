@@ -79,6 +79,7 @@ else
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("code"))">Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("name"))">Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th>Assigned Groups</th>
+                                <th>Status</th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("department"))">Department @SortGlyph("department", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
                                 <th>Actions</th>
@@ -106,6 +107,16 @@ else
                                             </div>
                                         }
                                     </td>
+                                    <td class="project-detail-cell">
+                                        @if (project.IsDisabled)
+                                        {
+                                            <span class="badge text-bg-warning">Disabled</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge text-bg-success">Enabled</span>
+                                        }
+                                    </td>
                                     <td class="project-detail-cell">@RenderValueOrDash(project.ProjectOwner)</td>
                                     <td class="project-detail-cell">@RenderValueOrDash(project.Department)</td>
                                     <td class="project-actions-cell">
@@ -114,6 +125,12 @@ else
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => StartEditProject(project.ProjectId)">
                                             Edit
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm project-edit-button"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => ToggleProjectEnabledAsync(project)">
+                                            @(project.IsDisabled ? "Enable" : "Disable")
                                         </button>
                                     </td>
                                 </tr>
@@ -429,6 +446,29 @@ else
         finally
         {
             _isSavingMetadata = false;
+        }
+    }
+
+    private async Task ToggleProjectEnabledAsync(ProjectOverview project)
+    {
+        ClearMessages();
+
+        try
+        {
+            var changed = project.IsDisabled
+                ? JournalApp.EnableProject(project.ProjectId)
+                : JournalApp.DisableProject(project.ProjectId);
+
+            _message = changed
+                ? $"Project '{project.Code}' {(project.IsDisabled ? "enabled" : "disabled")}."
+                : $"Project '{project.Code}' is already {(project.IsDisabled ? "enabled" : "disabled")}.";
+
+            await LoadProjectsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Project enable/disable update failed");
+            _error = ex.Message;
         }
     }
 

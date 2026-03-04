@@ -1217,6 +1217,50 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public void DisabledProject_BlocksProjectUserUntilReEnabled()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+        var setup = ctx.CreateProjectUserWithAccess("enableduser", "Enabled User", "PRJ-E", "Enable Toggle", "Enable Group", "Enabled123!");
+
+        Assert.True(ctx.App.TryLocalLogin("enableduser", "Enabled123!").Success);
+        var created = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = setup.Project.ProjectId,
+            Subject = "Initial entry",
+            Description = "Created before project disable."
+        });
+
+        Assert.True(ctx.App.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.True(ctx.App.DisableProject(setup.Project.ProjectId));
+        Assert.False(ctx.App.DisableProject(setup.Project.ProjectId));
+        Assert.Single(ctx.App.GetJournalEntries(setup.Project.ProjectId));
+
+        Assert.True(ctx.App.TryLocalLogin("enableduser", "Enabled123!").Success);
+        Assert.Empty(ctx.App.GetProjects());
+        Assert.Empty(ctx.App.GetProjects(new ProjectListQuery { Page = 1, PageSize = 20 }).Items);
+        Assert.Empty(ctx.App.GetJournalEntries(setup.Project.ProjectId));
+        Assert.Throws<UnauthorizedAccessException>(() => ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = setup.Project.ProjectId,
+            Subject = "Denied while disabled",
+            Description = "Should not be allowed"
+        }));
+
+        Assert.True(ctx.App.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.True(ctx.App.EnableProject(setup.Project.ProjectId));
+        Assert.False(ctx.App.EnableProject(setup.Project.ProjectId));
+
+        Assert.True(ctx.App.TryLocalLogin("enableduser", "Enabled123!").Success);
+        var visibleProjects = ctx.App.GetProjects();
+        Assert.Single(visibleProjects);
+        Assert.False(visibleProjects[0].IsDisabled);
+        var visibleEntries = ctx.App.GetJournalEntries(setup.Project.ProjectId);
+        Assert.Single(visibleEntries);
+        Assert.Equal(created.RecordId, visibleEntries[0].RecordId);
+    }
+
+    [Fact]
     public void GroupsQuery_PersistsDescription_AndSupportsFilterSortPaging()
     {
         using var ctx = TestAppContext.Create();
@@ -1649,5 +1693,4 @@ public sealed class SecureJournalAppServiceTests
         throw new InvalidOperationException("Could not locate repository root.");
     }
 }
-
 

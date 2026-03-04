@@ -19,7 +19,8 @@ public sealed record ProjectOverview(
     string ProjectOwner,
     string Department,
     IReadOnlyList<string> AssignedGroups,
-    bool HasAccessForCurrentUser);
+    bool HasAccessForCurrentUser,
+    bool IsDisabled = false);
 
 public sealed record GroupOverview(
     Guid GroupId,

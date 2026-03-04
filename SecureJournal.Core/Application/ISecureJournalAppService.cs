@@ -49,6 +49,7 @@ public interface ISecureJournalAppService
     IReadOnlyList<JournalEntryView> GetJournalEntries(Guid? projectId = null, bool includeSoftDeleted = false);
     JournalEntryView CreateJournalEntry(CreateJournalEntryRequest request);
     bool SoftDeleteJournalEntry(Guid recordId, string? reason = null);
+    bool RestoreJournalEntry(Guid recordId);
     IReadOnlyList<AuditLogView> SearchAuditLogs(AuditSearchFilter filter);
     AuditChecksumValidationResult ValidateAuditLogChecksum(Guid auditId);
     ExportFileResult ExportJournalEntries(JournalExportRequest request);

@@ -2472,6 +2472,60 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    public bool RestoreJournalEntry(Guid recordId)
+    {
+        lock (_sync)
+        {
+            var actor = GetCurrentUserInternal();
+            var entry = _journalEntries.FirstOrDefault(e => e.RecordId == recordId);
+            if (entry is null)
+            {
+                return false;
+            }
+
+            if (!HasRole(actor, AppRole.Administrator))
+            {
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.JournalEntry,
+                    entityId: recordId.ToString(),
+                    projectId: entry.ProjectId,
+                    AuditOutcome.Denied,
+                    "Non-administrator attempted to restore a soft-deleted journal entry.");
+                throw new UnauthorizedAccessException("Only administrators can restore soft-deleted journal entries.");
+            }
+
+            if (!entry.IsSoftDeleted)
+            {
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.JournalEntry,
+                    entityId: entry.RecordId.ToString(),
+                    projectId: entry.ProjectId,
+                    AuditOutcome.Failure,
+                    "Attempted to restore a journal entry that was not soft-deleted.");
+                return false;
+            }
+
+            entry.Restore();
+            _sqliteStore.UpsertJournalEntry(entry);
+            InvalidateJournalsCache();
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.JournalEntry,
+                entityId: entry.RecordId.ToString(),
+                projectId: entry.ProjectId,
+                AuditOutcome.Success,
+                "Soft-deleted journal entry restored.");
+
+            return true;
+        }
+    }
+
     public IReadOnlyList<AuditLogView> SearchAuditLogs(AuditSearchFilter filter)
     {
         lock (_sync)
@@ -4349,5 +4403,3 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 }
-
-

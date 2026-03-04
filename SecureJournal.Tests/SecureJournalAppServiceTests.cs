@@ -573,6 +573,9 @@ public sealed class SecureJournalAppServiceTests
         Assert.Single(adminVisible);
         Assert.True(adminVisible[0].IsSoftDeleted);
         Assert.Equal("Cleanup duplicate", adminVisible[0].DeleteReason);
+        Assert.True(ctx.App.RestoreJournalEntry(entry.RecordId));
+        Assert.False(ctx.App.RestoreJournalEntry(entry.RecordId));
+        Assert.Single(ctx.App.GetJournalEntries(setup.Project.ProjectId));
 
         Assert.True(ctx.App.TryLocalLogin("auditor1", "AuditPass123!").Success);
         Assert.Throws<UnauthorizedAccessException>(() => ctx.App.GetJournalEntries(setup.Project.ProjectId));
@@ -582,6 +585,7 @@ public sealed class SecureJournalAppServiceTests
             Subject = "Denied",
             Description = "Auditor should not create journal entries"
         }));
+        Assert.Throws<UnauthorizedAccessException>(() => ctx.App.RestoreJournalEntry(entry.RecordId));
     }
 
     [Fact]
@@ -1645,6 +1649,5 @@ public sealed class SecureJournalAppServiceTests
         throw new InvalidOperationException("Could not locate repository root.");
     }
 }
-
 
 

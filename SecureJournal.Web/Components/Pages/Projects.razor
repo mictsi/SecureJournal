@@ -276,6 +276,12 @@
                                             Soft-delete
                                         </button>
                                     }
+                                    else if (_currentUser?.Role == AppRole.Administrator)
+                                    {
+                                        <button type="button" class="btn btn-outline-success btn-sm" @onclick="() => Restore(entry.RecordId)">
+                                            Restore
+                                        </button>
+                                    }
                                 </div>
                             </article>
                         }
@@ -513,6 +519,23 @@
         {
             var deleted = JournalApp.SoftDeleteJournalEntry(recordId);
             _message = deleted ? "Entry soft-deleted." : "Entry was already deleted or not found.";
+            RefreshSelectedProjectEntries();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void Restore(Guid recordId)
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var restored = JournalApp.RestoreJournalEntry(recordId);
+            _message = restored ? "Entry restored." : "Entry was already active or not found.";
             RefreshSelectedProjectEntries();
         }
         catch (Exception ex)

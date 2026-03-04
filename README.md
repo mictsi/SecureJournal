@@ -26,6 +26,7 @@ It is designed for:
 - Admins can manage user role/group memberships from `User management` (`/admin/users`)
 - Admins can create projects from `Create project` (`/admin/projects/create`) and groups from `Create group` (`/admin/groups/create`)
 - Admins can edit project metadata from `Project Management` (`/admin/projects`) per project row
+- Admins can enable/disable project access from `Project Management`; disabled projects are hidden from project users
 - Admins can enable/disable users and delete users from `User management`
 - Admins can reset passwords for local users from `Manage user` (selected-user context)
 - View `My Projects` and browse journal entries per project

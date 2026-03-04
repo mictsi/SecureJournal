@@ -79,7 +79,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.ProjectEmail,
                 x.ProjectPhone,
                 x.ProjectOwner,
-                x.Department))
+                x.Department,
+                x.IsDisabled))
             .ToList();
     }
 
@@ -180,7 +181,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.ProjectEmail,
                 x.ProjectPhone,
                 x.ProjectOwner,
-                x.Department))
+                x.Department,
+                x.IsDisabled))
             .ToList();
 
         return new StorePagedResult<StoredProjectRow>(items, totalCount);
@@ -618,6 +620,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         entity.ProjectPhone = project.ProjectPhone;
         entity.ProjectOwner = project.ProjectOwner;
         entity.Department = project.Department;
+        entity.IsDisabled = project.IsDisabled;
         db.SaveChanges();
     }
 
@@ -1066,6 +1069,8 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     ALTER TABLE projects ADD project_owner nvarchar(100) NOT NULL CONSTRAINT DF_projects_project_owner DEFAULT ('');
                 IF COL_LENGTH('projects', 'department') IS NULL
                     ALTER TABLE projects ADD department nvarchar(100) NOT NULL CONSTRAINT DF_projects_department DEFAULT ('');
+                IF COL_LENGTH('projects', 'is_disabled') IS NULL
+                    ALTER TABLE projects ADD is_disabled bit NOT NULL CONSTRAINT DF_projects_is_disabled DEFAULT (0);
                 """);
             return;
         }
@@ -1078,6 +1083,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_phone varchar(32) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner varchar(100) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS department varchar(100) NOT NULL DEFAULT '';
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_disabled boolean NOT NULL DEFAULT false;
                 """);
             return;
         }
@@ -1132,6 +1138,13 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 {
                     using var cmd = connection.CreateCommand();
                     cmd.CommandText = "ALTER TABLE projects ADD COLUMN department TEXT NOT NULL DEFAULT '';";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("is_disabled"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
                     cmd.ExecuteNonQuery();
                 }
             }

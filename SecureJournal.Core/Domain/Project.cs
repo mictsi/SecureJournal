@@ -8,4 +8,5 @@ public sealed record Project(
     string ProjectEmail,
     string ProjectPhone,
     string ProjectOwner,
-    string Department);
+    string Department,
+    bool IsDisabled = false);

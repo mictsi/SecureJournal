@@ -24,7 +24,8 @@ public sealed record StoredProjectRow(
     string ProjectEmail,
     string ProjectPhone,
     string ProjectOwner,
-    string Department);
+    string Department,
+    bool IsDisabled = false);
 
 public sealed record StoredUserRoleRow(
     Guid UserId,
@@ -116,7 +117,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     project_email TEXT NOT NULL DEFAULT '',
                     project_phone TEXT NOT NULL DEFAULT '',
                     project_owner TEXT NOT NULL DEFAULT '',
-                    department TEXT NOT NULL DEFAULT ''
+                    department TEXT NOT NULL DEFAULT '',
+                    is_disabled INTEGER NOT NULL DEFAULT 0
                 );
 
                 CREATE TABLE IF NOT EXISTS groups_ref (
@@ -246,7 +248,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled
             FROM projects
             ORDER BY code;
             """;
@@ -263,7 +265,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 ProjectEmail: reader.GetString(4),
                 ProjectPhone: reader.GetString(5),
                 ProjectOwner: reader.GetString(6),
-                Department: reader.GetString(7)));
+                Department: reader.GetString(7),
+                IsDisabled: reader.GetInt64(8) == 1));
         }
 
         return rows;
@@ -423,7 +426,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         var skip = (query.Page - 1) * query.PageSize;
         itemsCommand.CommandText =
             $$"""
-            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled
             FROM projects
             {{whereSql}}
             ORDER BY {{sortColumn}} {{sortDirection}}, project_id ASC
@@ -445,7 +448,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 ProjectEmail: reader.GetString(4),
                 ProjectPhone: reader.GetString(5),
                 ProjectOwner: reader.GetString(6),
-                Department: reader.GetString(7)));
+                Department: reader.GetString(7),
+                IsDisabled: reader.GetInt64(8) == 1));
         }
 
         return new StorePagedResult<StoredProjectRow>(rows, totalCount);
@@ -1083,8 +1087,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO projects (project_id, code, name, description, project_email, project_phone, project_owner, department)
-            VALUES ($project_id, $code, $name, $description, $project_email, $project_phone, $project_owner, $department)
+            INSERT INTO projects (project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled)
+            VALUES ($project_id, $code, $name, $description, $project_email, $project_phone, $project_owner, $department, $is_disabled)
             ON CONFLICT(project_id) DO UPDATE SET
                 code = excluded.code,
                 name = excluded.name,
@@ -1092,7 +1096,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 project_email = excluded.project_email,
                 project_phone = excluded.project_phone,
                 project_owner = excluded.project_owner,
-                department = excluded.department;
+                department = excluded.department,
+                is_disabled = excluded.is_disabled;
             """;
 
         command.Parameters.AddWithValue("$project_id", project.ProjectId.ToString("D"));
@@ -1103,6 +1108,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$project_phone", project.ProjectPhone);
         command.Parameters.AddWithValue("$project_owner", project.ProjectOwner);
         command.Parameters.AddWithValue("$department", project.Department);
+        command.Parameters.AddWithValue("$is_disabled", project.IsDisabled ? 1 : 0);
         command.ExecuteNonQuery();
     }
 
@@ -1496,6 +1502,13 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "ALTER TABLE projects ADD COLUMN department TEXT NOT NULL DEFAULT '';";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("is_disabled"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
             cmd.ExecuteNonQuery();
         }
     }

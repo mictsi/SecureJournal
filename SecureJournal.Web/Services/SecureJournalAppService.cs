@@ -678,7 +678,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.ProjectOwner,
                     project.Department,
                     assignmentsLookup.GetValueOrDefault(project.ProjectId, Array.Empty<string>()),
-                    readableProjectIds.Contains(project.ProjectId)))
+                    readableProjectIds.Contains(project.ProjectId),
+                    project.IsDisabled))
                 .ToList();
 
             return query;
@@ -723,7 +724,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.ProjectOwner,
                     project.Department,
                     assignmentsLookup.GetValueOrDefault(project.ProjectId, Array.Empty<string>()),
-                    isPrivileged || readableProjectIds.Contains(project.ProjectId)))
+                    isPrivileged || readableProjectIds.Contains(project.ProjectId),
+                    project.IsDisabled))
                 .ToList();
 
             return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
@@ -983,7 +985,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 projectEmail,
                 projectPhone,
                 projectOwner,
-                department);
+                department,
+                IsDisabled: false);
             _projects.Add(project);
             _sqliteStore.UpsertProject(new StoredProjectRow(
                 project.ProjectId,
@@ -993,7 +996,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.ProjectEmail,
                 project.ProjectPhone,
                 project.ProjectOwner,
-                project.Department));
+                project.Department,
+                project.IsDisabled));
             InvalidateProjectsCache();
             _logger.LogInformation(
                 "Project created by {ActorUsername}: {ProjectCode} ({ProjectId})",
@@ -1020,7 +1024,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.ProjectOwner,
                 project.Department,
                 AssignedGroups: Array.Empty<string>(),
-                HasAccessForCurrentUser: true);
+                HasAccessForCurrentUser: true,
+                IsDisabled: project.IsDisabled);
         }
     }
 
@@ -1062,7 +1067,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectEmail,
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
-                updatedProject.Department));
+                updatedProject.Department,
+                updatedProject.IsDisabled));
             InvalidateProjectsCache();
 
             _logger.LogInformation(
@@ -1090,7 +1096,96 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectOwner,
                 updatedProject.Department,
                 AssignedGroups: GetAssignedGroupNames(updatedProject.ProjectId),
-                HasAccessForCurrentUser: true);
+                HasAccessForCurrentUser: true,
+                IsDisabled: updatedProject.IsDisabled);
+        }
+    }
+
+    public bool DisableProject(Guid projectId)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            var projectIndex = _projects.FindIndex(p => p.ProjectId == projectId);
+            if (projectIndex < 0)
+            {
+                throw new InvalidOperationException("Project was not found.");
+            }
+
+            var project = _projects[projectIndex];
+            if (project.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedProject = project with { IsDisabled = true };
+            _projects[projectIndex] = updatedProject;
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                updatedProject.ProjectId,
+                updatedProject.Code,
+                updatedProject.Name,
+                updatedProject.Description,
+                updatedProject.ProjectEmail,
+                updatedProject.ProjectPhone,
+                updatedProject.ProjectOwner,
+                updatedProject.Department,
+                updatedProject.IsDisabled));
+            InvalidateProjectsCache();
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Project,
+                entityId: updatedProject.ProjectId.ToString(),
+                projectId: updatedProject.ProjectId,
+                AuditOutcome.Success,
+                $"Project '{updatedProject.Code}' disabled.");
+
+            return true;
+        }
+    }
+
+    public bool EnableProject(Guid projectId)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            var projectIndex = _projects.FindIndex(p => p.ProjectId == projectId);
+            if (projectIndex < 0)
+            {
+                throw new InvalidOperationException("Project was not found.");
+            }
+
+            var project = _projects[projectIndex];
+            if (!project.IsDisabled)
+            {
+                return false;
+            }
+
+            var updatedProject = project with { IsDisabled = false };
+            _projects[projectIndex] = updatedProject;
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                updatedProject.ProjectId,
+                updatedProject.Code,
+                updatedProject.Name,
+                updatedProject.Description,
+                updatedProject.ProjectEmail,
+                updatedProject.ProjectPhone,
+                updatedProject.ProjectOwner,
+                updatedProject.Department,
+                updatedProject.IsDisabled));
+            InvalidateProjectsCache();
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Project,
+                entityId: updatedProject.ProjectId.ToString(),
+                projectId: updatedProject.ProjectId,
+                AuditOutcome.Success,
+                $"Project '{updatedProject.Code}' enabled.");
+
+            return true;
         }
     }
 
@@ -2772,7 +2867,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 storedProject.ProjectEmail,
                 storedProject.ProjectPhone,
                 storedProject.ProjectOwner,
-                storedProject.Department));
+                storedProject.Department,
+                storedProject.IsDisabled));
         }
 
         foreach (var storedGroup in _sqliteStore.LoadGroups())
@@ -3838,8 +3934,13 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
         else
         {
+            var enabledProjectIds = _projects
+                .Where(project => !project.IsDisabled)
+                .Select(project => project.ProjectId)
+                .ToHashSet();
             projectIds = _projectGroups
                 .Where(pg => userGroupIds.Contains(pg.GroupId))
+                .Where(pg => enabledProjectIds.Contains(pg.ProjectId))
                 .Select(pg => pg.ProjectId)
                 .ToHashSet();
         }

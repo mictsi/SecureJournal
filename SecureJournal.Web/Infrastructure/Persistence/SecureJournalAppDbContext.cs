@@ -52,6 +52,7 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.ProjectPhone).HasColumnName("project_phone").HasMaxLength(32).IsRequired();
             entity.Property(x => x.ProjectOwner).HasColumnName("project_owner").HasMaxLength(100).IsRequired();
             entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(100).IsRequired();
+            entity.Property(x => x.IsDisabled).HasColumnName("is_disabled").IsRequired();
             entity.HasIndex(x => x.Code).IsUnique();
             entity.HasIndex(x => x.Name);
             entity.HasIndex(x => x.Description);
@@ -163,6 +164,7 @@ public sealed class ProjectEntity
     public string ProjectPhone { get; set; } = string.Empty;
     public string ProjectOwner { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
+    public bool IsDisabled { get; set; }
 }
 
 public sealed class GroupEntity

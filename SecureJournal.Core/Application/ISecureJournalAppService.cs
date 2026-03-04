@@ -38,6 +38,8 @@ public interface ISecureJournalAppService
     bool EnableUser(Guid userId);
     Task<bool> DisableUserAsync(Guid userId, CancellationToken cancellationToken = default);
     bool DisableUser(Guid userId);
+    bool EnableProject(Guid projectId);
+    bool DisableProject(Guid projectId);
     Task<bool> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
     bool DeleteUser(Guid userId);
     bool AssignGroupToProject(AssignGroupToProjectRequest request);

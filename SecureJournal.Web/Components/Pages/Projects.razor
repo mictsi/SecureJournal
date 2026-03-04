@@ -401,7 +401,7 @@
     private string JournalEntriesPanelTitle
         => _selectedProjectId.HasValue
             ? _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId.Value) is { } project
-                ? $"Displaying journal entries for {project.Name} ({project.ProjectId})"
+                ? $"Displaying journal entries for {project.Name}"
                 : "Project Journal Entries"
             : "Project Journal Entries";
 

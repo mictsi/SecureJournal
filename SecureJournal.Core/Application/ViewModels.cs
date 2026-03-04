@@ -20,7 +20,17 @@ public sealed record ProjectOverview(
     string Department,
     IReadOnlyList<string> AssignedGroups,
     bool HasAccessForCurrentUser,
-    bool IsDisabled = false);
+    bool IsDisabled = false,
+    bool IsSoftDeleted = false,
+    DateTime? DeletedAtUtc = null,
+    DateTime? ScheduledDeletionAtUtc = null);
+
+public sealed record DeletedProjectOverview(
+    Guid ProjectId,
+    string Code,
+    string Name,
+    DateTime DeletedAtUtc,
+    DateTime ScheduledDeletionAtUtc);
 
 public sealed record GroupOverview(
     Guid GroupId,

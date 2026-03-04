@@ -1,0 +1,102 @@
+@page "/admin/projects/trash"
+@attribute [Authorize(Roles = "Administrator")]
+@inject ISecureJournalAppService JournalApp
+@inject ILogger<ProjectTrash> Logger
+
+<PageTitle>Project Trash</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Project Trash</h2>
+        <p>Restore deleted projects before the scheduled permanent deletion date.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success" role="alert">@_message</div>
+}
+
+@if (_deletedProjects.Count == 0)
+{
+    <p>No deleted projects.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Deleted</th>
+                    <th>Permanent deletion</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var project in _deletedProjects)
+                {
+                    <tr>
+                        <td>@project.Code</td>
+                        <td>@project.Name</td>
+                        <td>@project.DeletedAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</td>
+                        <td>@project.ScheduledDeletionAtUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</td>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-outline-primary btn-sm"
+                                    @onclick="() => RestoreProjectAsync(project)">
+                                Restore
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<DeletedProjectOverview> _deletedProjects = new();
+    private string? _message;
+    private string? _error;
+
+    protected override Task OnInitializedAsync()
+    {
+        LoadDeletedProjects();
+        return Task.CompletedTask;
+    }
+
+    private void LoadDeletedProjects()
+    {
+        _deletedProjects = JournalApp.GetDeletedProjects().ToList();
+    }
+
+    private Task RestoreProjectAsync(DeletedProjectOverview project)
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            var restored = JournalApp.RestoreProject(project.ProjectId);
+            _message = restored
+                ? $"Project '{project.Code}' restored."
+                : $"Project '{project.Code}' is not in trash.";
+            LoadDeletedProjects();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Project restore failed");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+}

@@ -80,7 +80,10 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.ProjectPhone,
                 x.ProjectOwner,
                 x.Department,
-                x.IsDisabled))
+                x.IsDisabled,
+                x.IsSoftDeleted,
+                x.DeletedAtUtc,
+                x.ScheduledDeletionAtUtc))
             .ToList();
     }
 
@@ -167,6 +170,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             baseQuery = baseQuery.Where(x => visibleProjectIds.Contains(x.ProjectId));
         }
 
+        baseQuery = baseQuery.Where(x => !x.IsSoftDeleted);
         var totalCount = baseQuery.Count();
         var sorted = ApplyProjectSort(baseQuery, query.SortField, query.SortDescending);
 
@@ -182,7 +186,10 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 x.ProjectPhone,
                 x.ProjectOwner,
                 x.Department,
-                x.IsDisabled))
+                x.IsDisabled,
+                x.IsSoftDeleted,
+                x.DeletedAtUtc,
+                x.ScheduledDeletionAtUtc))
             .ToList();
 
         return new StorePagedResult<StoredProjectRow>(items, totalCount);
@@ -621,6 +628,41 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         entity.ProjectOwner = project.ProjectOwner;
         entity.Department = project.Department;
         entity.IsDisabled = project.IsDisabled;
+        entity.IsSoftDeleted = project.IsSoftDeleted;
+        entity.DeletedAtUtc = project.DeletedAtUtc;
+        entity.ScheduledDeletionAtUtc = project.ScheduledDeletionAtUtc;
+        db.SaveChanges();
+    }
+
+    public void RemoveProject(Guid projectId)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var projectMemberships = db.ProjectGroups.Where(x => x.ProjectId == projectId).ToList();
+        if (projectMemberships.Count > 0)
+        {
+            db.ProjectGroups.RemoveRange(projectMemberships);
+        }
+
+        var journalEntries = db.JournalEntries.Where(x => x.ProjectId == projectId).ToList();
+        if (journalEntries.Count > 0)
+        {
+            db.JournalEntries.RemoveRange(journalEntries);
+        }
+
+        var auditLogs = db.AuditLogs.Where(x => x.ProjectId == projectId).ToList();
+        foreach (var audit in auditLogs)
+        {
+            audit.ProjectId = null;
+        }
+
+        var project = db.Projects.SingleOrDefault(x => x.ProjectId == projectId);
+        if (project is not null)
+        {
+            db.Projects.Remove(project);
+        }
+
         db.SaveChanges();
     }
 
@@ -1071,6 +1113,12 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                     ALTER TABLE projects ADD department nvarchar(100) NOT NULL CONSTRAINT DF_projects_department DEFAULT ('');
                 IF COL_LENGTH('projects', 'is_disabled') IS NULL
                     ALTER TABLE projects ADD is_disabled bit NOT NULL CONSTRAINT DF_projects_is_disabled DEFAULT (0);
+                IF COL_LENGTH('projects', 'is_soft_deleted') IS NULL
+                    ALTER TABLE projects ADD is_soft_deleted bit NOT NULL CONSTRAINT DF_projects_is_soft_deleted DEFAULT (0);
+                IF COL_LENGTH('projects', 'deleted_at_utc') IS NULL
+                    ALTER TABLE projects ADD deleted_at_utc datetime2 NULL;
+                IF COL_LENGTH('projects', 'scheduled_deletion_at_utc') IS NULL
+                    ALTER TABLE projects ADD scheduled_deletion_at_utc datetime2 NULL;
                 """);
             return;
         }
@@ -1084,6 +1132,9 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_owner varchar(100) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS department varchar(100) NOT NULL DEFAULT '';
                 ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_disabled boolean NOT NULL DEFAULT false;
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_soft_deleted boolean NOT NULL DEFAULT false;
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS deleted_at_utc timestamp without time zone NULL;
+                ALTER TABLE projects ADD COLUMN IF NOT EXISTS scheduled_deletion_at_utc timestamp without time zone NULL;
                 """);
             return;
         }
@@ -1145,6 +1196,27 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
                 {
                     using var cmd = connection.CreateCommand();
                     cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("is_soft_deleted"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_soft_deleted INTEGER NOT NULL DEFAULT 0;";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("deleted_at_utc"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN deleted_at_utc TEXT NULL;";
+                    cmd.ExecuteNonQuery();
+                }
+
+                if (!columns.Contains("scheduled_deletion_at_utc"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE projects ADD COLUMN scheduled_deletion_at_utc TEXT NULL;";
                     cmd.ExecuteNonQuery();
                 }
             }

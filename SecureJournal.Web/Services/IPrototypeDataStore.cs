@@ -26,6 +26,7 @@ public interface IPrototypeDataStore
     void UpsertJournalEntry(JournalEntryRecord record);
     void UpsertUser(StoredUserRow user);
     void UpsertProject(StoredProjectRow project);
+    void RemoveProject(Guid projectId);
     void UpsertGroup(StoredGroupRow group);
     void RemoveGroup(Guid groupId);
     void RemoveUser(Guid userId);

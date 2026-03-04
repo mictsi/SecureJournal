@@ -6,11 +6,14 @@
     --sj-panel-border: rgba(20, 38, 73, 0.12);
     --sj-shadow: 0 18px 45px -28px rgba(12, 24, 44, 0.55);
     --sj-accent: #3f7ae0;
+    --sj-accent-dark: #2f66c0;
+    --sj-accent-hover: #3169c7;
+    --sj-accent-hover-dark: #2757a8;
     --sj-accent-2: #2fba95;
     --sj-card: rgba(255, 255, 255, 0.84);
     --sj-input-bg: #ffffff;
     --sj-input-border: rgba(25, 47, 88, 0.2);
-    color-scheme: dark;
+    color-scheme: light;
 }
 
 html, body {
@@ -53,13 +56,19 @@ a, .btn-link {
 }
 
 .btn-primary {
-    --bs-btn-bg: linear-gradient(135deg, var(--sj-accent), #2f66c0);
+    --bs-btn-bg: var(--sj-accent);
     --bs-btn-border-color: rgba(35, 83, 163, 0.92);
-    --bs-btn-hover-bg: linear-gradient(135deg, #3169c7, #2757a8);
+    --bs-btn-hover-bg: var(--sj-accent-hover);
     --bs-btn-hover-border-color: #244f9a;
     --bs-btn-active-bg: #244f9a;
     --bs-btn-active-border-color: #22488d;
     --bs-btn-color: #fff;
+    background-image: linear-gradient(135deg, var(--sj-accent), var(--sj-accent-dark));
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-image: linear-gradient(135deg, var(--sj-accent-hover), var(--sj-accent-hover-dark));
 }
 
 .btn-outline-secondary {

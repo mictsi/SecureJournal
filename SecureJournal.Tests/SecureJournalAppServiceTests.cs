@@ -1261,6 +1261,105 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public void DeletedProject_IsMovedToTrash_CanBeRestored_BeforeRetentionExpiry()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+        var setup = ctx.CreateProjectUserWithAccess("trashuser", "Trash User", "PRJ-T", "Trash Project", "Trash Group", "TrashUser123!");
+
+        Assert.True(ctx.App.TryLocalLogin("trashuser", "TrashUser123!").Success);
+        var entry = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = setup.Project.ProjectId,
+            Subject = "Entry before delete",
+            Description = "Created before deleting project."
+        });
+
+        Assert.True(ctx.App.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.True(ctx.App.DeleteProject(setup.Project.ProjectId));
+        Assert.False(ctx.App.DeleteProject(setup.Project.ProjectId));
+
+        var trashed = ctx.App.GetDeletedProjects();
+        Assert.Single(trashed);
+        Assert.Equal(setup.Project.ProjectId, trashed[0].ProjectId);
+        Assert.True(trashed[0].ScheduledDeletionAtUtc > trashed[0].DeletedAtUtc);
+
+        Assert.True(ctx.App.TryLocalLogin("trashuser", "TrashUser123!").Success);
+        Assert.Empty(ctx.App.GetProjects());
+        Assert.Empty(ctx.App.GetJournalEntries(setup.Project.ProjectId));
+        Assert.Throws<UnauthorizedAccessException>(() => ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = setup.Project.ProjectId,
+            Subject = "Should fail",
+            Description = "Project is in trash"
+        }));
+
+        Assert.True(ctx.App.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.True(ctx.App.RestoreProject(setup.Project.ProjectId));
+        Assert.False(ctx.App.RestoreProject(setup.Project.ProjectId));
+        Assert.Empty(ctx.App.GetDeletedProjects());
+
+        Assert.True(ctx.App.TryLocalLogin("trashuser", "TrashUser123!").Success);
+        Assert.Single(ctx.App.GetProjects());
+        var restoredEntries = ctx.App.GetJournalEntries(setup.Project.ProjectId);
+        Assert.Single(restoredEntries);
+        Assert.Equal(entry.RecordId, restoredEntries[0].RecordId);
+    }
+
+    [Fact]
+    public void ExpiredDeletedProject_IsPurgedAutomatically()
+    {
+        var dbPath = BuildUniqueDatabasePath("project-trash-purge");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                var setup = seed.CreateProjectUserWithAccess("purgeuser", "Purge User", "PRJ-P", "Purge Project", "Purge Group", "PurgeUser123!");
+
+                Assert.True(seed.App.TryLocalLogin("purgeuser", "PurgeUser123!").Success);
+                seed.App.CreateJournalEntry(new CreateJournalEntryRequest
+                {
+                    ProjectId = setup.Project.ProjectId,
+                    Subject = "Entry before purge",
+                    Description = "Will be removed after retention expiry."
+                });
+
+                Assert.True(seed.App.TryLocalLogin("admin", "AdminPass123!").Success);
+                Assert.True(seed.App.DeleteProject(setup.Project.ProjectId));
+
+                using var connection = new SqliteConnection($"Data Source={dbPath}");
+                connection.Open();
+                using var update = connection.CreateCommand();
+                update.CommandText =
+                    """
+                    UPDATE projects
+                    SET deleted_at_utc = '2000-01-01T00:00:00.0000000Z',
+                        scheduled_deletion_at_utc = '2000-01-02T00:00:00.0000000Z'
+                    WHERE project_id = $project_id;
+                    """;
+                update.Parameters.AddWithValue("$project_id", setup.Project.ProjectId.ToString("D"));
+                update.ExecuteNonQuery();
+            }
+
+            using var verify = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: true);
+            verify.LoginAsAdmin();
+
+            var projects = verify.App.GetProjects();
+            Assert.DoesNotContain(projects, p => p.Code == "PRJ-P");
+            Assert.Empty(verify.App.GetDeletedProjects());
+            Assert.Empty(verify.App.GetJournalEntries());
+
+            var audits = verify.App.SearchAuditLogs(new AuditSearchFilter());
+            Assert.Contains(audits, a => a.Details.Contains("permanently deleted after trash retention period", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
     public void GroupsQuery_PersistsDescription_AndSupportsFilterSortPaging()
     {
         using var ctx = TestAppContext.Create();
@@ -1693,4 +1792,3 @@ public sealed class SecureJournalAppServiceTests
         throw new InvalidOperationException("Could not locate repository root.");
     }
 }
-

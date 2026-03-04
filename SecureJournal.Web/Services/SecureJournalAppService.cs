@@ -50,6 +50,13 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     private Dictionary<Guid, ReadableProjectIdsCacheEntry> _readableProjectIdsCache => _shared.ReadableProjectIdsCache;
 
     private Guid _currentUserId;
+    private const int ProjectDeletionRetentionDays = 30;
+    private static readonly AppUser SystemActor = new(
+        Guid.Empty,
+        "system",
+        "System",
+        AppRole.Administrator,
+        false);
 
     public SecureJournalAppService(
         IChecksumService checksumService,
@@ -666,6 +673,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     g => (IReadOnlyList<string>)g.Select(pg => groupNameById[pg.GroupId]).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
 
             var query = _projects
+                .Where(p => !p.IsSoftDeleted)
                 .Where(p => isAdministrator || readableProjectIds.Contains(p.ProjectId))
                 .OrderBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
                 .Select(project => new ProjectOverview(
@@ -679,7 +687,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.Department,
                     assignmentsLookup.GetValueOrDefault(project.ProjectId, Array.Empty<string>()),
                     readableProjectIds.Contains(project.ProjectId),
-                    project.IsDisabled))
+                    project.IsDisabled,
+                    project.IsSoftDeleted,
+                    project.DeletedAtUtc,
+                    project.ScheduledDeletionAtUtc))
                 .ToList();
 
             return query;
@@ -725,7 +736,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                     project.Department,
                     assignmentsLookup.GetValueOrDefault(project.ProjectId, Array.Empty<string>()),
                     isPrivileged || readableProjectIds.Contains(project.ProjectId),
-                    project.IsDisabled))
+                    project.IsDisabled,
+                    project.IsSoftDeleted,
+                    project.DeletedAtUtc,
+                    project.ScheduledDeletionAtUtc))
                 .ToList();
 
             return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
@@ -986,7 +1000,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 projectPhone,
                 projectOwner,
                 department,
-                IsDisabled: false);
+                IsDisabled: false,
+                IsSoftDeleted: false,
+                DeletedAtUtc: null,
+                ScheduledDeletionAtUtc: null);
             _projects.Add(project);
             _sqliteStore.UpsertProject(new StoredProjectRow(
                 project.ProjectId,
@@ -997,7 +1014,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.ProjectPhone,
                 project.ProjectOwner,
                 project.Department,
-                project.IsDisabled));
+                project.IsDisabled,
+                project.IsSoftDeleted,
+                project.DeletedAtUtc,
+                project.ScheduledDeletionAtUtc));
             InvalidateProjectsCache();
             _logger.LogInformation(
                 "Project created by {ActorUsername}: {ProjectCode} ({ProjectId})",
@@ -1025,7 +1045,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 project.Department,
                 AssignedGroups: Array.Empty<string>(),
                 HasAccessForCurrentUser: true,
-                IsDisabled: project.IsDisabled);
+                IsDisabled: project.IsDisabled,
+                IsSoftDeleted: project.IsSoftDeleted,
+                DeletedAtUtc: project.DeletedAtUtc,
+                ScheduledDeletionAtUtc: project.ScheduledDeletionAtUtc);
         }
     }
 
@@ -1048,6 +1071,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var existingProject = _projects[projectIndex];
+            if (existingProject.IsSoftDeleted)
+            {
+                throw new InvalidOperationException($"Project '{existingProject.Code}' is deleted and cannot be edited. Restore the project first.");
+            }
             var updatedProject = existingProject with
             {
                 Name = InputNormalizer.NormalizeRequired(request.Name, nameof(request.Name), FieldLimits.ProjectNameMax),
@@ -1068,7 +1095,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
                 updatedProject.Department,
-                updatedProject.IsDisabled));
+                updatedProject.IsDisabled,
+                updatedProject.IsSoftDeleted,
+                updatedProject.DeletedAtUtc,
+                updatedProject.ScheduledDeletionAtUtc));
             InvalidateProjectsCache();
 
             _logger.LogInformation(
@@ -1097,7 +1127,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.Department,
                 AssignedGroups: GetAssignedGroupNames(updatedProject.ProjectId),
                 HasAccessForCurrentUser: true,
-                IsDisabled: updatedProject.IsDisabled);
+                IsDisabled: updatedProject.IsDisabled,
+                IsSoftDeleted: updatedProject.IsSoftDeleted,
+                DeletedAtUtc: updatedProject.DeletedAtUtc,
+                ScheduledDeletionAtUtc: updatedProject.ScheduledDeletionAtUtc);
         }
     }
 
@@ -1113,7 +1146,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var project = _projects[projectIndex];
-            if (project.IsDisabled)
+            if (project.IsDisabled || project.IsSoftDeleted)
             {
                 return false;
             }
@@ -1129,7 +1162,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
                 updatedProject.Department,
-                updatedProject.IsDisabled));
+                updatedProject.IsDisabled,
+                updatedProject.IsSoftDeleted,
+                updatedProject.DeletedAtUtc,
+                updatedProject.ScheduledDeletionAtUtc));
             InvalidateProjectsCache();
 
             AppendAudit(
@@ -1145,6 +1181,137 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    public bool DeleteProject(Guid projectId)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            var projectIndex = _projects.FindIndex(p => p.ProjectId == projectId);
+            if (projectIndex < 0)
+            {
+                throw new InvalidOperationException("Project was not found.");
+            }
+
+            var project = _projects[projectIndex];
+            if (project.IsSoftDeleted)
+            {
+                return false;
+            }
+
+            var now = DateTime.UtcNow;
+            var scheduledDeletionAtUtc = now.AddDays(ProjectDeletionRetentionDays);
+            var updatedProject = project with
+            {
+                IsDisabled = true,
+                IsSoftDeleted = true,
+                DeletedAtUtc = now,
+                ScheduledDeletionAtUtc = scheduledDeletionAtUtc
+            };
+            _projects[projectIndex] = updatedProject;
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                updatedProject.ProjectId,
+                updatedProject.Code,
+                updatedProject.Name,
+                updatedProject.Description,
+                updatedProject.ProjectEmail,
+                updatedProject.ProjectPhone,
+                updatedProject.ProjectOwner,
+                updatedProject.Department,
+                updatedProject.IsDisabled,
+                updatedProject.IsSoftDeleted,
+                updatedProject.DeletedAtUtc,
+                updatedProject.ScheduledDeletionAtUtc));
+            InvalidateProjectsCache();
+
+            AppendAudit(
+                actor,
+                AuditActionType.Delete,
+                AuditEntityType.Project,
+                entityId: updatedProject.ProjectId.ToString(),
+                projectId: updatedProject.ProjectId,
+                AuditOutcome.Success,
+                $"Project '{updatedProject.Code}' moved to trash and scheduled for permanent deletion at {scheduledDeletionAtUtc:O}.");
+
+            return true;
+        }
+    }
+
+    public bool RestoreProject(Guid projectId)
+    {
+        lock (_sync)
+        {
+            var actor = RequireAdmin();
+            var projectIndex = _projects.FindIndex(p => p.ProjectId == projectId);
+            if (projectIndex < 0)
+            {
+                throw new InvalidOperationException("Project was not found.");
+            }
+
+            var project = _projects[projectIndex];
+            if (!project.IsSoftDeleted)
+            {
+                return false;
+            }
+
+            var restored = project with
+            {
+                IsDisabled = false,
+                IsSoftDeleted = false,
+                DeletedAtUtc = null,
+                ScheduledDeletionAtUtc = null
+            };
+            _projects[projectIndex] = restored;
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                restored.ProjectId,
+                restored.Code,
+                restored.Name,
+                restored.Description,
+                restored.ProjectEmail,
+                restored.ProjectPhone,
+                restored.ProjectOwner,
+                restored.Department,
+                restored.IsDisabled,
+                restored.IsSoftDeleted,
+                restored.DeletedAtUtc,
+                restored.ScheduledDeletionAtUtc));
+            InvalidateProjectsCache();
+
+            AppendAudit(
+                actor,
+                AuditActionType.Update,
+                AuditEntityType.Project,
+                entityId: restored.ProjectId.ToString(),
+                projectId: restored.ProjectId,
+                AuditOutcome.Success,
+                $"Project '{restored.Code}' restored from trash.");
+
+            return true;
+        }
+    }
+
+    public IReadOnlyList<DeletedProjectOverview> GetDeletedProjects()
+    {
+        lock (_sync)
+        {
+            var actor = GetCurrentUserInternal();
+            if (!HasRole(actor, AppRole.Administrator))
+            {
+                throw new UnauthorizedAccessException("Administrator role is required for this operation.");
+            }
+
+            return _projects
+                .Where(p => p.IsSoftDeleted && p.DeletedAtUtc.HasValue && p.ScheduledDeletionAtUtc.HasValue)
+                .OrderBy(p => p.ScheduledDeletionAtUtc)
+                .Select(p => new DeletedProjectOverview(
+                    p.ProjectId,
+                    p.Code,
+                    p.Name,
+                    p.DeletedAtUtc!.Value,
+                    p.ScheduledDeletionAtUtc!.Value))
+                .ToList();
+        }
+    }
+
     public bool EnableProject(Guid projectId)
     {
         lock (_sync)
@@ -1157,7 +1324,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var project = _projects[projectIndex];
-            if (!project.IsDisabled)
+            if (!project.IsDisabled || project.IsSoftDeleted)
             {
                 return false;
             }
@@ -1173,7 +1340,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 updatedProject.ProjectPhone,
                 updatedProject.ProjectOwner,
                 updatedProject.Department,
-                updatedProject.IsDisabled));
+                updatedProject.IsDisabled,
+                updatedProject.IsSoftDeleted,
+                updatedProject.DeletedAtUtc,
+                updatedProject.ScheduledDeletionAtUtc));
             InvalidateProjectsCache();
 
             AppendAudit(
@@ -2868,7 +3038,10 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 storedProject.ProjectPhone,
                 storedProject.ProjectOwner,
                 storedProject.Department,
-                storedProject.IsDisabled));
+                storedProject.IsDisabled,
+                storedProject.IsSoftDeleted,
+                storedProject.DeletedAtUtc,
+                storedProject.ScheduledDeletionAtUtc));
         }
 
         foreach (var storedGroup in _sqliteStore.LoadGroups())
@@ -3010,6 +3183,58 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             Seed();
             _shared.IsInitialized = true;
         }
+
+        PurgeDeletedProjectsInternal(DateTime.UtcNow);
+    }
+
+    private void PurgeDeletedProjectsInternal(DateTime utcNow)
+    {
+        var expiredProjects = _projects
+            .Where(p => p.IsSoftDeleted && p.ScheduledDeletionAtUtc.HasValue && p.ScheduledDeletionAtUtc.Value <= utcNow)
+            .ToList();
+
+        if (expiredProjects.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var project in expiredProjects)
+        {
+            var tombstone = project with { ScheduledDeletionAtUtc = null };
+            _sqliteStore.UpsertProject(new StoredProjectRow(
+                tombstone.ProjectId,
+                tombstone.Code,
+                tombstone.Name,
+                tombstone.Description,
+                tombstone.ProjectEmail,
+                tombstone.ProjectPhone,
+                tombstone.ProjectOwner,
+                tombstone.Department,
+                tombstone.IsDisabled,
+                tombstone.IsSoftDeleted,
+                tombstone.DeletedAtUtc,
+                tombstone.ScheduledDeletionAtUtc));
+            _projects.RemoveAll(p => p.ProjectId == project.ProjectId);
+            var removedProjectGroups = _projectGroups.Where(pg => pg.ProjectId == project.ProjectId).ToList();
+            _projectGroups.RemoveAll(pg => pg.ProjectId == project.ProjectId);
+            foreach (var assignment in removedProjectGroups)
+            {
+                _sqliteStore.RemoveGroupFromProject(assignment.ProjectId, assignment.GroupId);
+            }
+            _journalEntries.RemoveAll(entry => entry.ProjectId == project.ProjectId);
+            AppendAudit(
+                actor: SystemActor,
+                AuditActionType.Delete,
+                AuditEntityType.Project,
+                entityId: project.ProjectId.ToString(),
+                projectId: null,
+                AuditOutcome.Success,
+                $"Project '{project.Code}' permanently deleted after trash retention period.");
+        }
+
+        InvalidateProjectsCache();
+        InvalidateMembershipsCache();
+        InvalidateJournalsCache();
     }
 
     private void InitializeCacheVersions()
@@ -3925,6 +4150,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         if (HasRole(user, AppRole.Administrator))
         {
             projectIds = _projects
+                .Where(project => !project.IsSoftDeleted)
                 .Select(project => project.ProjectId)
                 .ToHashSet();
         }
@@ -3935,7 +4161,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         else
         {
             var enabledProjectIds = _projects
-                .Where(project => !project.IsDisabled)
+                .Where(project => !project.IsDisabled && !project.IsSoftDeleted)
                 .Select(project => project.ProjectId)
                 .ToHashSet();
             projectIds = _projectGroups

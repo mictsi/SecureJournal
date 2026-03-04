@@ -26,6 +26,9 @@ public interface ISecureJournalAppService
     PagedResult<GroupAccessRow> GetUserGroups(UserGroupMembershipQuery request);
     ProjectOverview CreateProject(CreateProjectRequest request);
     ProjectOverview UpdateProject(UpdateProjectRequest request);
+    bool DeleteProject(Guid projectId);
+    bool RestoreProject(Guid projectId);
+    IReadOnlyList<DeletedProjectOverview> GetDeletedProjects();
     GroupOverview CreateGroup(CreateGroupRequest request);
     bool DeleteGroup(Guid groupId);
     UserOverview CreateUser(CreateUserRequest request);

@@ -53,6 +53,9 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.ProjectOwner).HasColumnName("project_owner").HasMaxLength(100).IsRequired();
             entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(100).IsRequired();
             entity.Property(x => x.IsDisabled).HasColumnName("is_disabled").IsRequired();
+            entity.Property(x => x.IsSoftDeleted).HasColumnName("is_soft_deleted").IsRequired();
+            entity.Property(x => x.DeletedAtUtc).HasColumnName("deleted_at_utc");
+            entity.Property(x => x.ScheduledDeletionAtUtc).HasColumnName("scheduled_deletion_at_utc");
             entity.HasIndex(x => x.Code).IsUnique();
             entity.HasIndex(x => x.Name);
             entity.HasIndex(x => x.Description);
@@ -165,6 +168,9 @@ public sealed class ProjectEntity
     public string ProjectOwner { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public bool IsDisabled { get; set; }
+    public bool IsSoftDeleted { get; set; }
+    public DateTime? DeletedAtUtc { get; set; }
+    public DateTime? ScheduledDeletionAtUtc { get; set; }
 }
 
 public sealed class GroupEntity

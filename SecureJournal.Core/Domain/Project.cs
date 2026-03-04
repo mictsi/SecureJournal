@@ -9,4 +9,7 @@ public sealed record Project(
     string ProjectPhone,
     string ProjectOwner,
     string Department,
-    bool IsDisabled = false);
+    bool IsDisabled = false,
+    bool IsSoftDeleted = false,
+    DateTime? DeletedAtUtc = null,
+    DateTime? ScheduledDeletionAtUtc = null);

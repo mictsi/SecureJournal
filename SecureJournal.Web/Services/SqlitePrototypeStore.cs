@@ -25,7 +25,10 @@ public sealed record StoredProjectRow(
     string ProjectPhone,
     string ProjectOwner,
     string Department,
-    bool IsDisabled = false);
+    bool IsDisabled = false,
+    bool IsSoftDeleted = false,
+    DateTime? DeletedAtUtc = null,
+    DateTime? ScheduledDeletionAtUtc = null);
 
 public sealed record StoredUserRoleRow(
     Guid UserId,
@@ -118,7 +121,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                     project_phone TEXT NOT NULL DEFAULT '',
                     project_owner TEXT NOT NULL DEFAULT '',
                     department TEXT NOT NULL DEFAULT '',
-                    is_disabled INTEGER NOT NULL DEFAULT 0
+                    is_disabled INTEGER NOT NULL DEFAULT 0,
+                    is_soft_deleted INTEGER NOT NULL DEFAULT 0,
+                    deleted_at_utc TEXT NULL,
+                    scheduled_deletion_at_utc TEXT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS groups_ref (
@@ -248,7 +254,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled, is_soft_deleted, deleted_at_utc, scheduled_deletion_at_utc
             FROM projects
             ORDER BY code;
             """;
@@ -266,7 +272,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 ProjectPhone: reader.GetString(5),
                 ProjectOwner: reader.GetString(6),
                 Department: reader.GetString(7),
-                IsDisabled: reader.GetInt64(8) == 1));
+                IsDisabled: reader.GetInt64(8) == 1,
+                IsSoftDeleted: reader.GetInt64(9) == 1,
+                DeletedAtUtc: reader.IsDBNull(10) ? null : ParseUtc(reader.GetString(10)),
+                ScheduledDeletionAtUtc: reader.IsDBNull(11) ? null : ParseUtc(reader.GetString(11))));
         }
 
         return rows;
@@ -419,16 +428,19 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         var whereSql = whereClauses.Count == 0
             ? string.Empty
             : $"WHERE {string.Join(" AND ", whereClauses)}";
+        var activeWhereSql = string.IsNullOrWhiteSpace(whereSql)
+            ? "WHERE is_soft_deleted = 0"
+            : $"{whereSql} AND is_soft_deleted = 0";
 
-        countCommand.CommandText = $"SELECT COUNT(1) FROM projects {whereSql};";
+        countCommand.CommandText = $"SELECT COUNT(1) FROM projects {activeWhereSql};";
         var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
 
         var skip = (query.Page - 1) * query.PageSize;
         itemsCommand.CommandText =
             $$"""
-            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled
+            SELECT project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled, is_soft_deleted, deleted_at_utc, scheduled_deletion_at_utc
             FROM projects
-            {{whereSql}}
+            {{activeWhereSql}}
             ORDER BY {{sortColumn}} {{sortDirection}}, project_id ASC
             LIMIT $take OFFSET $skip;
             """;
@@ -449,7 +461,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 ProjectPhone: reader.GetString(5),
                 ProjectOwner: reader.GetString(6),
                 Department: reader.GetString(7),
-                IsDisabled: reader.GetInt64(8) == 1));
+                IsDisabled: reader.GetInt64(8) == 1,
+                IsSoftDeleted: reader.GetInt64(9) == 1,
+                DeletedAtUtc: reader.IsDBNull(10) ? null : ParseUtc(reader.GetString(10)),
+                ScheduledDeletionAtUtc: reader.IsDBNull(11) ? null : ParseUtc(reader.GetString(11))));
         }
 
         return new StorePagedResult<StoredProjectRow>(rows, totalCount);
@@ -1087,8 +1102,8 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO projects (project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled)
-            VALUES ($project_id, $code, $name, $description, $project_email, $project_phone, $project_owner, $department, $is_disabled)
+            INSERT INTO projects (project_id, code, name, description, project_email, project_phone, project_owner, department, is_disabled, is_soft_deleted, deleted_at_utc, scheduled_deletion_at_utc)
+            VALUES ($project_id, $code, $name, $description, $project_email, $project_phone, $project_owner, $department, $is_disabled, $is_soft_deleted, $deleted_at_utc, $scheduled_deletion_at_utc)
             ON CONFLICT(project_id) DO UPDATE SET
                 code = excluded.code,
                 name = excluded.name,
@@ -1097,7 +1112,10 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
                 project_phone = excluded.project_phone,
                 project_owner = excluded.project_owner,
                 department = excluded.department,
-                is_disabled = excluded.is_disabled;
+                is_disabled = excluded.is_disabled,
+                is_soft_deleted = excluded.is_soft_deleted,
+                deleted_at_utc = excluded.deleted_at_utc,
+                scheduled_deletion_at_utc = excluded.scheduled_deletion_at_utc;
             """;
 
         command.Parameters.AddWithValue("$project_id", project.ProjectId.ToString("D"));
@@ -1109,7 +1127,38 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         command.Parameters.AddWithValue("$project_owner", project.ProjectOwner);
         command.Parameters.AddWithValue("$department", project.Department);
         command.Parameters.AddWithValue("$is_disabled", project.IsDisabled ? 1 : 0);
+        command.Parameters.AddWithValue("$is_soft_deleted", project.IsSoftDeleted ? 1 : 0);
+        command.Parameters.AddWithValue("$deleted_at_utc", project.DeletedAtUtc?.ToString("O") ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$scheduled_deletion_at_utc", project.ScheduledDeletionAtUtc?.ToString("O") ?? (object)DBNull.Value);
         command.ExecuteNonQuery();
+    }
+
+    public void RemoveProject(Guid projectId)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        using var command = connection.CreateCommand();
+        command.Parameters.AddWithValue("$project_id", projectId.ToString("D"));
+        var deletionStage = "delete_audit_logs";
+        try
+        {
+            command.CommandText = "DELETE FROM audit_logs WHERE project_id = $project_id;";
+            command.ExecuteNonQuery();
+            deletionStage = "delete_journal_entries";
+            command.CommandText = "DELETE FROM journal_entries WHERE project_id = $project_id;";
+            command.ExecuteNonQuery();
+            deletionStage = "delete_project_groups";
+            command.CommandText = "DELETE FROM project_groups WHERE project_id = $project_id;";
+            command.ExecuteNonQuery();
+            deletionStage = "delete_projects";
+            command.CommandText = "DELETE FROM projects WHERE project_id = $project_id;";
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new InvalidOperationException($"Failed to remove project {projectId} from SQLite store at stage '{deletionStage}'.", ex);
+        }
     }
 
     public void UpsertGroup(StoredGroupRow group)
@@ -1509,6 +1558,27 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_disabled INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("is_soft_deleted"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN is_soft_deleted INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("deleted_at_utc"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN deleted_at_utc TEXT NULL;";
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!columns.Contains("scheduled_deletion_at_utc"))
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "ALTER TABLE projects ADD COLUMN scheduled_deletion_at_utc TEXT NULL;";
             cmd.ExecuteNonQuery();
         }
     }

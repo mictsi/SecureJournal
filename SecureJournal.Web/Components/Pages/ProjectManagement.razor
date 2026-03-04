@@ -132,6 +132,12 @@ else
                                                 @onclick="() => ToggleProjectEnabledAsync(project)">
                                             @(project.IsDisabled ? "Enable" : "Disable")
                                         </button>
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm project-edit-button"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => MoveProjectToTrashAsync(project)">
+                                            Delete
+                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -468,6 +474,25 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "Project enable/disable update failed");
+            _error = ex.Message;
+        }
+    }
+
+    private async Task MoveProjectToTrashAsync(ProjectOverview project)
+    {
+        ClearMessages();
+
+        try
+        {
+            var deleted = JournalApp.DeleteProject(project.ProjectId);
+            _message = deleted
+                ? $"Project '{project.Code}' moved to trash."
+                : $"Project '{project.Code}' is already in trash.";
+            await LoadProjectsAsync(selectFirstProjectIfNeeded: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Project delete failed");
             _error = ex.Message;
         }
     }

@@ -2498,6 +2498,14 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
             if (!entry.IsSoftDeleted)
             {
+                AppendAudit(
+                    actor,
+                    AuditActionType.Update,
+                    AuditEntityType.JournalEntry,
+                    entityId: entry.RecordId.ToString(),
+                    projectId: entry.ProjectId,
+                    AuditOutcome.Failure,
+                    "Attempted to restore a journal entry that was not soft-deleted.");
                 return false;
             }
 
@@ -4395,4 +4403,3 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 }
-

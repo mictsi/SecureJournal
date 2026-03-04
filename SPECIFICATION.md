@@ -79,7 +79,7 @@ The application supports:
   - administrators can soft-delete projects (move to trash)
   - soft-deleted projects shall be disabled immediately
   - soft-deleted projects shall have a scheduled permanent deletion timestamp set to 30 days after deletion
-  - administrators shall be able to view trashed projects and restore them before retention expiry
+  - administrators shall be able to view trashed projects, search by code/name, page through large trash lists, and restore before retention expiry
   - retention-expired trashed projects shall be permanently removed by the cleanup workflow
 - The system shall support creation of groups.
 - The system shall support adding and removing users from groups.

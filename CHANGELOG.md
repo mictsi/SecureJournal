@@ -13,6 +13,21 @@
 
 # v0.9.0 - 2026-03-04
 
+# v0.9.2 - 2026-03-04
+
+## Features
+- Added search and paging to the admin Trash page (`/admin/projects/trash`).
+- Search supports partial matches on project code and name.
+- Page size selector and Previous/Next navigation for large trash lists.
+- Page indicator and result count summary for improved admin UX.
+
+## Improvements
+- Paging auto-corrects after restore or reload.
+- No changes to restore or permanent deletion logic.
+
+## Validation
+- All tests pass (39/39 succeeded).
+
 ## Highlights
 - Replaced immediate project deletion with a retention workflow based on project trash and scheduled purge.
 - Soft-deleted projects are immediately disabled and hidden from project-user journal visibility and write paths.

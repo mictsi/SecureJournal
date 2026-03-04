@@ -29,6 +29,36 @@
 }
 else
 {
+    <div class="row g-2 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="trashSearch">Search projects</label>
+            <input id="trashSearch"
+                   class="form-control"
+                   type="text"
+                   value="@_searchText"
+                   @oninput="OnSearchChanged"
+                   placeholder="Search by code or name..." />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="trashPageSize">Page size</label>
+            <select id="trashPageSize" class="form-select" @onchange="OnPageSizeChanged">
+                @foreach (var pageSize in _pageSizeOptions)
+                {
+                    <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end justify-content-md-end">
+            <small class="text-muted">Page @_currentPage of @TotalPages</small>
+        </div>
+    </div>
+
+    @if (FilteredDeletedProjects.Count == 0)
+    {
+        <p>No deleted projects match the current search text.</p>
+    }
+    else
+    {
     <div class="table-responsive">
         <table class="table table-sm mb-0">
             <thead>
@@ -41,7 +71,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var project in _deletedProjects)
+                @foreach (var project in PagedDeletedProjects)
                 {
                     <tr>
                         <td>@project.Code</td>
@@ -60,12 +90,41 @@ else
             </tbody>
         </table>
     </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <small class="text-muted">Showing @PagedDeletedProjects.Count of @FilteredDeletedProjects.Count deleted project(s)</small>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="GoToPreviousPage">Previous</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="GoToNextPage">Next</button>
+        </div>
+    </div>
+    }
 }
 
 @code {
     private List<DeletedProjectOverview> _deletedProjects = new();
     private string? _message;
     private string? _error;
+    private string _searchText = string.Empty;
+    private int _currentPage = 1;
+    private int _pageSize = 10;
+    private readonly int[] _pageSizeOptions = new[] { 10, 20, 50 };
+
+    private List<DeletedProjectOverview> FilteredDeletedProjects =>
+        _deletedProjects
+            .Where(project =>
+                string.IsNullOrWhiteSpace(_searchText)
+                || project.Code.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || project.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private List<DeletedProjectOverview> PagedDeletedProjects =>
+        FilteredDeletedProjects
+            .Skip((_currentPage - 1) * _pageSize)
+            .Take(_pageSize)
+            .ToList();
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)FilteredDeletedProjects.Count / _pageSize));
 
     protected override Task OnInitializedAsync()
     {
@@ -76,6 +135,51 @@ else
     private void LoadDeletedProjects()
     {
         _deletedProjects = JournalApp.GetDeletedProjects().ToList();
+        EnsureValidPage();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs args)
+    {
+        _searchText = args.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var newSize) && _pageSizeOptions.Contains(newSize))
+        {
+            _pageSize = newSize;
+            _currentPage = 1;
+        }
+    }
+
+    private void GoToPreviousPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+        }
+    }
+
+    private void GoToNextPage()
+    {
+        if (_currentPage < TotalPages)
+        {
+            _currentPage++;
+        }
+    }
+
+    private void EnsureValidPage()
+    {
+        if (_currentPage < 1)
+        {
+            _currentPage = 1;
+        }
+
+        if (_currentPage > TotalPages)
+        {
+            _currentPage = TotalPages;
+        }
     }
 
     private Task RestoreProjectAsync(DeletedProjectOverview project)

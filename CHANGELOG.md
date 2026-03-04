@@ -1,3 +1,30 @@
+# v0.9.0 - 2026-03-04
+
+## Highlights
+- Replaced immediate project deletion with a retention workflow based on project trash and scheduled purge.
+- Soft-deleted projects are immediately disabled and hidden from project-user journal visibility and write paths.
+- Added administrator trash management UI and restore support prior to scheduled permanent deletion.
+
+## Details
+- Added project lifecycle metadata fields:
+  - `IsSoftDeleted`
+  - `DeletedAtUtc`
+  - `ScheduledDeletionAtUtc`
+- Added app-service APIs:
+  - `DeleteProject(Guid projectId)`
+  - `RestoreProject(Guid projectId)`
+  - `GetDeletedProjects()`
+- `DeleteProject` now soft-deletes, disables access immediately, and schedules permanent deletion for `UtcNow + 30 days`.
+- `RestoreProject` clears deletion metadata and restores access.
+- Added automatic purge path for retention-expired trashed projects with permanent-deletion audit events.
+- Updated access control so soft-deleted projects are excluded from project listings, readable project resolution, and project-user journal access.
+- Updated persistence layers (SQLite + EF-backed store) with new soft-delete metadata fields, schema upgrade logic, and retention cleanup removal support.
+- Added admin UI updates:
+  - Trash navigation link (admin only)
+  - New page: `/admin/projects/trash`
+  - Delete action in Project Management to move projects to trash
+- Added focused tests for trash/restore/access-blocking and retention-expired purge behavior.
+
 # v0.8.10 - 2026-03-03
 
 ## Highlights

@@ -75,11 +75,29 @@ The application supports:
 ### 6.1 Project and Group Management
 
 - The system shall support creation of multiple projects.
+- The system shall support project trash/retention lifecycle management instead of immediate project hard delete:
+  - administrators can soft-delete projects (move to trash)
+  - soft-deleted projects shall be disabled immediately
+  - soft-deleted projects shall have a scheduled permanent deletion timestamp set to 30 days after deletion
+  - administrators shall be able to view trashed projects and restore them before retention expiry
+  - retention-expired trashed projects shall be permanently removed by the cleanup workflow
 - The system shall support creation of groups.
 - The system shall support adding and removing users from groups.
 - The system shall support adding and removing groups from projects.
 - The system shall support deleting groups.
 - A user's project access shall be derived from group membership (except administrators who have global access).
+
+Project contracts shall include lifecycle metadata fields:
+
+- `IsSoftDeleted`
+- `DeletedAtUtc`
+- `ScheduledDeletionAtUtc`
+
+Application-service APIs shall include:
+
+- `DeleteProject(Guid projectId)`
+- `RestoreProject(Guid projectId)`
+- `GetDeletedProjects()`
 
 ### 6.2 User Management
 
@@ -170,6 +188,8 @@ For each journal entry, the system shall store:
 - All access checks shall be enforced server-side.
 - Unauthorized access attempts shall be logged.
 - Project data access shall always be scoped by project membership unless role is Admin/Auditor.
+- Soft-deleted projects shall be excluded from project listings and readable project resolution for non-administrator users.
+- Project users shall lose journal read/write visibility immediately when a project is soft-deleted.
 
 
 ## 8. Auditing Requirements
@@ -180,6 +200,7 @@ The system shall log, at minimum:
 
 - All CRUD operations (including attempted operations)
 - All permission/role/group/project assignment changes
+- Project lifecycle transitions, including move-to-trash (soft delete), restore, and permanent deletion purge
 - All authentication events
 - All export actions
 - All access-denied events

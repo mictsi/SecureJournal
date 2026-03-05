@@ -1,17 +1,23 @@
 @page "/admin/users"
+@using System.Security.Cryptography
 @attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<UserManagement> Logger
 @inject IJSRuntime JS
 
-<PageTitle>User management</PageTitle>
+<PageTitle>User Management</PageTitle>
 
-<section class="page-head">
+<section class="page-head user-management-head">
     <div>
         <p class="eyebrow">Administration</p>
-        <h2>User management</h2>
-        <p>Manage user roles separately from user group memberships.</p>
+        <h2>User Management</h2>
+        <p>Manage members, permissions, security, and group access from one page.</p>
+    </div>
+    <div class="user-management-head-actions">
+        <button type="button" class="btn btn-primary" @onclick="ToggleCreateUserForm">
+            @(_showCreateUserForm ? "Hide Create User" : "Create User")
+        </button>
     </div>
 </section>
 
@@ -37,282 +43,428 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <div class="user-admin-layout">
-        <section class="panel-card user-list-column">
-            <div class="panel-card-header">
-                <h3>Users</h3>
-                <div class="panel-card-header-actions">
-                    <span class="text-muted">@_userPage.TotalCount total</span>
-                    <label class="project-page-size-label" for="userPageSize">Page size</label>
-                    <select id="userPageSize"
-                            class="form-select form-select-sm project-page-size-select"
-                            @onchange="OnUserPageSizeChanged">
-                        @foreach (var option in _pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == _userQuery.PageSize)">@option</option>
-                        }
-                    </select>
+    @if (_showCreateUserForm)
+    {
+        <section class="panel-card user-create-card">
+            <div class="panel-card-header user-section-header">
+                <div>
+                    <p class="user-section-kicker">Create User</p>
+                    <h3>Add a new account</h3>
+                    <p class="user-section-copy">Create local or external users and assign their initial roles without leaving this page.</p>
                 </div>
             </div>
 
-            <div class="row g-2 mb-3">
-                <div class="col-12">
-                    <label class="form-label" for="userSearch">Search users</label>
-                    <input id="userSearch"
-                           class="form-control"
-                           type="text"
-                           value="@_userQuery.FilterText"
-                           @oninput="OnUserSearchChanged"
-                           placeholder="Filter username or display name..." />
+            <EditForm Model="_createUserDraft" OnValidSubmit="CreateUserAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="createUsername">Username</label>
+                        <InputText id="createUsername" class="form-control" maxlength="100" @bind-Value="_createUserDraft.Username" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="createDisplayName">Display Name</label>
+                        <InputText id="createDisplayName" class="form-control" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
+                    </div>
+                </div>
+
+                <div class="user-create-toggle form-check">
+                    <InputCheckbox id="createLocalAccount" class="form-check-input" @bind-Value="_createUserDraft.IsLocalAccount" />
+                    <label class="form-check-label" for="createLocalAccount">Local account</label>
+                </div>
+
+                @if (_createUserDraft.IsLocalAccount)
+                {
+                    <div class="mt-3">
+                        <label class="form-label" for="createLocalPassword">Local Password</label>
+                        <InputText id="createLocalPassword" type="password" class="form-control" @bind-Value="_createUserDraft.LocalPassword" />
+                        <div class="form-text">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
+                    </div>
+                }
+
+                <div class="mt-4">
+                    <label class="form-label d-block">Initial Roles</label>
+                    <div class="user-role-stack">
+                        @foreach (var role in _roles)
+                        {
+                            <label class="user-role-option @RoleOptionClass(_createUserRoles.Contains(role))">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_createUserRoles.Contains(role)"
+                                       @onchange="args => ToggleCreateRole(role, args)" />
+                                <span class="user-role-option-body">
+                                    <span class="user-role-option-title">@RoleLabel(role)</span>
+                                    <span class="user-role-option-description">@RoleDescription(role)</span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="user-section-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@_isCreatingUser">
+                        @(_isCreatingUser ? "Creating..." : "Create User")
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetCreateUserForm" disabled="@_isCreatingUser">Reset</button>
+                </div>
+            </EditForm>
+        </section>
+    }
+
+    <div class="user-management-shell">
+        <aside class="panel-card user-directory-card">
+            <div class="user-directory-header">
+                <div>
+                    <h3>Users</h3>
+                    <p class="user-directory-copy">Manage members and user permissions</p>
+                </div>
+                <span class="user-directory-total">@_userPage.TotalCount total</span>
+            </div>
+
+            <div class="user-directory-toolbar">
+                <label class="visually-hidden" for="userSearch">Search users</label>
+                <input id="userSearch"
+                       class="form-control"
+                       type="text"
+                       value="@_userQuery.FilterText"
+                       @oninput="OnUserSearchChanged"
+                       placeholder="Search users..." />
+
+                <div class="user-directory-sort">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeUserSortAsync("displayName"))">
+                        Name @SortGlyph("displayName", _userQuery.SortField, _userQuery.SortDirection)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeUserSortAsync("username"))">
+                        Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)
+                    </button>
                 </div>
             </div>
 
             @if (_userPage.TotalCount == 0)
             {
-                <p class="mb-0">No users found.</p>
+                <div class="user-directory-empty">
+                    <p class="mb-0">No users found for the current filter.</p>
+                </div>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0 user-list-table">
-                        <thead>
-                            <tr>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeUserSortAsync("username"))">Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _userQuery.SortField, _userQuery.SortDirection)</button></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in _userPage.Items)
-                            {
-                                <tr class="project-row @(user.UserId == _selectedUserId ? "is-selected" : string.Empty)"
-                                    @onclick="() => SelectUserAsync(user.UserId)">
-                                    <td>@user.Username</td>
-                                    <td>@user.DisplayName</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="pager-bar">
-                    <span class="text-muted">Page @_userPage.Page of @_userPage.TotalPages</span>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
-                    </div>
-                </div>
-            }
-        </section>
-
-        <div class="user-right-column">
-        <section class="panel-card user-roles-card">
-            <div class="panel-card-header">
-                <h3>Roles</h3>
-            </div>
-
-            @if (SelectedUser is null)
-            {
-                <p class="mb-0">Select a user to manage roles.</p>
-            }
-            else
-            {
-                <p class="text-muted mb-3">
-                    Editing <strong>@SelectedUser.DisplayName</strong> (@SelectedUser.Username).
-                </p>
-
-                <div class="membership-list">
-                    @foreach (var role in _roles)
+                <div class="user-directory-list">
+                    @foreach (var user in _userPage.Items)
                     {
-                        <label class="form-check membership-item">
-                            <input class="form-check-input"
-                                   type="checkbox"
-                                   checked="@_editedRoles.Contains(role)"
-                                   @onchange="args => ToggleRoleLocal(role, args)" />
-                            <span class="form-check-label">@role</span>
-                        </label>
+                        <button type="button"
+                                class="user-directory-item @(user.UserId == _selectedUserId ? "is-active" : string.Empty)"
+                                @onclick="() => SelectUserAsync(user.UserId)">
+                            <span class="user-avatar" aria-hidden="true">@UserInitial(user)</span>
+                            <span class="user-directory-item-body">
+                                <span class="user-directory-name">@user.DisplayName</span>
+                                <span class="user-directory-username">@user.Username</span>
+                                <span class="user-directory-role-list">
+                                    @foreach (var role in UserRoles(user))
+                                    {
+                                        <span class="user-role-badge">@RoleLabel(role)</span>
+                                    }
+                                    @if (user.IsDisabled)
+                                    {
+                                        <span class="user-status-badge is-disabled">Disabled</span>
+                                    }
+                                </span>
+                            </span>
+                        </button>
                     }
                 </div>
 
-                <div class="mt-3 d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save roles</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset roles</button>
-                </div>
-            }
-        </section>
-
-        <section class="panel-card user-security-card">
-            <div class="panel-card-header">
-                <h3>Security</h3>
-            </div>
-
-            @if (SelectedUser is null)
-            {
-                <p class="mb-0">Select a user to manage security settings.</p>
-            }
-            else
-            {
-                @if (!SelectedUser.IsLocalAccount)
-                {
-                    <p class="text-muted mb-0">Password reset is available for local users only.</p>
-                }
-                else
-                {
-                    <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label" for="manageResetPassword">New Password</label>
-                                <InputText id="manageResetPassword"
-                                           type="password"
-                                           class="form-control"
-                                           @bind-Value="_resetPasswordRequest.NewPassword" />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
-                                <InputText id="manageResetPasswordConfirm"
-                                           type="password"
-                                           class="form-control"
-                                           @bind-Value="_confirmResetPassword" />
-                            </div>
-                        </div>
-
-                        <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
-
-                        <div class="mt-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-warning" disabled="@_isSaving">Reset password</button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
-                        </div>
-                    </EditForm>
-                }
-            }
-        </section>
-
-        <section class="panel-card user-groups-card">
-            <div class="panel-card-header">
-                <h3>Groups</h3>
-                <span class="text-muted">@_groupPage.TotalCount total groups</span>
-            </div>
-
-            @if (SelectedUser is null)
-            {
-                <p class="mb-0">Select a user to manage group memberships.</p>
-            }
-            else
-            {
-                <div class="row g-2 mb-3">
-                    <div class="col-lg-5 col-md-12">
-                        <label class="form-label" for="manageUserGroupSearch">Filter groups</label>
-                        <input id="manageUserGroupSearch"
-                               class="form-control"
-                               type="text"
-                               value="@_groupQuery.FilterText"
-                               @oninput="OnGroupSearchChanged"
-                               placeholder="Filter by group name..." />
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <label class="form-label" for="manageUserGroupAssigned">Assigned</label>
-                        <select id="manageUserGroupAssigned" class="form-select" @onchange="OnGroupAssignedFilterChanged">
-                            <option value="all" selected="@(!_groupQuery.Assigned.HasValue)">All</option>
-                            <option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option>
-                            <option value="unassigned" selected="@(_groupQuery.Assigned == false)">Unassigned</option>
-                        </select>
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <label class="form-label" for="manageUserGroupPageSize">Page size</label>
-                        <select id="manageUserGroupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
-                            @foreach (var option in _pageSizeOptions)
-                            {
-                                <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-
-                @if (_groupPage.TotalCount == 0)
-                {
-                    <p class="mb-0">No groups available for the current filter.</p>
-                }
-                else
-                {
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                                    <th>Description</th>
-                                    <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var group in _groupPage.Items)
-                                {
-                                    <tr>
-                                        <td>@group.Name</td>
-                                        <td>@RenderValueOrDash(group.Description)</td>
-                                        <td class="text-end">
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   checked="@IsGroupAssigned(group)"
-                                                   @onchange="args => ToggleGroupLocal(group, args)" />
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="pager-bar">
-                        <span class="text-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
+                <div class="user-directory-footer">
+                    <div class="user-directory-footer-row">
+                        <span>Page @_userPage.Page of @_userPage.TotalPages</span>
                         <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
                         </div>
                     </div>
-                }
-
-                <div class="mt-3 d-flex gap-2">
-                    <button type="button" class="btn btn-primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save groups</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset groups</button>
+                    <div class="user-directory-footer-row">
+                        <span>@VisibleUserRangeLabel()</span>
+                        <div class="user-page-size">
+                            <label class="project-page-size-label" for="userPageSize">Page size</label>
+                            <select id="userPageSize"
+                                    class="form-select form-select-sm project-page-size-select"
+                                    @onchange="OnUserPageSizeChanged">
+                                @foreach (var option in _pageSizeOptions)
+                                {
+                                    <option value="@option" selected="@(option == _userQuery.PageSize)">@option</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
                 </div>
             }
-        </section>
+        </aside>
 
-        <section class="panel-card user-danger-card">
-            <div class="panel-card-header">
-                <h3>Danger zone</h3>
-            </div>
-
+        <div class="user-detail-column">
             @if (SelectedUser is null)
             {
-                <p class="mb-0">Select a user to manage account state.</p>
+                <section class="panel-card user-empty-card">
+                    <h3>Select a user</h3>
+                    <p class="mb-0">Choose a user from the directory to manage roles, passwords, groups, and account state.</p>
+                </section>
             }
             else
             {
-                @if (SelectedUser.IsDisabled)
-                {
-                    <div class="alert alert-warning mb-3" role="alert">
-                        This user is disabled and cannot sign in.
+                <section class="panel-card user-profile-card">
+                    <div class="user-profile-summary">
+                        <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
+                        <div class="user-profile-copy">
+                            <div class="user-profile-heading">
+                                <h3>@SelectedUser.DisplayName</h3>
+                                <span class="user-status-badge @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
+                                    @(SelectedUser.IsDisabled ? "Disabled" : "Active")
+                                </span>
+                            </div>
+                            <div class="user-profile-meta">
+                                <span>@SelectedUser.Username</span>
+                                <span>@(SelectedUser.IsLocalAccount ? "Local account" : "External account")</span>
+                                <span>@SelectedUser.Groups.Count group(s)</span>
+                            </div>
+                            <div class="user-profile-role-list">
+                                @foreach (var role in UserRoles(SelectedUser))
+                                {
+                                    <span class="user-role-badge is-strong">@RoleLabel(role)</span>
+                                }
+                            </div>
+                        </div>
                     </div>
-                }
+                </section>
 
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button"
-                            class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-warning")"
-                            @onclick="ToggleSelectedUserEnabledAsync"
-                            disabled="@(_isSaving || IsSelectedCurrentUser)">
-                        @(SelectedUser.IsDisabled ? "Enable user" : "Disable user")
-                    </button>
-                    <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete user</button>
-                </div>
+                <section class="panel-card user-roles-card">
+                    <div class="panel-card-header user-section-header">
+                        <div>
+                            <p class="user-section-kicker">Roles &amp; Permissions</p>
+                            <h3>Access levels</h3>
+                            <p class="user-section-copy">Manage user roles and access levels.</p>
+                        </div>
+                    </div>
+
+                    <div class="user-role-stack">
+                        @foreach (var role in _roles)
+                        {
+                            <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_editedRoles.Contains(role)"
+                                       @onchange="args => ToggleRoleLocal(role, args)" />
+                                <span class="user-role-option-body">
+                                    <span class="user-role-option-title">@RoleLabel(role)</span>
+                                    <span class="user-role-option-description">@RoleDescription(role)</span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+
+                    <div class="user-section-actions">
+                        <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
+                    </div>
+                </section>
+
+                <section class="panel-card user-security-card">
+                    <div class="panel-card-header user-section-header">
+                        <div>
+                            <p class="user-section-kicker">Security</p>
+                            <h3>Password &amp; access</h3>
+                            <p class="user-section-copy">Update password and security settings.</p>
+                        </div>
+                    </div>
+
+                    @if (!SelectedUser.IsLocalAccount)
+                    {
+                        <p class="mb-0">Password reset is available for local accounts only.</p>
+                    }
+                    else
+                    {
+                        <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="manageResetPassword">New Password</label>
+                                    <InputText id="manageResetPassword"
+                                               type="password"
+                                               class="form-control"
+                                               @bind-Value="_resetPasswordRequest.NewPassword" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                    <InputText id="manageResetPasswordConfirm"
+                                               type="password"
+                                               class="form-control"
+                                               @bind-Value="_confirmResetPassword" />
+                                </div>
+                            </div>
+
+                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                            <div class="user-section-actions">
+                                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateSuggestedPassword" disabled="@_isSaving">Generate Password</button>
+                                <button type="submit" class="btn btn-primary" disabled="@_isSaving">Update Password</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                            </div>
+                        </EditForm>
+                    }
+                </section>
+
+                <section class="panel-card user-groups-card">
+                    <div class="panel-card-header user-section-header">
+                        <div>
+                            <p class="user-section-kicker">Groups</p>
+                            <h3>Team membership</h3>
+                            <p class="user-section-copy">User groups and team memberships (@SelectedUser.Groups.Count group(s)).</p>
+                        </div>
+                        <div class="panel-card-header-actions">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ToggleGroupBrowser">
+                                @(_showGroupBrowser ? "Close Group Browser" : "Add to Group")
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (SelectedUser.Groups.Count == 0)
+                    {
+                        <div class="user-group-pill-list">
+                            <span class="user-group-pill is-empty">No groups assigned</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="user-group-pill-list">
+                            @foreach (var groupName in SelectedUser.Groups)
+                            {
+                                <span class="user-group-pill">@groupName</span>
+                            }
+                        </div>
+                    }
+
+                    @if (_showGroupBrowser)
+                    {
+                        <div class="user-group-browser">
+                            <div class="row g-2 mb-3">
+                                <div class="col-lg-5 col-md-12">
+                                    <label class="form-label" for="manageUserGroupSearch">Search groups</label>
+                                    <input id="manageUserGroupSearch"
+                                           class="form-control"
+                                           type="text"
+                                           value="@_groupQuery.FilterText"
+                                           @oninput="OnGroupSearchChanged"
+                                           placeholder="Filter by group name..." />
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <label class="form-label" for="manageUserGroupAssigned">Assigned</label>
+                                    <select id="manageUserGroupAssigned" class="form-select" @onchange="OnGroupAssignedFilterChanged">
+                                        <option value="all" selected="@(!_groupQuery.Assigned.HasValue)">All</option>
+                                        <option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option>
+                                        <option value="unassigned" selected="@(_groupQuery.Assigned == false)">Unassigned</option>
+                                    </select>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <label class="form-label" for="manageUserGroupPageSize">Page size</label>
+                                    <select id="manageUserGroupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                                        @foreach (var option in _pageSizeOptions)
+                                        {
+                                            <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            @if (_groupPage.TotalCount == 0)
+                            {
+                                <p class="mb-0">No groups available for the current filter.</p>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                                <th>Description</th>
+                                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var group in _groupPage.Items)
+                                            {
+                                                <tr>
+                                                    <td>@group.Name</td>
+                                                    <td>@RenderValueOrDash(group.Description)</td>
+                                                    <td class="text-end">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               checked="@IsGroupAssigned(group)"
+                                                               @onchange="args => ToggleGroupLocal(group, args)" />
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="pager-bar">
+                                    <span class="text-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (_groupsDirty || _showGroupBrowser)
+                    {
+                        <div class="user-section-actions">
+                            <button type="button" class="btn btn-primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save Groups</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset Groups</button>
+                        </div>
+                    }
+                </section>
+
+                <section class="panel-card user-danger-card">
+                    <div class="panel-card-header user-section-header">
+                        <div>
+                            <p class="user-section-kicker user-danger-kicker">Danger Zone</p>
+                            <h3>Irreversible actions</h3>
+                            <p class="user-section-copy">Delete accounts or disable access for this user.</p>
+                        </div>
+                    </div>
+
+                    <div class="user-danger-actions">
+                        <div class="user-danger-copy">
+                            <strong>@(SelectedUser.IsDisabled ? "Enable or keep disabled" : "Delete or disable")</strong>
+                            <span>
+                                @(IsSelectedCurrentUser
+                                    ? "You cannot disable or delete the currently signed-in administrator."
+                                    : "Once deleted, this user account cannot be recovered.")
+                            </span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button"
+                                    class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-outline-secondary")"
+                                    @onclick="ToggleSelectedUserEnabledAsync"
+                                    disabled="@(_isSaving || IsSelectedCurrentUser)">
+                                @(SelectedUser.IsDisabled ? "Enable User" : "Disable User")
+                            </button>
+                            <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete User</button>
+                        </div>
+                    </div>
+                </section>
             }
-        </section>
         </div>
     </div>
 }
 
 @code {
+    private const string GeneratedPasswordAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$?_-";
+
     private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
     private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
 
@@ -323,9 +475,19 @@ else
     private UserGroupMembershipQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
     private Guid? _selectedUserId;
 
+    private CreateUserRequest _createUserDraft = new()
+    {
+        IsLocalAccount = true,
+        Role = AppRole.ProjectUser
+    };
+    private HashSet<AppRole> _createUserRoles = [AppRole.ProjectUser];
+    private bool _showCreateUserForm;
+    private bool _isCreatingUser;
+
     private HashSet<AppRole> _originalRoles = [];
     private HashSet<AppRole> _editedRoles = [];
     private readonly Dictionary<Guid, bool> _pendingGroupAssignments = [];
+    private bool _showGroupBrowser;
 
     private AdminResetPasswordRequest _resetPasswordRequest = new();
     private string _confirmResetPassword = string.Empty;
@@ -361,8 +523,8 @@ else
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "User membership page initialization failed");
-            _error = $"Failed to load user memberships: {ex.Message}";
+            Logger.LogError(ex, "User management page initialization failed");
+            _error = $"Failed to load user management: {ex.Message}";
         }
     }
 
@@ -376,6 +538,7 @@ else
             _originalRoles.Clear();
             _editedRoles.Clear();
             _pendingGroupAssignments.Clear();
+            _showGroupBrowser = false;
             return Task.CompletedTask;
         }
 
@@ -424,15 +587,75 @@ else
             _originalRoles.Clear();
             _editedRoles.Clear();
             _pendingGroupAssignments.Clear();
+            _showGroupBrowser = false;
             return;
         }
 
         _originalRoles = selected.Roles.Count > 0 ? selected.Roles.ToHashSet() : [selected.Role];
         _editedRoles = _originalRoles.ToHashSet();
         _pendingGroupAssignments.Clear();
+        _groupQuery = new UserGroupMembershipQuery
+        {
+            PageSize = _groupQuery.PageSize,
+            SortField = "name"
+        };
+        _showGroupBrowser = false;
         _resetPasswordRequest.UserId = selected.UserId;
         _resetPasswordRequest.NewPassword = string.Empty;
         _confirmResetPassword = string.Empty;
+    }
+
+    private void ToggleCreateUserForm()
+    {
+        _showCreateUserForm = !_showCreateUserForm;
+        if (!_showCreateUserForm)
+        {
+            ResetCreateUserForm();
+        }
+    }
+
+    private async Task CreateUserAsync()
+    {
+        ClearMessages();
+
+        try
+        {
+            _isCreatingUser = true;
+
+            if (_createUserRoles.Count == 0)
+            {
+                _createUserRoles.Add(AppRole.ProjectUser);
+            }
+
+            var effectiveRole = ResolveEffectiveRole(_createUserRoles);
+            _createUserDraft.Role = effectiveRole;
+            var created = await JournalApp.CreateUserAsync(_createUserDraft);
+
+            foreach (var additionalRole in _createUserRoles.Where(role => role != effectiveRole))
+            {
+                JournalApp.AddUserToRole(new UserRoleMembershipRequest
+                {
+                    UserId = created.UserId,
+                    Role = additionalRole
+                });
+            }
+
+            Logger.LogInformation("Admin user create submitted: {Username}", _createUserDraft.Username);
+
+            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            _message = $"User '{created.Username}' created.";
+            _showCreateUserForm = false;
+            ResetCreateUserForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin user create failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isCreatingUser = false;
+        }
     }
 
     private async Task SaveRolesAsync()
@@ -457,15 +680,12 @@ else
             _message = null;
             _error = null;
 
-            var roleAdds = _editedRoles.Except(_originalRoles).ToList();
-            var roleRemoves = _originalRoles.Except(_editedRoles).ToList();
-
-            foreach (var role in roleAdds)
+            foreach (var role in _editedRoles.Except(_originalRoles).ToList())
             {
                 JournalApp.AddUserToRole(new UserRoleMembershipRequest { UserId = selectedUser.UserId, Role = role });
             }
 
-            foreach (var role in roleRemoves)
+            foreach (var role in _originalRoles.Except(_editedRoles).ToList())
             {
                 JournalApp.RemoveUserFromRole(new UserRoleMembershipRequest { UserId = selectedUser.UserId, Role = role });
             }
@@ -535,6 +755,18 @@ else
         }
     }
 
+    private void ToggleCreateRole(AppRole role, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked)
+        {
+            _createUserRoles.Add(role);
+            return;
+        }
+
+        _createUserRoles.Remove(role);
+    }
+
     private void ToggleRoleLocal(AppRole role, ChangeEventArgs args)
     {
         var isChecked = ParseCheckboxValue(args);
@@ -573,6 +805,11 @@ else
         return LoadGroupsAsync();
     }
 
+    private void ToggleGroupBrowser()
+    {
+        _showGroupBrowser = !_showGroupBrowser;
+    }
+
     private async Task ToggleSelectedUserEnabledAsync()
     {
         var selectedUser = SelectedUser;
@@ -584,7 +821,6 @@ else
 
         var shouldEnable = selectedUser.IsDisabled;
         var actionVerb = shouldEnable ? "enable" : "disable";
-
         var confirmed = await JS.InvokeAsync<bool>(
             "confirm",
             shouldEnable
@@ -629,9 +865,7 @@ else
             return;
         }
 
-        var confirmed = await JS.InvokeAsync<bool>(
-            "confirm",
-            $"Delete user '{selectedUser.Username}'? This cannot be undone.");
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete user '{selectedUser.Username}'? This cannot be undone.");
         if (!confirmed)
         {
             return;
@@ -707,6 +941,19 @@ else
         }
     }
 
+    private void GenerateSuggestedPassword()
+    {
+        var chars = new char[Math.Max(_localPasswordMinLength, 14)];
+        for (var index = 0; index < chars.Length; index++)
+        {
+            chars[index] = GeneratedPasswordAlphabet[RandomNumberGenerator.GetInt32(GeneratedPasswordAlphabet.Length)];
+        }
+
+        var password = new string(chars);
+        _resetPasswordRequest.NewPassword = password;
+        _confirmResetPassword = password;
+    }
+
     private async Task OnUserSearchChanged(ChangeEventArgs args)
     {
         _userQuery.FilterText = args.Value?.ToString() ?? string.Empty;
@@ -767,13 +1014,13 @@ else
 
     private async Task OnGroupAssignedFilterChanged(ChangeEventArgs args)
     {
-        var raw = args.Value?.ToString()?.Trim().ToLowerInvariant();
-        _groupQuery.Assigned = raw switch
+        _groupQuery.Assigned = (args.Value?.ToString() ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "assigned" => true,
             "unassigned" => false,
             _ => null
         };
+
         _groupQuery.Page = 1;
         await LoadGroupsAsync();
     }
@@ -822,10 +1069,46 @@ else
         await LoadGroupsAsync();
     }
 
+    private void ResetCreateUserForm()
+    {
+        _createUserDraft = new CreateUserRequest
+        {
+            IsLocalAccount = true,
+            Role = AppRole.ProjectUser
+        };
+        _createUserRoles = [AppRole.ProjectUser];
+    }
+
     private void ResetLocalPasswordForm()
     {
         _resetPasswordRequest.NewPassword = string.Empty;
         _confirmResetPassword = string.Empty;
+    }
+
+    private void ClearMessages()
+    {
+        _message = null;
+        _error = null;
+    }
+
+    private static AppRole ResolveEffectiveRole(IReadOnlyCollection<AppRole> roles)
+    {
+        if (roles.Contains(AppRole.Administrator))
+        {
+            return AppRole.Administrator;
+        }
+
+        if (roles.Contains(AppRole.ProjectUser))
+        {
+            return AppRole.ProjectUser;
+        }
+
+        if (roles.Contains(AppRole.Auditor))
+        {
+            return AppRole.Auditor;
+        }
+
+        return AppRole.ProjectUser;
     }
 
     private static bool ParseCheckboxValue(ChangeEventArgs args)
@@ -845,4 +1128,40 @@ else
 
     private static string RenderValueOrDash(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static IReadOnlyList<AppRole> UserRoles(UserOverview user)
+        => user.Roles.Count > 0 ? user.Roles : [user.Role];
+
+    private static string UserInitial(UserOverview user)
+    {
+        var source = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Username : user.DisplayName;
+        return string.IsNullOrWhiteSpace(source) ? "U" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    private static string RoleLabel(AppRole role)
+        => role == AppRole.ProjectUser ? "Project User" : role.ToString();
+
+    private static string RoleDescription(AppRole role)
+        => role switch
+        {
+            AppRole.Administrator => "Full system access and administrative control.",
+            AppRole.ProjectUser => "Create and edit journal content for assigned projects.",
+            AppRole.Auditor => "Review records, history, and auditing activity.",
+            _ => string.Empty
+        };
+
+    private static string RoleOptionClass(bool isSelected)
+        => isSelected ? "is-selected" : string.Empty;
+
+    private string VisibleUserRangeLabel()
+    {
+        if (_userPage.TotalCount == 0)
+        {
+            return "Showing 0 users";
+        }
+
+        var start = ((_userPage.Page - 1) * _userPage.PageSize) + 1;
+        var end = Math.Min(_userPage.Page * _userPage.PageSize, _userPage.TotalCount);
+        return $"Showing {start}-{end} of {_userPage.TotalCount} users";
+    }
 }

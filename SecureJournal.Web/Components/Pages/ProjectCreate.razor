@@ -36,7 +36,7 @@ else
             <h3>Step 1: Project details</h3>
         </div>
 
-        <EditForm Model="WizardState.ProjectDraft" OnValidSubmit="GoToGroupStepAsync" FormName="admin-project-create">
+        <EditForm Model="WizardState.ProjectDraft" OnValidSubmit="GoToGroupStep" FormName="admin-project-create">
             <AntiforgeryToken />
             <DataAnnotationsValidator />
             <ValidationSummary />
@@ -95,7 +95,7 @@ else
         _currentUser = await JournalApp.GetCurrentUserAsync();
     }
 
-    private Task GoToGroupStepAsync()
+    private Task GoToGroupStep()
     {
         _error = null;
         Navigation.NavigateTo("/admin/projects/create/groups", forceLoad: false);

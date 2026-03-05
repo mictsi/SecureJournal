@@ -103,11 +103,11 @@ else
             <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Back</button>
             @if (WizardState.CreateNewGroup)
             {
-                <button type="button" class="btn btn-primary" @onclick="GoToMembersStepAsync">Next</button>
+                <button type="button" class="btn btn-primary" @onclick="GoToMembersStep">Next</button>
             }
             else
             {
-                <button type="button" class="btn btn-primary" @onclick="CreateProjectAsync">Create Project</button>
+                <button type="button" class="btn btn-primary" @onclick="CreateProject">Create Project</button>
             }
             <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
         </div>
@@ -139,7 +139,7 @@ else
             .ToList();
     }
 
-    private Task GoToMembersStepAsync()
+    private Task GoToMembersStep()
     {
         _error = null;
         if (string.IsNullOrWhiteSpace(WizardState.NewGroupDraft.Name))
@@ -152,7 +152,7 @@ else
         return Task.CompletedTask;
     }
 
-    private Task CreateProjectAsync()
+    private Task CreateProject()
     {
         _error = null;
         if (WizardState.SelectedExistingGroupIds.Count == 0)

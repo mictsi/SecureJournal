@@ -17,31 +17,59 @@ public sealed class ProjectCreationWizardState
     {
         ArgumentNullException.ThrowIfNull(journalApp);
 
-        var project = journalApp.CreateProject(ProjectDraft);
+        ProjectOverview project;
+        try
+        {
+            project = journalApp.CreateProject(ProjectDraft);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Project creation failed during wizard completion.", ex);
+        }
+
         var targetGroupIds = new HashSet<Guid>(SelectedExistingGroupIds);
 
         if (CreateNewGroup)
         {
-            var group = journalApp.CreateGroup(NewGroupDraft);
+            GroupOverview group;
+            try
+            {
+                group = journalApp.CreateGroup(NewGroupDraft);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("New group creation failed during wizard completion.", ex);
+            }
+
             targetGroupIds.Add(group.GroupId);
 
             foreach (var userId in SelectedNewGroupMemberIds)
             {
-                journalApp.AssignUserToGroup(new AssignUserToGroupRequest
+                var added = journalApp.AssignUserToGroup(new AssignUserToGroupRequest
                 {
                     UserId = userId,
                     GroupId = group.GroupId
                 });
+
+                if (!added)
+                {
+                    throw new InvalidOperationException($"Failed to add user '{userId}' to new group '{group.Name}'.");
+                }
             }
         }
 
         foreach (var groupId in targetGroupIds)
         {
-            journalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+            var assigned = journalApp.AssignGroupToProject(new AssignGroupToProjectRequest
             {
                 ProjectId = project.ProjectId,
                 GroupId = groupId
             });
+
+            if (!assigned)
+            {
+                throw new InvalidOperationException($"Failed to assign group '{groupId}' to project '{project.Code}'.");
+            }
         }
 
         return project.Code;

@@ -1,3 +1,12 @@
+# v0.10.1 - 2026-03-05
+
+## Highlights
+- Refactored Projects page layout and styles for improved usability and responsiveness.
+
+## Details
+- The Projects page now features an improved layout and responsive design for easier project browsing and management.
+- Minor UI and style adjustments to enhance user experience.
+
 # v0.10.0 - 2026-03-05
 
 ## Highlights

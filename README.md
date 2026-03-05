@@ -136,8 +136,14 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: `docs/release_notes/v0.10.0.md`
+- Release notes: `docs/release_notes/v0.10.1.md`
 - Sanitized config templates:
+
+---
+
+## v0.10.1 Release
+
+This release refactors the Projects page for improved usability and responsiveness, with minor UI and style adjustments to enhance user experience.
 
 ---
 

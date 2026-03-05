@@ -6,11 +6,16 @@
 
 <PageTitle>Project Management</PageTitle>
 
-<section class="page-head">
+<section class="page-head project-management-head">
     <div>
         <p class="eyebrow">Administration</p>
         <h2>Project Management</h2>
-        <p>Manage project metadata and group access with server-side filtering, sorting, and paging.</p>
+        <p>Manage project metadata, group access, and project status from one workspace.</p>
+    </div>
+    <div class="project-management-head-actions">
+        <NavLink class="btn btn-primary" href="/admin/projects/create">
+            Create Project
+        </NavLink>
     </div>
 </section>
 
@@ -36,294 +41,383 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <div class="project-admin-layout">
-        <section class="panel-card project-admin-left">
-            <div class="panel-card-header project-panel-header">
-                <h3>Projects</h3>
-                <div class="panel-card-header-actions project-panel-header-actions">
-                    <span class="text-muted">@_projectPage.TotalCount total</span>
-                    <label class="project-page-size-label" for="projectPageSize">Page size</label>
-                    <select id="projectPageSize"
-                            class="form-select form-select-sm project-page-size-select"
-                            @onchange="OnProjectPageSizeChanged">
-                        @foreach (var option in _pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == _projectQuery.PageSize)">@option</option>
-                        }
-                    </select>
+    <div class="project-management-shell">
+        <aside class="panel-card project-directory-card">
+            <div class="project-directory-header">
+                <div>
+                    <h3>Projects</h3>
+                    <p class="project-directory-copy">Manage project details and access rules</p>
                 </div>
+                <span class="project-directory-total">@_projectPage.TotalCount total</span>
             </div>
 
-            <div class="row g-2 mb-3">
-                <div class="col-md-8">
-                    <label class="form-label" for="projectSearch">Search projects</label>
-                    <input id="projectSearch"
-                           class="form-control"
-                           type="text"
-                           value="@_projectQuery.FilterText"
-                           @oninput="OnProjectSearchChanged"
-                              placeholder="Filter by project code or name..." />
+            <div class="project-directory-toolbar">
+                <label class="visually-hidden" for="projectSearch">Search projects</label>
+                <input id="projectSearch"
+                       class="form-control"
+                       type="text"
+                       value="@_projectQuery.FilterText"
+                       @oninput="OnProjectSearchChanged"
+                       placeholder="Search projects..." />
+
+                <div class="project-directory-sort">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeProjectSortAsync("code"))">
+                        Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeProjectSortAsync("name"))">
+                        Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">
+                        Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)
+                    </button>
                 </div>
             </div>
 
             @if (_projectPage.TotalCount == 0)
             {
-                <p class="mb-0">No projects created yet.</p>
+                <div class="project-directory-empty">
+                    <p class="mb-0">No projects created yet.</p>
+                </div>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-sm project-table project-admin-projects-table mb-0">
-                        <thead>
-                            <tr>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("code"))">Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("name"))">Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th>Assigned Groups</th>
-                                <th>Status</th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeProjectSortAsync("department"))">Department @SortGlyph("department", _projectQuery.SortField, _projectQuery.SortDirection)</button></th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var project in _projectPage.Items)
-                            {
-                                <tr class="project-row @(project.ProjectId == _selectedProjectId ? "is-selected" : string.Empty)"
-                                    @onclick="() => SelectProjectAsync(project.ProjectId)">
-                                    <td class="project-code-cell">@project.Code</td>
-                                    <td class="project-name-cell">@project.Name</td>
-                                    <td class="project-group-cell assigned-group-col">
-                                        @if (project.AssignedGroups.Count == 0)
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                        else
-                                        {
-                                            <div class="project-group-tag-list">
-                                                @foreach (var groupName in project.AssignedGroups)
-                                                {
-                                                    <span class="project-group-tag" title="@groupName">@groupName</span>
-                                                }
-                                            </div>
-                                        }
-                                    </td>
-                                    <td class="project-detail-cell">
-                                        @if (project.IsDisabled)
-                                        {
-                                            <span class="badge text-bg-warning">Disabled</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge text-bg-success">Enabled</span>
-                                        }
-                                    </td>
-                                    <td class="project-detail-cell">@RenderValueOrDash(project.ProjectOwner)</td>
-                                    <td class="project-detail-cell">@RenderValueOrDash(project.Department)</td>
-                                    <td class="project-actions-cell">
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm project-edit-button"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => StartEditProject(project.ProjectId)">
-                                            Edit
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-outline-secondary btn-sm project-edit-button"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => ToggleProjectEnabledAsync(project)">
-                                            @(project.IsDisabled ? "Enable" : "Disable")
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-outline-danger btn-sm project-edit-button"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => MoveProjectToTrashAsync(project)">
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                <div class="project-directory-list">
+                    @foreach (var project in _projectPage.Items)
+                    {
+                        <button type="button"
+                                class="project-directory-item @(project.ProjectId == _selectedProjectId ? "is-active" : string.Empty)"
+                                @onclick="() => SelectProjectAsync(project.ProjectId)">
+                            <span class="project-avatar" aria-hidden="true">@ProjectInitial(project)</span>
+                            <span class="project-directory-item-body">
+                                <span class="project-directory-name">@project.Code</span>
+                                <span class="project-directory-subtitle">@project.Name</span>
+                                <span class="project-chip-list">
+                                    <span class="project-chip">@project.AssignedGroups.Count group(s)</span>
+                                    <span class="project-status-badge @(project.IsDisabled ? "is-disabled" : "is-active")">
+                                        @(project.IsDisabled ? "Disabled" : "Enabled")
+                                    </span>
+                                </span>
+                            </span>
+                        </button>
+                    }
                 </div>
 
-                <div class="pager-bar">
-                    <span class="text-muted">Page @_projectPage.Page of @_projectPage.TotalPages</span>
-                    <div class="d-flex gap-2">
-                        <button type="button"
-                                class="btn btn-outline-secondary btn-sm"
-                                @onclick="GoToPreviousProjectPageAsync"
-                                disabled="@(_projectPage.Page <= 1)">
-                            Previous
-                        </button>
-                        <button type="button"
-                                class="btn btn-outline-secondary btn-sm"
-                                @onclick="GoToNextProjectPageAsync"
-                                disabled="@(_projectPage.Page >= _projectPage.TotalPages)">
-                            Next
-                        </button>
+                <div class="project-directory-footer">
+                    <div class="project-directory-footer-row">
+                        <span>Page @_projectPage.Page of @_projectPage.TotalPages</span>
+                        <div class="d-flex gap-2">
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    @onclick="GoToPreviousProjectPageAsync"
+                                    disabled="@(_projectPage.Page <= 1)">
+                                Previous
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    @onclick="GoToNextProjectPageAsync"
+                                    disabled="@(_projectPage.Page >= _projectPage.TotalPages)">
+                                Next
+                            </button>
+                        </div>
                     </div>
-                </div>
-            }
-        </section>
-
-        <div class="project-admin-right">
-            <section class="panel-card">
-                <div class="panel-card-header">
-                    <h3>Edit Project Metadata</h3>
-                </div>
-
-                @if (EditingProject is null)
-                {
-                    <p class="mb-0">Click <strong>Edit</strong> on a project row to update metadata.</p>
-                }
-                else
-                {
-                    <p class="text-muted mb-3">
-                        Editing <strong>@EditingProject.Code - @EditingProject.Name</strong>.
-                    </p>
-
-                    <EditForm Model="_projectEditDraft" OnValidSubmit="SaveProjectMetadataAsync">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="project-metadata-grid">
-                            <div class="project-metadata-main">
-                                <label class="form-label" for="projectEditName">Name</label>
-                                <InputText id="projectEditName" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Name" />
-                            </div>
-
-                            <div class="project-metadata-main">
-                                <label class="form-label" for="projectEditDescription">Description</label>
-                                <InputTextArea id="projectEditDescription" class="form-control" rows="3" maxlength="500" @bind-Value="_projectEditDraft.Description" />
-                            </div>
-
-                            <div>
-                                <label class="form-label" for="projectEditOwner">Project Owner</label>
-                                <InputText id="projectEditOwner" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwner" />
-                            </div>
-                            <div>
-                                <label class="form-label" for="projectEditDepartment">Department</label>
-                                <InputText id="projectEditDepartment" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Department" />
-                            </div>
-                            <div>
-                                <label class="form-label" for="projectEditEmail">Project owner email</label>
-                                <InputText id="projectEditEmail" class="form-control" maxlength="254" @bind-Value="_projectEditDraft.ProjectEmail" />
-                            </div>
-                            <div>
-                                <label class="form-label" for="projectEditPhone">Project owner phone</label>
-                                <InputText id="projectEditPhone" class="form-control" maxlength="32" @bind-Value="_projectEditDraft.ProjectPhone" />
-                            </div>
-                        </div>
-
-                        <div class="mt-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" disabled="@_isSavingMetadata">@( _isSavingMetadata ? "Saving..." : "Save metadata")</button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="CancelProjectEdit" disabled="@_isSavingMetadata">Cancel</button>
-                        </div>
-                    </EditForm>
-                }
-            </section>
-
-            <section class="panel-card">
-                <div class="panel-card-header">
-                    <h3>Project Group Access</h3>
-                    <span class="text-muted">@_groupAccessPage.TotalCount total groups</span>
-                </div>
-
-                @if (_projectPage.TotalCount == 0)
-                {
-                    <p class="mb-0">Create at least one project first.</p>
-                }
-                else if (SelectedProject is null)
-                {
-                    <p class="mb-0">Select a project to manage group access.</p>
-                }
-                else
-                {
-                    <p class="text-muted mb-3">
-                        Editing <strong>@SelectedProject.Code - @SelectedProject.Name</strong>.
-                        Check to grant access, uncheck to remove access.
-                    </p>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label" for="groupSearch">Filter groups</label>
-                            <input id="groupSearch"
-                                   class="form-control"
-                                   type="text"
-                                   value="@_groupAccessQuery.FilterText"
-                                   @oninput="OnGroupSearchChanged"
-                                   placeholder="Search by group name..." />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label" for="groupPageSize">Page size</label>
-                            <select id="groupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                    <div class="project-directory-footer-row">
+                        <span>@VisibleProjectRangeLabel()</span>
+                        <div class="project-page-size">
+                            <label class="project-page-size-label" for="projectPageSize">Page size</label>
+                            <select id="projectPageSize"
+                                    class="form-select form-select-sm project-page-size-select"
+                                    @onchange="OnProjectPageSizeChanged">
                                 @foreach (var option in _pageSizeOptions)
                                 {
-                                    <option value="@option" selected="@(option == _groupAccessQuery.PageSize)">@option</option>
+                                    <option value="@option" selected="@(option == _projectQuery.PageSize)">@option</option>
                                 }
                             </select>
                         </div>
                     </div>
+                </div>
+            }
+        </aside>
 
-                    @if (_groupAccessPage.TotalCount == 0)
+        <div class="project-detail-column">
+            @if (SelectedProject is null)
+            {
+                <section class="panel-card project-empty-card">
+                    <h3>Select a project</h3>
+                    <p class="mb-0">Choose a project from the directory to review metadata, edit details, manage group access, or update status.</p>
+                </section>
+            }
+            else
+            {
+                <section class="panel-card project-profile-card">
+                    <div class="project-profile-summary">
+                        <span class="project-avatar project-avatar-large" aria-hidden="true">@ProjectInitial(SelectedProject)</span>
+                        <div class="project-profile-copy">
+                            <div class="project-profile-heading">
+                                <h3>@SelectedProject.Code</h3>
+                                <span class="project-status-badge @(SelectedProject.IsDisabled ? "is-disabled" : "is-active")">
+                                    @(SelectedProject.IsDisabled ? "Disabled" : "Enabled")
+                                </span>
+                            </div>
+                            <p class="project-profile-subtitle">@SelectedProject.Name</p>
+                            <p class="project-profile-description mb-0">@ProjectDescriptionOrFallback(SelectedProject)</p>
+                            <div class="project-profile-meta">
+                                <span>Owner: @RenderValueOrDash(SelectedProject.ProjectOwner)</span>
+                                <span>Department: @RenderValueOrDash(SelectedProject.Department)</span>
+                                <span>@SelectedProject.AssignedGroups.Count group(s)</span>
+                            </div>
+                            <div class="project-chip-list">
+                                @if (SelectedProject.AssignedGroups.Count == 0)
+                                {
+                                    <span class="project-chip is-empty">No groups assigned</span>
+                                }
+                                else
+                                {
+                                    @foreach (var groupName in SelectedProject.AssignedGroups.Take(6))
+                                    {
+                                        <span class="project-chip">@groupName</span>
+                                    }
+                                    @if (SelectedProject.AssignedGroups.Count > 6)
+                                    {
+                                        <span class="project-chip">+@(SelectedProject.AssignedGroups.Count - 6) more</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel-card project-metadata-card">
+                    <div class="panel-card-header project-section-header">
+                        <div>
+                            <p class="project-section-kicker">Metadata</p>
+                            <h3>Project details</h3>
+                            <p class="project-section-copy">Update descriptive metadata and owner information for this project.</p>
+                        </div>
+                        @if (!IsEditingSelectedProject)
+                        {
+                            <div class="panel-card-header-actions">
+                                <button type="button" class="btn btn-outline-primary" @onclick="() => StartEditProject(SelectedProject.ProjectId)">
+                                    Edit Metadata
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    @if (IsEditingSelectedProject)
                     {
-                        <p class="mb-0">No groups available for the current filter.</p>
+                        <EditForm Model="_projectEditDraft" OnValidSubmit="SaveProjectMetadataAsync">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <div class="project-metadata-grid">
+                                <div class="project-metadata-main">
+                                    <label class="form-label" for="projectEditName">Name</label>
+                                    <InputText id="projectEditName" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Name" />
+                                </div>
+
+                                <div class="project-metadata-main">
+                                    <label class="form-label" for="projectEditDescription">Description</label>
+                                    <InputTextArea id="projectEditDescription" class="form-control" rows="3" maxlength="500" @bind-Value="_projectEditDraft.Description" />
+                                </div>
+
+                                <div>
+                                    <label class="form-label" for="projectEditOwner">Project Owner</label>
+                                    <InputText id="projectEditOwner" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.ProjectOwner" />
+                                </div>
+                                <div>
+                                    <label class="form-label" for="projectEditDepartment">Department</label>
+                                    <InputText id="projectEditDepartment" class="form-control" maxlength="100" @bind-Value="_projectEditDraft.Department" />
+                                </div>
+                                <div>
+                                    <label class="form-label" for="projectEditEmail">Project owner email</label>
+                                    <InputText id="projectEditEmail" class="form-control" maxlength="254" @bind-Value="_projectEditDraft.ProjectEmail" />
+                                </div>
+                                <div>
+                                    <label class="form-label" for="projectEditPhone">Project owner phone</label>
+                                    <InputText id="projectEditPhone" class="form-control" maxlength="32" @bind-Value="_projectEditDraft.ProjectPhone" />
+                                </div>
+                            </div>
+
+                            <div class="project-section-actions">
+                                <button type="submit" class="btn btn-primary" disabled="@_isSavingMetadata">
+                                    @(_isSavingMetadata ? "Saving..." : "Save Metadata")
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="CancelProjectEdit" disabled="@_isSavingMetadata">Cancel</button>
+                            </div>
+                        </EditForm>
                     }
                     else
                     {
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0 project-group-access-table">
-                                <colgroup>
-                                    <col class="project-group-access-col-group" />
-                                    <col class="project-group-access-col-assigned" />
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
-                                        <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var group in _groupAccessPage.Items)
-                                    {
-                                        <tr>
-                                            <td>@group.Name</td>
-                                            <td class="text-end">
-                                                <input class="form-check-input"
-                                                       type="checkbox"
-                                                       checked="@IsGroupAssigned(group)"
-                                                       @onchange="args => ToggleGroupLocal(group, args)" />
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="pager-bar">
-                            <span class="text-muted">Page @_groupAccessPage.Page of @_groupAccessPage.TotalPages</span>
-                            <div class="d-flex gap-2">
-                                <button type="button"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        @onclick="GoToPreviousGroupPageAsync"
-                                        disabled="@(_groupAccessPage.Page <= 1)">
-                                    Previous
-                                </button>
-                                <button type="button"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        @onclick="GoToNextGroupPageAsync"
-                                        disabled="@(_groupAccessPage.Page >= _groupAccessPage.TotalPages)">
-                                    Next
-                                </button>
+                        <div class="project-metadata-grid project-metadata-readonly">
+                            <div class="project-metadata-main">
+                                <span class="project-field-label">Name</span>
+                                <span class="project-field-value">@SelectedProject.Name</span>
+                            </div>
+                            <div class="project-metadata-main">
+                                <span class="project-field-label">Description</span>
+                                <span class="project-field-value">@ProjectDescriptionOrFallback(SelectedProject)</span>
+                            </div>
+                            <div>
+                                <span class="project-field-label">Project Owner</span>
+                                <span class="project-field-value">@RenderValueOrDash(SelectedProject.ProjectOwner)</span>
+                            </div>
+                            <div>
+                                <span class="project-field-label">Department</span>
+                                <span class="project-field-value">@RenderValueOrDash(SelectedProject.Department)</span>
+                            </div>
+                            <div>
+                                <span class="project-field-label">Project owner email</span>
+                                <span class="project-field-value">@RenderValueOrDash(SelectedProject.ProjectEmail)</span>
+                            </div>
+                            <div>
+                                <span class="project-field-label">Project owner phone</span>
+                                <span class="project-field-value">@RenderValueOrDash(SelectedProject.ProjectPhone)</span>
                             </div>
                         </div>
                     }
+                </section>
 
-                    <div class="mt-3 d-flex gap-2">
-                        <button type="button" class="btn btn-primary" @onclick="SaveProjectGroupsAsync" disabled="@_isSaving">@( _isSaving ? "Saving..." : "Save")</button>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectGroupEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
+                <section class="panel-card project-groups-card">
+                    <div class="panel-card-header project-section-header">
+                        <div>
+                            <p class="project-section-kicker">Groups</p>
+                            <h3>Project group access</h3>
+                            <p class="project-section-copy">Review assigned groups and manage project access for each group.</p>
+                        </div>
+                        <div class="panel-card-header-actions">
+                            <button type="button" class="btn btn-outline-primary" @onclick="ToggleGroupAccessBrowser">
+                                @(_showGroupAccessBrowser ? "Close Group Browser" : "Manage Group Access")
+                            </button>
+                        </div>
                     </div>
-                }
-            </section>
+
+                    <div class="project-chip-list">
+                        @if (SelectedProject.AssignedGroups.Count == 0)
+                        {
+                            <span class="project-chip is-empty">No groups assigned</span>
+                        }
+                        else
+                        {
+                            @foreach (var groupName in SelectedProject.AssignedGroups)
+                            {
+                                <span class="project-chip">@groupName</span>
+                            }
+                        }
+                    </div>
+
+                    @if (_showGroupAccessBrowser)
+                    {
+                        <div class="project-group-browser">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-7">
+                                    <label class="form-label" for="groupSearch">Filter groups</label>
+                                    <input id="groupSearch"
+                                           class="form-control"
+                                           type="text"
+                                           value="@_groupAccessQuery.FilterText"
+                                           @oninput="OnGroupSearchChanged"
+                                           placeholder="Search by group name..." />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" for="groupPageSize">Page size</label>
+                                    <select id="groupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                                        @foreach (var option in _pageSizeOptions)
+                                        {
+                                            <option value="@option" selected="@(option == _groupAccessQuery.PageSize)">@option</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            @if (_groupAccessPage.TotalCount == 0)
+                            {
+                                <p class="mb-0 project-group-browser-note">No groups available for the current filter.</p>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
+                                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var group in _groupAccessPage.Items)
+                                            {
+                                                <tr>
+                                                    <td>@group.Name</td>
+                                                    <td class="text-end">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               checked="@IsGroupAssigned(group)"
+                                                               @onchange="args => ToggleGroupLocal(group, args)" />
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="pager-bar">
+                                    <span class="text-muted">Page @_groupAccessPage.Page of @_groupAccessPage.TotalPages</span>
+                                    <div class="d-flex gap-2">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm"
+                                                @onclick="GoToPreviousGroupPageAsync"
+                                                disabled="@(_groupAccessPage.Page <= 1)">
+                                            Previous
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm"
+                                                @onclick="GoToNextGroupPageAsync"
+                                                disabled="@(_groupAccessPage.Page >= _groupAccessPage.TotalPages)">
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="project-section-actions">
+                                <button type="button" class="btn btn-primary" @onclick="SaveProjectGroupsAsync" disabled="@(!_isDirty || _isSaving)">
+                                    @(_isSaving ? "Saving..." : "Save Group Access")
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectGroupEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
+                            </div>
+                        </div>
+                    }
+                </section>
+
+                <section class="panel-card project-danger-card">
+                    <div class="panel-card-header project-section-header">
+                        <div>
+                            <p class="project-section-kicker project-danger-kicker">Danger Zone</p>
+                            <h3>Status and deletion</h3>
+                            <p class="project-section-copy">Disable access or move this project to trash.</p>
+                        </div>
+                    </div>
+
+                    <div class="project-danger-actions">
+                        <div class="project-danger-copy">
+                            <strong>@(SelectedProject.IsDisabled ? "Enable or keep disabled" : "Disable or delete")</strong>
+                            <span>Disabling blocks use of the project. Deleting moves it to trash.</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button"
+                                    class="btn @(SelectedProject.IsDisabled ? "btn-success" : "btn-outline-secondary")"
+                                    @onclick="() => ToggleProjectEnabledAsync(SelectedProject)">
+                                @(SelectedProject.IsDisabled ? "Enable Project" : "Disable Project")
+                            </button>
+                            <button type="button"
+                                    class="btn btn-danger"
+                                    @onclick="() => MoveProjectToTrashAsync(SelectedProject)">
+                                Delete Project
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            }
         </div>
     </div>
 }
@@ -339,12 +433,14 @@ else
     private Guid? _selectedProjectId;
     private Guid? _editingProjectId;
     private readonly Dictionary<Guid, bool> _pendingGroupAssignments = [];
+    private bool _showGroupAccessBrowser;
     private bool _isSaving;
     private bool _isSavingMetadata;
     private string? _message;
     private string? _error;
 
     private bool _isDirty => _pendingGroupAssignments.Count > 0;
+    private bool IsEditingSelectedProject => EditingProject?.ProjectId == SelectedProject?.ProjectId;
 
     private ProjectOverview? SelectedProject
         => _selectedProjectId is { } id
@@ -377,6 +473,7 @@ else
             _selectedProjectId = null;
             _groupAccessPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupAccessQuery.PageSize, 1);
             _pendingGroupAssignments.Clear();
+            _showGroupAccessBrowser = false;
             return Task.CompletedTask;
         }
 
@@ -518,8 +615,6 @@ else
 
         try
         {
-            var adds = 0;
-            var removes = 0;
             foreach (var (groupId, shouldBeAssigned) in _pendingGroupAssignments)
             {
                 if (shouldBeAssigned)
@@ -529,7 +624,6 @@ else
                         ProjectId = selectedProject.ProjectId,
                         GroupId = groupId
                     });
-                    adds++;
                 }
                 else
                 {
@@ -538,11 +632,10 @@ else
                         ProjectId = selectedProject.ProjectId,
                         GroupId = groupId
                     });
-                    removes++;
                 }
             }
 
-            Logger.LogInformation("Saved project-group memberships for {ProjectCode}: adds={Adds}, removes={Removes}", selectedProject.Code, adds, removes);
+            Logger.LogInformation("Saved project-group memberships for {ProjectCode}", selectedProject.Code);
             _pendingGroupAssignments.Clear();
             _message = $"Group access changes saved for project '{selectedProject.Code}'.";
             await LoadProjectsAsync();
@@ -570,7 +663,18 @@ else
         _groupAccessQuery.Page = 1;
         _message = null;
         _error = null;
+
+        if (_editingProjectId.HasValue && _editingProjectId != projectId)
+        {
+            CancelProjectEdit();
+        }
+
         return LoadGroupAccessAsync();
+    }
+
+    private void ToggleGroupAccessBrowser()
+    {
+        _showGroupAccessBrowser = !_showGroupAccessBrowser;
     }
 
     private void ToggleGroupLocal(GroupAccessRow group, ChangeEventArgs args)
@@ -712,6 +816,27 @@ else
         }
 
         return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
+    }
+
+    private static string ProjectInitial(ProjectOverview project)
+    {
+        var source = string.IsNullOrWhiteSpace(project.Code) ? project.Name : project.Code;
+        return string.IsNullOrWhiteSpace(source) ? "P" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    private static string ProjectDescriptionOrFallback(ProjectOverview project)
+        => string.IsNullOrWhiteSpace(project.Description) ? "No description provided." : project.Description;
+
+    private string VisibleProjectRangeLabel()
+    {
+        if (_projectPage.TotalCount == 0)
+        {
+            return "Showing 0 projects";
+        }
+
+        var start = ((_projectPage.Page - 1) * _projectPage.PageSize) + 1;
+        var end = Math.Min(_projectPage.Page * _projectPage.PageSize, _projectPage.TotalCount);
+        return $"Showing {start}-{end} of {_projectPage.TotalCount} projects";
     }
 
     private void ClearMessages()

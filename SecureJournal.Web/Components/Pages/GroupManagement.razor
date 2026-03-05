@@ -6,11 +6,16 @@
 
 <PageTitle>Group Management</PageTitle>
 
-<section class="page-head">
+<section class="page-head group-management-head">
     <div>
         <p class="eyebrow">Administration</p>
         <h2>Group Management</h2>
-        <p>Create groups, search existing groups, and manage group members.</p>
+        <p>Create groups, manage members, and review project access from one page.</p>
+    </div>
+    <div class="group-management-head-actions">
+        <button type="button" class="btn btn-primary" @onclick="ToggleCreateGroupForm">
+            @(_showCreateGroupForm ? "Hide Create Group" : "Create Group")
+        </button>
     </div>
 </section>
 
@@ -36,18 +41,17 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <section class="panel-card group-create-card mb-4">
-        <div class="panel-card-header">
-            <h3>Create group</h3>
-            <div class="panel-card-header-actions">
-                <button type="button" class="btn btn-primary btn-sm" @onclick="ToggleCreateGroupForm">
-                    @(_showCreateGroupForm ? "Hide form" : "Create group")
-                </button>
+    @if (_showCreateGroupForm)
+    {
+        <section class="panel-card group-create-card">
+            <div class="panel-card-header group-section-header">
+                <div>
+                    <p class="group-section-kicker">Create Group</p>
+                    <h3>Add a new group</h3>
+                    <p class="group-section-copy">Create team groups and organize their members without leaving this page.</p>
+                </div>
             </div>
-        </div>
 
-        @if (_showCreateGroupForm)
-        {
             <EditForm Model="GroupDraft" OnValidSubmit="CreateGroupAsync" FormName="admin-group-create">
                 <AntiforgeryToken />
                 <DataAnnotationsValidator />
@@ -64,195 +68,307 @@ else
                     </div>
                 </div>
 
-                <div class="mt-3 d-flex gap-2">
+                <div class="group-section-actions">
                     <button type="submit" class="btn btn-primary" disabled="@_isCreating">
-                        @(_isCreating ? "Creating..." : "Create group")
+                        @(_isCreating ? "Creating..." : "Create Group")
                     </button>
                     <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupForm" disabled="@_isCreating">Reset</button>
                 </div>
             </EditForm>
-        }
-        else
-        {
-            <p class="mb-0">Use the button above to add a new group without leaving this page.</p>
-        }
-    </section>
+        </section>
+    }
 
-    <section class="panel-card group-list-card">
-        <div class="panel-card-header">
-            <h3>Groups</h3>
-            <div class="panel-card-header-actions">
-                <span class="text-muted">@_groupPage.TotalCount total</span>
-                <label class="project-page-size-label" for="groupPageSize">Page size</label>
-                <select id="groupPageSize"
-                        class="form-select form-select-sm project-page-size-select"
-                        @onchange="OnPageSizeChanged">
-                    @foreach (var option in _pageSizeOptions)
-                    {
-                        <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
-                    }
-                </select>
+    <div class="group-management-shell">
+        <aside class="panel-card group-directory-card">
+            <div class="group-directory-header">
+                <div>
+                    <h3>Groups</h3>
+                    <p class="group-directory-copy">Manage team groups and member access</p>
+                </div>
+                <span class="group-directory-total">@_groupPage.TotalCount total</span>
             </div>
-        </div>
 
-        <div class="row g-2 mb-3">
-            <div class="col-md-8">
-                <label class="form-label" for="groupSearch">Search groups</label>
+            <div class="group-directory-toolbar">
+                <label class="visually-hidden" for="groupSearch">Search groups</label>
                 <input id="groupSearch"
                        class="form-control"
                        type="text"
                        value="@_groupQuery.FilterText"
                        @oninput="OnSearchChanged"
-                       placeholder="Filter by name or description..." />
-            </div>
-        </div>
+                       placeholder="Search groups..." />
 
-        @if (_groupPage.TotalCount == 0)
-        {
-            <p class="mb-0">No groups found.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm group-table mb-0">
-                    <thead>
-                        <tr>
-                            <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeSortAsync("name"))">Name @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                            <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeSortAsync("description"))">Description @SortGlyph("description", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                            <th>Members</th>
-                            <th>Projects</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var group in _groupPage.Items)
-                        {
-                            <tr>
-                                <td>@group.Name</td>
-                                <td>@RenderValueOrDash(group.Description)</td>
-                                <td>@FormatList(group.Members)</td>
-                                <td>@FormatList(group.ProjectCodes)</td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm"
-                                                @onclick="() => ToggleManageMembersAsync(group.GroupId, group.Name)">
-                                            @(IsManagingGroup(group.GroupId) ? "Close members" : "Manage members")
-                                        </button>
-                                        <button type="button"
-                                                class="btn btn-outline-danger btn-sm"
-                                                @onclick="() => DeleteGroupAsync(group.GroupId, group.Name)"
-                                                disabled="@(_isDeleting && _deletingGroupId == group.GroupId)">
-                                            @(_isDeleting && _deletingGroupId == group.GroupId ? "Deleting..." : "Delete")
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="pager-bar">
-                <span class="text-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousPageAsync" disabled="@(_groupQuery.Page <= 1)">Previous</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextPageAsync" disabled="@(_groupQuery.Page >= _groupPage.TotalPages)">Next</button>
-                </div>
-            </div>
-        }
-    </section>
-
-    @if (_selectedGroupId.HasValue)
-    {
-        <section class="panel-card group-members-card mt-4">
-            <div class="panel-card-header">
-                <div>
-                    <h3>Manage members</h3>
-                    <p class="mb-0 text-muted">Update membership for <strong>@SelectedGroupName</strong>.</p>
-                </div>
-                <span class="text-muted">@_groupUserPage.TotalCount total users</span>
-            </div>
-
-            <div class="row g-2 mb-3">
-                <div class="col-lg-5 col-md-12">
-                    <label class="form-label" for="groupUserSearch">Search users</label>
-                    <input id="groupUserSearch"
-                           class="form-control"
-                           type="text"
-                           value="@_groupUserQuery.FilterText"
-                           @oninput="OnGroupUserSearchChanged"
-                           placeholder="Filter by username or display name..." />
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <label class="form-label" for="groupUserAssigned">Assigned</label>
-                    <select id="groupUserAssigned" class="form-select" @onchange="OnGroupUserAssignedFilterChanged">
-                        <option value="all" selected="@(!_groupUserQuery.Assigned.HasValue)">All</option>
-                        <option value="assigned" selected="@(_groupUserQuery.Assigned == true)">Assigned</option>
-                        <option value="unassigned" selected="@(_groupUserQuery.Assigned == false)">Unassigned</option>
-                    </select>
-                </div>
-                <div class="col-lg-3 col-md-6">
-                    <label class="form-label" for="groupUserPageSize">Page size</label>
-                    <select id="groupUserPageSize" class="form-select" @onchange="OnGroupUserPageSizeChanged">
-                        @foreach (var option in _pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == _groupUserQuery.PageSize)">@option</option>
-                        }
-                    </select>
+                <div class="group-directory-sort">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeSortAsync("name"))">
+                        Name @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeSortAsync("description"))">
+                        Description @SortGlyph("description", _groupQuery.SortField, _groupQuery.SortDirection)
+                    </button>
                 </div>
             </div>
 
-            @if (_groupUserPage.TotalCount == 0)
+            @if (_groupPage.TotalCount == 0)
             {
-                <p class="mb-0">No users available for the current filter.</p>
+                <div class="group-directory-empty">
+                    <p class="mb-0">No groups found for the current filter.</p>
+                </div>
             }
             else
             {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("username"))">Username @SortGlyph("username", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
-                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
-                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in _groupUserPage.Items)
-                            {
-                                <tr>
-                                    <td>@user.Username</td>
-                                    <td>@user.DisplayName</td>
-                                    <td class="text-end">
-                                        <input class="form-check-input"
-                                               type="checkbox"
-                                               checked="@IsUserAssigned(user)"
-                                               @onchange="args => ToggleUserLocal(user, args)" />
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                <div class="group-directory-list">
+                    @foreach (var group in _groupPage.Items)
+                    {
+                        <button type="button"
+                                class="group-directory-item @(group.GroupId == _selectedGroupId ? "is-active" : string.Empty)"
+                                @onclick="() => SelectGroupAsync(group.GroupId, group.Name, resetMemberQuery: true)">
+                            <span class="group-avatar" aria-hidden="true">@GroupInitial(group)</span>
+                            <span class="group-directory-item-body">
+                                <span class="group-directory-name">@group.Name</span>
+                                <span class="group-directory-description">@GroupDescriptionOrFallback(group)</span>
+                                <span class="group-chip-list">
+                                    <span class="group-chip">@group.Members.Count member(s)</span>
+                                    <span class="group-chip">@group.ProjectCodes.Count project(s)</span>
+                                    @if (group.GroupId == _selectedGroupId)
+                                    {
+                                        <span class="group-status-badge">Selected</span>
+                                    }
+                                </span>
+                            </span>
+                        </button>
+                    }
                 </div>
 
-                <div class="pager-bar">
-                    <span class="text-muted">Page @_groupUserPage.Page of @_groupUserPage.TotalPages</span>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupUserPageAsync" disabled="@(_groupUserPage.Page <= 1)">Previous</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupUserPageAsync" disabled="@(_groupUserPage.Page >= _groupUserPage.TotalPages)">Next</button>
+                <div class="group-directory-footer">
+                    <div class="group-directory-footer-row">
+                        <span>Page @_groupPage.Page of @_groupPage.TotalPages</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousPageAsync" disabled="@(_groupQuery.Page <= 1)">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextPageAsync" disabled="@(_groupQuery.Page >= _groupPage.TotalPages)">Next</button>
+                        </div>
+                    </div>
+                    <div class="group-directory-footer-row">
+                        <span>@VisibleGroupRangeLabel()</span>
+                        <div class="group-page-size">
+                            <label class="project-page-size-label" for="groupPageSize">Page size</label>
+                            <select id="groupPageSize"
+                                    class="form-select form-select-sm project-page-size-select"
+                                    @onchange="OnPageSizeChanged">
+                                @foreach (var option in _pageSizeOptions)
+                                {
+                                    <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
+                                }
+                            </select>
+                        </div>
                     </div>
                 </div>
             }
+        </aside>
 
-            <div class="mt-3 d-flex gap-2">
-                <button type="button" class="btn btn-primary" @onclick="SaveGroupMembersAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">
-                    @(_isSavingMembers ? "Saving..." : "Save members")
-                </button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupMemberEditsAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">Reset members</button>
-            </div>
-        </section>
-    }
+        <div class="group-detail-column">
+            @if (SelectedGroup is null)
+            {
+                <section class="panel-card group-empty-card">
+                    <h3>Select a group</h3>
+                    <p class="mb-0">Choose a group from the directory to manage members, review project access, or delete the group.</p>
+                </section>
+            }
+            else
+            {
+                <section class="panel-card group-profile-card">
+                    <div class="group-profile-summary">
+                        <span class="group-avatar group-avatar-large" aria-hidden="true">@GroupInitial(SelectedGroup)</span>
+                        <div class="group-profile-copy">
+                            <div class="group-profile-heading">
+                                <h3>@SelectedGroup.Name</h3>
+                                <span class="group-status-badge">Selected Group</span>
+                            </div>
+                            <p class="group-profile-description mb-0">@GroupDescriptionOrFallback(SelectedGroup)</p>
+                            <div class="group-profile-meta">
+                                <span>@SelectedGroup.Members.Count member(s)</span>
+                                <span>@SelectedGroup.ProjectCodes.Count project(s)</span>
+                            </div>
+                            <div class="group-chip-list">
+                                @if (SelectedGroup.Members.Count == 0)
+                                {
+                                    <span class="group-chip is-empty">No members assigned</span>
+                                }
+                                else
+                                {
+                                    @foreach (var member in SelectedGroup.Members.Take(6))
+                                    {
+                                        <span class="group-chip">@member</span>
+                                    }
+                                    @if (SelectedGroup.Members.Count > 6)
+                                    {
+                                        <span class="group-chip">+@(SelectedGroup.Members.Count - 6) more</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel-card group-members-card">
+                    <div class="panel-card-header group-section-header">
+                        <div>
+                            <p class="group-section-kicker">Members</p>
+                            <h3>Manage members</h3>
+                            <p class="group-section-copy">Search users, review membership, and save access changes for this group.</p>
+                        </div>
+                        <div class="panel-card-header-actions">
+                            <button type="button" class="btn btn-outline-primary" @onclick="() => ToggleManageMembersAsync(SelectedGroup.GroupId, SelectedGroup.Name)">
+                                @(_showMemberBrowser ? "Close Member Browser" : "Manage Members")
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="group-chip-list">
+                        @if (SelectedGroup.Members.Count == 0)
+                        {
+                            <span class="group-chip is-empty">No members assigned</span>
+                        }
+                        else
+                        {
+                            @foreach (var member in SelectedGroup.Members)
+                            {
+                                <span class="group-chip">@member</span>
+                            }
+                        }
+                    </div>
+
+                    @if (_showMemberBrowser)
+                    {
+                        <div class="group-member-browser">
+                            <div class="row g-2 mb-3">
+                                <div class="col-lg-5 col-md-12">
+                                    <label class="form-label" for="groupUserSearch">Search users</label>
+                                    <input id="groupUserSearch"
+                                           class="form-control"
+                                           type="text"
+                                           value="@_groupUserQuery.FilterText"
+                                           @oninput="OnGroupUserSearchChanged"
+                                           placeholder="Filter by username or display name..." />
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <label class="form-label" for="groupUserAssigned">Assigned</label>
+                                    <select id="groupUserAssigned" class="form-select" @onchange="OnGroupUserAssignedFilterChanged">
+                                        <option value="all" selected="@(!_groupUserQuery.Assigned.HasValue)">All</option>
+                                        <option value="assigned" selected="@(_groupUserQuery.Assigned == true)">Assigned</option>
+                                        <option value="unassigned" selected="@(_groupUserQuery.Assigned == false)">Unassigned</option>
+                                    </select>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <label class="form-label" for="groupUserPageSize">Page size</label>
+                                    <select id="groupUserPageSize" class="form-select" @onchange="OnGroupUserPageSizeChanged">
+                                        @foreach (var option in _pageSizeOptions)
+                                        {
+                                            <option value="@option" selected="@(option == _groupUserQuery.PageSize)">@option</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            @if (_groupUserPage.TotalCount == 0)
+                            {
+                                <p class="mb-0 group-member-table-note">No users available for the current filter.</p>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("username"))">Username @SortGlyph("username", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var user in _groupUserPage.Items)
+                                            {
+                                                <tr>
+                                                    <td>@user.Username</td>
+                                                    <td>@user.DisplayName</td>
+                                                    <td class="text-end">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               checked="@IsUserAssigned(user)"
+                                                               @onchange="args => ToggleUserLocal(user, args)" />
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="pager-bar">
+                                    <span class="text-muted">Page @_groupUserPage.Page of @_groupUserPage.TotalPages</span>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupUserPageAsync" disabled="@(_groupUserPage.Page <= 1)">Previous</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupUserPageAsync" disabled="@(_groupUserPage.Page >= _groupUserPage.TotalPages)">Next</button>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="group-section-actions">
+                                <button type="button" class="btn btn-primary" @onclick="SaveGroupMembersAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">
+                                    @(_isSavingMembers ? "Saving..." : "Save Members")
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupMemberEditsAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">Reset Members</button>
+                            </div>
+                        </div>
+                    }
+                </section>
+
+                <section class="panel-card group-projects-card">
+                    <div class="panel-card-header group-section-header">
+                        <div>
+                            <p class="group-section-kicker">Projects</p>
+                            <h3>Project access</h3>
+                            <p class="group-section-copy">Projects currently associated with this group.</p>
+                        </div>
+                    </div>
+
+                    <div class="group-chip-list">
+                        @if (SelectedGroup.ProjectCodes.Count == 0)
+                        {
+                            <span class="group-chip is-empty">No projects assigned</span>
+                        }
+                        else
+                        {
+                            @foreach (var projectCode in SelectedGroup.ProjectCodes)
+                            {
+                                <span class="group-chip">@projectCode</span>
+                            }
+                        }
+                    </div>
+                </section>
+
+                <section class="panel-card group-danger-card">
+                    <div class="panel-card-header group-section-header">
+                        <div>
+                            <p class="group-section-kicker group-danger-kicker">Danger Zone</p>
+                            <h3>Irreversible actions</h3>
+                            <p class="group-section-copy">Delete this group if it is no longer needed.</p>
+                        </div>
+                    </div>
+
+                    <div class="group-danger-actions">
+                        <div class="group-danger-copy">
+                            <strong>Delete this group</strong>
+                            <span>Deleting a group removes its membership container and cannot be undone.</span>
+                        </div>
+                        <button type="button"
+                                class="btn btn-danger"
+                                @onclick="() => DeleteGroupAsync(SelectedGroup.GroupId, SelectedGroup.Name)"
+                                disabled="@(_isDeleting && _deletingGroupId == SelectedGroup.GroupId)">
+                            @(_isDeleting && _deletingGroupId == SelectedGroup.GroupId ? "Deleting..." : "Delete Group")
+                        </button>
+                    </div>
+                </section>
+            }
+        </div>
+    </div>
 }
 
 @code {
@@ -271,6 +387,7 @@ else
     private Guid? _selectedGroupId;
     private string? _selectedGroupName;
     private bool _showCreateGroupForm;
+    private bool _showMemberBrowser;
     private bool _isCreating;
     private bool _isDeleting;
     private Guid? _deletingGroupId;
@@ -280,6 +397,10 @@ else
 
     private bool _memberAssignmentsDirty => _pendingMemberAssignments.Count > 0;
     private string SelectedGroupName => _selectedGroupName ?? "Selected group";
+    private GroupOverview? SelectedGroup
+        => _selectedGroupId is { } id
+            ? _groupPage.Items.FirstOrDefault(g => g.GroupId == id)
+            : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,13 +411,36 @@ else
         }
 
         _currentUser = await JournalApp.GetCurrentUserAsync();
-        await LoadGroupsAsync();
+        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
     }
 
-    private Task LoadGroupsAsync()
+    private async Task LoadGroupsAsync(bool selectFirstGroupIfNeeded = false)
     {
         _groupPage = JournalApp.GetGroups(_groupQuery);
-        return Task.CompletedTask;
+
+        if (_groupPage.TotalCount == 0)
+        {
+            ClearSelectedGroup();
+            return;
+        }
+
+        if (selectFirstGroupIfNeeded || !_selectedGroupId.HasValue || !_groupPage.Items.Any(g => g.GroupId == _selectedGroupId.Value))
+        {
+            var firstGroup = _groupPage.Items.First();
+            await SelectGroupAsync(firstGroup.GroupId, firstGroup.Name, resetMemberQuery: true);
+            return;
+        }
+
+        var selectedGroup = SelectedGroup;
+        if (selectedGroup is not null)
+        {
+            _selectedGroupName = selectedGroup.Name;
+        }
+
+        if (_showMemberBrowser)
+        {
+            await LoadGroupUsersAsync();
+        }
     }
 
     private Task LoadGroupUsersAsync()
@@ -333,8 +477,7 @@ else
             _message = $"Group '{group.Name}' created.";
             ResetGroupForm();
             _showCreateGroupForm = false;
-            await LoadGroupsAsync();
-            await SelectGroupAsync(group.GroupId, group.Name, resetMemberQuery: true);
+            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
         }
         catch (Exception ex)
         {
@@ -370,7 +513,7 @@ else
                 ClearSelectedGroup();
             }
 
-            await LoadGroupsAsync();
+            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
         }
         catch (Exception ex)
         {
@@ -386,13 +529,21 @@ else
 
     private async Task ToggleManageMembersAsync(Guid groupId, string groupName)
     {
-        if (_selectedGroupId == groupId)
+        if (_selectedGroupId != groupId)
         {
-            ClearSelectedGroup();
+            _showMemberBrowser = true;
+            await SelectGroupAsync(groupId, groupName, resetMemberQuery: true);
             return;
         }
 
-        await SelectGroupAsync(groupId, groupName, resetMemberQuery: true);
+        _showMemberBrowser = !_showMemberBrowser;
+        _pendingMemberAssignments.Clear();
+
+        if (_showMemberBrowser)
+        {
+            _groupUserQuery.Page = 1;
+            await LoadGroupUsersAsync();
+        }
     }
 
     private async Task SelectGroupAsync(Guid groupId, string groupName, bool resetMemberQuery)
@@ -410,7 +561,10 @@ else
             _groupUserQuery.Page = 1;
         }
 
-        await LoadGroupUsersAsync();
+        if (_showMemberBrowser)
+        {
+            await LoadGroupUsersAsync();
+        }
     }
 
     private async Task SaveGroupMembersAsync()
@@ -484,13 +638,11 @@ else
     private bool IsUserAssigned(GroupUserAccessRow row)
         => _pendingMemberAssignments.TryGetValue(row.UserId, out var value) ? value : row.IsAssigned;
 
-    private bool IsManagingGroup(Guid groupId)
-        => _selectedGroupId == groupId;
-
     private void ClearSelectedGroup()
     {
         _selectedGroupId = null;
         _selectedGroupName = null;
+        _showMemberBrowser = false;
         _pendingMemberAssignments.Clear();
         _groupUserPage = new PagedResult<GroupUserAccessRow>(Array.Empty<GroupUserAccessRow>(), 0, 1, _groupUserQuery.PageSize, 1);
     }
@@ -499,7 +651,7 @@ else
     {
         _groupQuery.FilterText = args.Value?.ToString() ?? string.Empty;
         _groupQuery.Page = 1;
-        await LoadGroupsAsync();
+        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
     }
 
     private async Task OnPageSizeChanged(ChangeEventArgs args)
@@ -508,7 +660,7 @@ else
         {
             _groupQuery.PageSize = pageSize;
             _groupQuery.Page = 1;
-            await LoadGroupsAsync();
+            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
         }
     }
 
@@ -525,7 +677,7 @@ else
         }
 
         _groupQuery.Page = 1;
-        await LoadGroupsAsync();
+        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
     }
 
     private async Task GoToPreviousPageAsync()
@@ -533,7 +685,7 @@ else
         if (_groupQuery.Page > 1)
         {
             _groupQuery.Page--;
-            await LoadGroupsAsync();
+            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
         }
     }
 
@@ -542,7 +694,7 @@ else
         if (_groupQuery.Page < _groupPage.TotalPages)
         {
             _groupQuery.Page++;
-            await LoadGroupsAsync();
+            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
         }
     }
 
@@ -637,9 +789,24 @@ else
             ? currentDirection == SortDirection.Asc ? "\u2191" : "\u2193"
             : string.Empty;
 
-    private static string FormatList(IReadOnlyList<string> values)
-        => values.Count == 0 ? "-" : string.Join(", ", values);
+    private static string GroupInitial(GroupOverview group)
+    {
+        var source = string.IsNullOrWhiteSpace(group.Name) ? "G" : group.Name.Trim();
+        return source[0].ToString().ToUpperInvariant();
+    }
 
-    private static string RenderValueOrDash(string? value)
-        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+    private static string GroupDescriptionOrFallback(GroupOverview group)
+        => string.IsNullOrWhiteSpace(group.Description) ? "No description provided." : group.Description;
+
+    private string VisibleGroupRangeLabel()
+    {
+        if (_groupPage.TotalCount == 0)
+        {
+            return "Showing 0 groups";
+        }
+
+        var start = ((_groupPage.Page - 1) * _groupPage.PageSize) + 1;
+        var end = Math.Min(_groupPage.Page * _groupPage.PageSize, _groupPage.TotalCount);
+        return $"Showing {start}-{end} of {_groupPage.TotalCount} groups";
+    }
 }

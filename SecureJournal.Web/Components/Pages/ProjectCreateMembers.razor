@@ -1,0 +1,159 @@
+@page "/admin/projects/create/members"
+@attribute [Authorize(Roles = "Administrator")]
+@inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
+@inject ILogger<ProjectCreateMembers> Logger
+@inject ProjectCreationWizardState WizardState
+
+<PageTitle>Create project - Step 3</PageTitle>
+
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Administration</p>
+        <h2>Create project (Step 3 of 3)</h2>
+        <p>Select users to add to the new group. Members are added when you click Create Project.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <section class="panel-card project-create-card">
+        <div class="panel-card-header">
+            <h3>Step 3: Group members</h3>
+        </div>
+
+        <p class="text-muted">New group: <strong>@WizardState.NewGroupDraft.Name</strong></p>
+
+        @if (_users.Count == 0)
+        {
+            <p class="mb-3">No users available.</p>
+        }
+        else
+        {
+            <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th class="text-end">Add</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _users)
+                        {
+                            <tr>
+                                <td>@user.DisplayName (@user.Username)</td>
+                                <td>@user.Role</td>
+                                <td class="text-end">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           checked="@WizardState.SelectedNewGroupMemberIds.Contains(user.UserId)"
+                                           @onchange="args => ToggleMember(user.UserId, args)" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="mt-3 d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Back</button>
+            <button type="button" class="btn btn-primary" @onclick="CreateProjectAsync">Create Project</button>
+            <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
+        </div>
+    </section>
+}
+
+@code {
+    private UserContext? _currentUser;
+    private List<UserOverview> _users = [];
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await JournalApp.HasCurrentUserAsync())
+        {
+            Navigation.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+        if (!WizardState.HasProjectDetails())
+        {
+            Navigation.NavigateTo("/admin/projects/create", forceLoad: false);
+            return;
+        }
+
+        if (!WizardState.CreateNewGroup || string.IsNullOrWhiteSpace(WizardState.NewGroupDraft.Name))
+        {
+            Navigation.NavigateTo("/admin/projects/create/groups", forceLoad: false);
+            return;
+        }
+
+        _users = JournalApp.GetUsers()
+            .OrderBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private Task CreateProjectAsync()
+    {
+        _error = null;
+
+        try
+        {
+            WizardState.Complete(JournalApp);
+            WizardState.Reset();
+            Navigation.NavigateTo("/admin/projects", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin project wizard completion failed at member step");
+            _error = ex.Message;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ToggleMember(Guid userId, ChangeEventArgs args)
+    {
+        if (args.Value is bool include)
+        {
+            if (include)
+            {
+                WizardState.SelectedNewGroupMemberIds.Add(userId);
+            }
+            else
+            {
+                WizardState.SelectedNewGroupMemberIds.Remove(userId);
+            }
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/admin/projects/create/groups", forceLoad: false);
+    }
+
+    private void CancelWizard()
+    {
+        WizardState.Reset();
+        Navigation.NavigateTo("/admin/projects", forceLoad: false);
+    }
+}

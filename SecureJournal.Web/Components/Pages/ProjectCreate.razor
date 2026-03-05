@@ -2,26 +2,21 @@
 @attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
-@inject ILogger<ProjectCreate> Logger
+@inject ProjectCreationWizardState WizardState
 
-<PageTitle>Create project</PageTitle>
+<PageTitle>Create project - Step 1</PageTitle>
 
 <section class="page-head">
     <div>
         <p class="eyebrow">Administration</p>
-        <h2>Create project</h2>
-        <p>Create a new project and then manage its group access in Project Management.</p>
+        <h2>Create project (Step 1 of 3)</h2>
+        <p>Enter project information. You can assign groups and members in the next steps.</p>
     </div>
 </section>
 
 @if (!string.IsNullOrWhiteSpace(_error))
 {
     <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
 }
 
 @if (_currentUser is null)
@@ -38,10 +33,10 @@ else
 {
     <section class="panel-card project-create-card">
         <div class="panel-card-header">
-            <h3>Create project</h3>
+            <h3>Step 1: Project details</h3>
         </div>
 
-        <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
+        <EditForm Model="WizardState.ProjectDraft" OnValidSubmit="GoToGroupStepAsync" FormName="admin-project-create">
             <AntiforgeryToken />
             <DataAnnotationsValidator />
             <ValidationSummary />
@@ -49,49 +44,44 @@ else
             <div class="project-metadata-grid">
                 <div class="project-metadata-main">
                     <label class="form-label" for="projectName">Name</label>
-                    <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
+                    <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.Name" />
                 </div>
 
                 <div class="project-metadata-main">
                     <label class="form-label" for="projectDescription">Description</label>
-                    <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
+                    <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="WizardState.ProjectDraft.Description" />
                     <small class="text-muted">Project code is generated automatically (for example PRJ0001).</small>
                 </div>
 
                 <div>
                     <label class="form-label" for="projectOwner">Project Owner</label>
-                    <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwner" />
+                    <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.ProjectOwner" />
                 </div>
                 <div>
                     <label class="form-label" for="projectDepartment">Department</label>
-                    <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Department" />
+                    <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.Department" />
                 </div>
                 <div>
                     <label class="form-label" for="projectEmail">Project owner email</label>
-                    <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="ProjectDraft.ProjectEmail" />
+                    <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="WizardState.ProjectDraft.ProjectEmail" />
                 </div>
                 <div>
                     <label class="form-label" for="projectPhone">Project owner phone</label>
-                    <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="ProjectDraft.ProjectPhone" />
+                    <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="WizardState.ProjectDraft.ProjectPhone" />
                 </div>
             </div>
 
             <div class="mt-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create new project</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
-                <a href="/admin/projects" class="btn btn-outline-secondary">Project Management</a>
+                <button type="submit" class="btn btn-primary">Next</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetWizard">Reset</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
             </div>
         </EditForm>
     </section>
 }
 
 @code {
-    [SupplyParameterFromForm(FormName = "admin-project-create")]
-    private CreateProjectRequest? PostedProjectDraft { get; set; }
-    private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
-
     private UserContext? _currentUser;
-    private string? _message;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -105,40 +95,22 @@ else
         _currentUser = await JournalApp.GetCurrentUserAsync();
     }
 
-    private Task CreateProjectAsync()
+    private Task GoToGroupStepAsync()
     {
-        ClearMessages();
-        Logger.LogInformation("Admin project form submit: CreateProject");
-
-        try
-        {
-            var project = JournalApp.CreateProject(ProjectDraft);
-            _message = $"Project '{project.Code}' created.";
-            ResetProjectForm();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Admin project create failed");
-            _error = ex.Message;
-        }
-
+        _error = null;
+        Navigation.NavigateTo("/admin/projects/create/groups", forceLoad: false);
         return Task.CompletedTask;
     }
 
-    private void ClearMessages()
+    private void ResetWizard()
     {
-        _message = null;
+        WizardState.Reset();
         _error = null;
     }
 
-    private void ResetProjectForm()
+    private void CancelWizard()
     {
-        ProjectDraft.Code = string.Empty;
-        ProjectDraft.Name = string.Empty;
-        ProjectDraft.Description = string.Empty;
-        ProjectDraft.ProjectEmail = string.Empty;
-        ProjectDraft.ProjectPhone = string.Empty;
-        ProjectDraft.ProjectOwner = string.Empty;
-        ProjectDraft.Department = string.Empty;
+        WizardState.Reset();
+        Navigation.NavigateTo("/admin/projects", forceLoad: false);
     }
 }

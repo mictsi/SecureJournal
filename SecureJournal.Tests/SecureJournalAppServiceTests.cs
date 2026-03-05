@@ -254,6 +254,56 @@ public sealed class SecureJournalAppServiceTests
     }
 
     [Fact]
+    public void ProjectCreationWizardState_DefersAllWritesUntilCompletion()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+
+        var existingGroup = ctx.App.CreateGroup(new CreateGroupRequest
+        {
+            Name = "Existing Team"
+        });
+        var userOne = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "wizarduser1",
+            DisplayName = "Wizard User One",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "WizardPass123!"
+        });
+        var userTwo = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "wizarduser2",
+            DisplayName = "Wizard User Two",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "WizardPass456!"
+        });
+
+        var wizard = new ProjectCreationWizardState();
+        wizard.ProjectDraft.Name = "Wizard Project";
+        wizard.ProjectDraft.Description = "Created via wizard";
+        wizard.CreateNewGroup = true;
+        wizard.NewGroupDraft.Name = "Wizard Group";
+        wizard.SelectedExistingGroupIds.Add(existingGroup.GroupId);
+        wizard.SelectedNewGroupMemberIds.Add(userOne.UserId);
+        wizard.SelectedNewGroupMemberIds.Add(userTwo.UserId);
+
+        Assert.DoesNotContain(ctx.App.GetProjects(), p => p.Name == "Wizard Project");
+        Assert.DoesNotContain(ctx.App.GetGroups(), g => g.Name == "Wizard Group");
+
+        var createdCode = wizard.Complete(ctx.App);
+
+        var createdProject = Assert.Single(ctx.App.GetProjects(), p => p.Code == createdCode);
+        Assert.Contains("Existing Team", createdProject.AssignedGroups);
+        Assert.Contains("Wizard Group", createdProject.AssignedGroups);
+
+        var createdGroup = Assert.Single(ctx.App.GetGroups(), g => g.Name == "Wizard Group");
+        Assert.Contains("Wizard User One", createdGroup.Members);
+        Assert.Contains("Wizard User Two", createdGroup.Members);
+    }
+
+    [Fact]
     public void AdminCanDisableUser_AndDisabledUserCannotSignIn()
     {
         using var ctx = TestAppContext.Create();

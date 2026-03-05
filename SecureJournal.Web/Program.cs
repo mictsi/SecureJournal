@@ -80,6 +80,7 @@ else
 }
 builder.Services.AddScoped<ISecureJournalAppService, SecureJournalAppService>();
 builder.Services.AddScoped<PrototypeSessionCookieCoordinator>();
+builder.Services.AddScoped<ProjectCreationWizardState>();
 builder.Services.AddProductionIdentityAndDatabaseFoundation(builder.Configuration);
 if (appInsightsEnabled)
 {
@@ -429,4 +430,3 @@ internal sealed record RequestLoggingSettings(RequestLoggingMode Mode, LogLevel 
         return new RequestLoggingSettings(mode, level);
     }
 }
-

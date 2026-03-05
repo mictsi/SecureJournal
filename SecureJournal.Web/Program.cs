@@ -79,6 +79,7 @@ else
     builder.Services.AddScoped<IPrototypeDataStore>(sp => sp.GetRequiredService<SqlitePrototypeStore>());
 }
 builder.Services.AddScoped<ISecureJournalAppService, SecureJournalAppService>();
+builder.Services.AddScoped<ProjectCreateWizardState>();
 builder.Services.AddScoped<PrototypeSessionCookieCoordinator>();
 builder.Services.AddProductionIdentityAndDatabaseFoundation(builder.Configuration);
 if (appInsightsEnabled)
@@ -429,4 +430,3 @@ internal sealed record RequestLoggingSettings(RequestLoggingMode Mode, LogLevel 
         return new RequestLoggingSettings(mode, level);
     }
 }
-

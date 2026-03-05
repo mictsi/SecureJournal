@@ -239,6 +239,11 @@ else
 
     private const int MinStep = 1;
     private const int MaxStep = 3;
+    private const string WizardBaseRoute = "/admin/projects/create";
+    private const string StepOneRoute = WizardBaseRoute;
+    private const string StepTwoRoute = $"{WizardBaseRoute}/2";
+    private const string StepThreeRoute = $"{WizardBaseRoute}/3";
+    private const string StartPageRoute = "/projects";
 
     private UserContext? _currentUser;
     private string? _message;
@@ -288,39 +293,39 @@ else
         if (CurrentStep < MinStep || CurrentStep > MaxStep)
         {
             CurrentStep = MinStep;
-            Navigation.NavigateTo("/admin/projects/create", forceLoad: false);
+            Navigation.NavigateTo(StepOneRoute, forceLoad: false);
             return;
         }
 
         if (CurrentStep >= 2 && string.IsNullOrWhiteSpace(WizardState.ProjectDraft.Name))
         {
-            Navigation.NavigateTo("/admin/projects/create", forceLoad: false);
+            Navigation.NavigateTo(StepOneRoute, forceLoad: false);
             return;
         }
 
         if (CurrentStep == 3 && (WizardState.UseExistingGroups || WizardState.NewGroups.Count == 0))
         {
-            Navigation.NavigateTo("/admin/projects/create/2", forceLoad: false);
+            Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
         }
     }
 
     private Task GoToStepTwoAsync()
     {
         ClearMessages();
-        Navigation.NavigateTo("/admin/projects/create/2", forceLoad: false);
+        Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
         return Task.CompletedTask;
     }
 
     private void GoToStepOne()
     {
         ClearMessages();
-        Navigation.NavigateTo("/admin/projects/create", forceLoad: false);
+        Navigation.NavigateTo(StepOneRoute, forceLoad: false);
     }
 
     private void GoToStepTwo()
     {
         ClearMessages();
-        Navigation.NavigateTo("/admin/projects/create/2", forceLoad: false);
+        Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
     }
 
     private void GoToStepThree()
@@ -332,13 +337,13 @@ else
             return;
         }
 
-        Navigation.NavigateTo("/admin/projects/create/3", forceLoad: false);
+        Navigation.NavigateTo(StepThreeRoute, forceLoad: false);
     }
 
     private void CancelWizard()
     {
         WizardState.Reset();
-        Navigation.NavigateTo("/projects", forceLoad: false);
+        Navigation.NavigateTo(StartPageRoute, forceLoad: false);
     }
 
     private void SetGroupMode(bool useExistingGroups)
@@ -379,9 +384,8 @@ else
             return;
         }
 
-        var duplicateExisting = _existingGroups.Any(group => string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase));
-        var duplicateNew = WizardState.NewGroups.Any(group => string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase));
-        if (duplicateExisting || duplicateNew)
+        if (_existingGroups.Any(group => string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase))
+            || WizardState.NewGroups.Any(group => string.Equals(group.Name, name, StringComparison.OrdinalIgnoreCase)))
         {
             _error = $"Group '{name}' already exists.";
             return;
@@ -476,7 +480,7 @@ else
             }
 
             WizardState.Reset();
-            Navigation.NavigateTo("/projects", forceLoad: false);
+            Navigation.NavigateTo(StartPageRoute, forceLoad: false);
         }
         catch (Exception ex)
         {

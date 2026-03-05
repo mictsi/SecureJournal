@@ -67,3 +67,20 @@ public sealed record GroupAccessRow(
     string Name,
     string Description,
     bool IsAssigned);
+
+public sealed class GroupUserMembershipQuery
+{
+    public Guid GroupId { get; set; }
+    public string FilterText { get; set; } = string.Empty;
+    public bool? Assigned { get; set; }
+    public string SortField { get; set; } = "displayName";
+    public SortDirection SortDirection { get; set; } = SortDirection.Asc;
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}
+
+public sealed record GroupUserAccessRow(
+    Guid UserId,
+    string Username,
+    string DisplayName,
+    bool IsAssigned);

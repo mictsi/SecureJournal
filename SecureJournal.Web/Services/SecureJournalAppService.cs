@@ -968,6 +968,39 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    public PagedResult<GroupUserAccessRow> GetGroupUsers(GroupUserMembershipQuery request)
+    {
+        request ??= new GroupUserMembershipQuery();
+
+        lock (_sync)
+        {
+            var currentUser = GetCurrentUserInternal();
+            if (!HasRole(currentUser, AppRole.Administrator))
+            {
+                return BuildPagedResult(Array.Empty<GroupUserAccessRow>(), 0, 1, Math.Max(1, request.PageSize));
+            }
+
+            if (request.GroupId == Guid.Empty)
+            {
+                throw new InvalidOperationException("Group is required.");
+            }
+
+            var normalized = NormalizeStoreListQuery(
+                request.FilterText,
+                request.SortField,
+                request.SortDirection,
+                request.Page,
+                request.PageSize,
+                request.Assigned);
+            var storeResult = _sqliteStore.QueryGroupUsers(request.GroupId, normalized);
+            var items = storeResult.Items
+                .Select(x => new GroupUserAccessRow(x.UserId, x.Username, x.DisplayName, x.IsAssigned))
+                .ToList();
+
+            return BuildPagedResult(items, storeResult.TotalCount, normalized.Page, normalized.PageSize);
+        }
+    }
+
     public ProjectOverview CreateProject(CreateProjectRequest request)
     {
         lock (_sync)

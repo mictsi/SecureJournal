@@ -724,6 +724,80 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         return new StorePagedResult<StoredGroupAccessRow>(rows, totalCount);
     }
 
+    public StorePagedResult<StoredUserAccessRow> QueryGroupUsers(Guid groupId, StoreListQuery query)
+    {
+        Initialize();
+
+        using var connection = OpenConnectionInternal();
+        var sortColumn = ResolveGroupUserAccessSortColumn(query.SortField);
+        var sortDirection = query.SortDescending ? "DESC" : "ASC";
+        var filter = query.FilterText?.Trim() ?? string.Empty;
+
+        using var countCommand = connection.CreateCommand();
+        using var itemsCommand = connection.CreateCommand();
+
+        countCommand.Parameters.AddWithValue("$group_id", groupId.ToString("D"));
+        itemsCommand.Parameters.AddWithValue("$group_id", groupId.ToString("D"));
+
+        var whereClauses = new List<string>();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            whereClauses.Add("(u.username LIKE $filter ESCAPE '\\' OR u.display_name LIKE $filter ESCAPE '\\')");
+            var filterValue = $"%{EscapeLikeLikePattern(filter)}%";
+            countCommand.Parameters.AddWithValue("$filter", filterValue);
+            itemsCommand.Parameters.AddWithValue("$filter", filterValue);
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            whereClauses.Add(query.Assigned.Value ? "ug.user_id IS NOT NULL" : "ug.user_id IS NULL");
+        }
+
+        var whereSql = whereClauses.Count == 0
+            ? string.Empty
+            : $"WHERE {string.Join(" AND ", whereClauses)}";
+
+        countCommand.CommandText =
+            $$"""
+            SELECT COUNT(1)
+            FROM app_users u
+            LEFT JOIN user_groups ug ON ug.user_id = u.user_id AND ug.group_id = $group_id
+            {{whereSql}};
+            """;
+        var totalCount = Convert.ToInt32(countCommand.ExecuteScalar() ?? 0);
+
+        var skip = (query.Page - 1) * query.PageSize;
+        itemsCommand.CommandText =
+            $$"""
+            SELECT
+                u.user_id,
+                u.username,
+                u.display_name,
+                CASE WHEN ug.user_id IS NULL THEN 0 ELSE 1 END AS is_assigned
+            FROM app_users u
+            LEFT JOIN user_groups ug ON ug.user_id = u.user_id AND ug.group_id = $group_id
+            {{whereSql}}
+            ORDER BY {{sortColumn}} {{sortDirection}}, u.user_id ASC
+            LIMIT $take OFFSET $skip;
+            """;
+
+        itemsCommand.Parameters.AddWithValue("$take", query.PageSize);
+        itemsCommand.Parameters.AddWithValue("$skip", skip);
+
+        using var reader = itemsCommand.ExecuteReader();
+        var rows = new List<StoredUserAccessRow>();
+        while (reader.Read())
+        {
+            rows.Add(new StoredUserAccessRow(
+                UserId: Guid.Parse(reader.GetString(0)),
+                Username: reader.GetString(1),
+                DisplayName: reader.GetString(2),
+                IsAssigned: reader.GetInt64(3) == 1));
+        }
+
+        return new StorePagedResult<StoredUserAccessRow>(rows, totalCount);
+    }
+
     public IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds)
     {
         Initialize();
@@ -1415,6 +1489,14 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
         {
             "assigned" or "isassigned" or "is_assigned" => "is_assigned",
             _ => "g.name"
+        };
+
+    private static string ResolveGroupUserAccessSortColumn(string? sortField)
+        => (sortField ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => "is_assigned",
+            "username" => "u.username",
+            _ => "u.display_name"
         };
 
     private static string EscapeLikeLikePattern(string value)

@@ -1500,6 +1500,86 @@ public sealed class SecureJournalAppServiceTests
         Assert.Contains(combined, x => x.Name == "C-Team" && !x.IsAssigned);
     }
 
+    [Fact]
+    public void GroupUsersQuery_SupportsFilterSortPagingAndAssignmentFlags()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+
+        var group = ctx.App.CreateGroup(new CreateGroupRequest { Name = "Ops Team", Description = "Operations" });
+        var u1 = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "amy",
+            DisplayName = "Amy Alpha",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "AmyAlpha123!"
+        });
+        var u2 = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "zoe",
+            DisplayName = "Zoe Zebra",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "ZoeZebra123!"
+        });
+        var u3 = ctx.App.CreateUser(new CreateUserRequest
+        {
+            Username = "bob",
+            DisplayName = "Bob Beta",
+            Role = AppRole.ProjectUser,
+            IsLocalAccount = true,
+            LocalPassword = "BobBeta123!"
+        });
+
+        Assert.True(ctx.App.AssignUserToGroup(new AssignUserToGroupRequest { UserId = u2.UserId, GroupId = group.GroupId }));
+
+        var page1 = ctx.App.GetGroupUsers(new GroupUserMembershipQuery
+        {
+            GroupId = group.GroupId,
+            SortField = "displayName",
+            SortDirection = SortDirection.Asc,
+            Page = 1,
+            PageSize = 2
+        });
+        var page2 = ctx.App.GetGroupUsers(new GroupUserMembershipQuery
+        {
+            GroupId = group.GroupId,
+            SortField = "displayName",
+            SortDirection = SortDirection.Asc,
+            Page = 2,
+            PageSize = 2
+        });
+
+        Assert.Equal(4, page1.TotalCount);
+        Assert.Equal(2, page1.TotalPages);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Equal(2, page2.Items.Count);
+
+        var combined = page1.Items.Concat(page2.Items).ToList();
+        Assert.Contains(combined, x => x.Username == "zoe" && x.IsAssigned);
+        Assert.Contains(combined, x => x.Username == "amy" && !x.IsAssigned);
+        Assert.Contains(combined, x => x.Username == "bob" && !x.IsAssigned);
+
+        var assignedOnly = ctx.App.GetGroupUsers(new GroupUserMembershipQuery
+        {
+            GroupId = group.GroupId,
+            Assigned = true
+        });
+
+        Assert.Single(assignedOnly.Items);
+        Assert.Equal("zoe", assignedOnly.Items[0].Username);
+
+        var filtered = ctx.App.GetGroupUsers(new GroupUserMembershipQuery
+        {
+            GroupId = group.GroupId,
+            FilterText = "beta"
+        });
+
+        Assert.Single(filtered.Items);
+        Assert.Equal("bob", filtered.Items[0].Username);
+    }
+
     private static string BuildUniqueDatabasePath(string prefix)
     {
         var repoRoot = FindRepoRoot(AppContext.BaseDirectory);

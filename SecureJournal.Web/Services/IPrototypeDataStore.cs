@@ -16,6 +16,7 @@ public interface IPrototypeDataStore
     StorePagedResult<StoredGroupRow> QueryGroups(StoreListQuery query);
     StorePagedResult<StoredGroupAccessRow> QueryProjectGroups(Guid projectId, StoreListQuery query);
     StorePagedResult<StoredGroupAccessRow> QueryUserGroups(Guid userId, StoreListQuery query);
+    StorePagedResult<StoredUserAccessRow> QueryGroupUsers(Guid groupId, StoreListQuery query);
     IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds);
     IReadOnlyList<StoredUserGroupNameRow> LoadUserGroupNamesForUsers(IReadOnlyCollection<Guid> userIds);
     IReadOnlyList<StoredUserRoleRow> LoadUserRolesForUsers(IReadOnlyCollection<Guid> userIds);

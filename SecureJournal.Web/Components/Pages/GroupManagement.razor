@@ -10,7 +10,7 @@
     <div>
         <p class="eyebrow">Administration</p>
         <h2>Group Management</h2>
-        <p>Search groups and delete.</p>
+        <p>Create groups, search existing groups, and manage group members.</p>
     </div>
 </section>
 
@@ -36,6 +36,48 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
+    <section class="panel-card group-create-card mb-4">
+        <div class="panel-card-header">
+            <h3>Create group</h3>
+            <div class="panel-card-header-actions">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="ToggleCreateGroupForm">
+                    @(_showCreateGroupForm ? "Hide form" : "Create group")
+                </button>
+            </div>
+        </div>
+
+        @if (_showCreateGroupForm)
+        {
+            <EditForm Model="GroupDraft" OnValidSubmit="CreateGroupAsync" FormName="admin-group-create">
+                <AntiforgeryToken />
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="groupName">Group Name</label>
+                        <InputText id="groupName" class="form-control" maxlength="100" @bind-Value="GroupDraft.Name" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="groupDescription">Description</label>
+                        <InputTextArea id="groupDescription" class="form-control" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" />
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" disabled="@_isCreating">
+                        @(_isCreating ? "Creating..." : "Create group")
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupForm" disabled="@_isCreating">Reset</button>
+                </div>
+            </EditForm>
+        }
+        else
+        {
+            <p class="mb-0">Use the button above to add a new group without leaving this page.</p>
+        }
+    </section>
+
     <section class="panel-card group-list-card">
         <div class="panel-card-header">
             <h3>Groups</h3>
@@ -91,12 +133,19 @@ else
                                 <td>@FormatList(group.Members)</td>
                                 <td>@FormatList(group.ProjectCodes)</td>
                                 <td>
-                                    <button type="button"
-                                            class="btn btn-outline-danger btn-sm"
-                                            @onclick="() => DeleteGroupAsync(group.GroupId, group.Name)"
-                                            disabled="@(_isDeleting && _deletingGroupId == group.GroupId)">
-                                        @(_isDeleting && _deletingGroupId == group.GroupId ? "Deleting..." : "Delete")
-                                    </button>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm"
+                                                @onclick="() => ToggleManageMembersAsync(group.GroupId, group.Name)">
+                                            @(IsManagingGroup(group.GroupId) ? "Close members" : "Manage members")
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => DeleteGroupAsync(group.GroupId, group.Name)"
+                                                disabled="@(_isDeleting && _deletingGroupId == group.GroupId)">
+                                            @(_isDeleting && _deletingGroupId == group.GroupId ? "Deleting..." : "Delete")
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -113,17 +162,124 @@ else
             </div>
         }
     </section>
+
+    @if (_selectedGroupId.HasValue)
+    {
+        <section class="panel-card group-members-card mt-4">
+            <div class="panel-card-header">
+                <div>
+                    <h3>Manage members</h3>
+                    <p class="mb-0 text-muted">Update membership for <strong>@SelectedGroupName</strong>.</p>
+                </div>
+                <span class="text-muted">@_groupUserPage.TotalCount total users</span>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-lg-5 col-md-12">
+                    <label class="form-label" for="groupUserSearch">Search users</label>
+                    <input id="groupUserSearch"
+                           class="form-control"
+                           type="text"
+                           value="@_groupUserQuery.FilterText"
+                           @oninput="OnGroupUserSearchChanged"
+                           placeholder="Filter by username or display name..." />
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label" for="groupUserAssigned">Assigned</label>
+                    <select id="groupUserAssigned" class="form-select" @onchange="OnGroupUserAssignedFilterChanged">
+                        <option value="all" selected="@(!_groupUserQuery.Assigned.HasValue)">All</option>
+                        <option value="assigned" selected="@(_groupUserQuery.Assigned == true)">Assigned</option>
+                        <option value="unassigned" selected="@(_groupUserQuery.Assigned == false)">Unassigned</option>
+                    </select>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label" for="groupUserPageSize">Page size</label>
+                    <select id="groupUserPageSize" class="form-select" @onchange="OnGroupUserPageSizeChanged">
+                        @foreach (var option in _pageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == _groupUserQuery.PageSize)">@option</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (_groupUserPage.TotalCount == 0)
+            {
+                <p class="mb-0">No users available for the current filter.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("username"))">Username @SortGlyph("username", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in _groupUserPage.Items)
+                            {
+                                <tr>
+                                    <td>@user.Username</td>
+                                    <td>@user.DisplayName</td>
+                                    <td class="text-end">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               checked="@IsUserAssigned(user)"
+                                               @onchange="args => ToggleUserLocal(user, args)" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pager-bar">
+                    <span class="text-muted">Page @_groupUserPage.Page of @_groupUserPage.TotalPages</span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupUserPageAsync" disabled="@(_groupUserPage.Page <= 1)">Previous</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupUserPageAsync" disabled="@(_groupUserPage.Page >= _groupUserPage.TotalPages)">Next</button>
+                    </div>
+                </div>
+            }
+
+            <div class="mt-3 d-flex gap-2">
+                <button type="button" class="btn btn-primary" @onclick="SaveGroupMembersAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">
+                    @(_isSavingMembers ? "Saving..." : "Save members")
+                </button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupMemberEditsAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">Reset members</button>
+            </div>
+        </section>
+    }
 }
 
 @code {
     private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
+
+    [SupplyParameterFromForm(FormName = "admin-group-create")]
+    private CreateGroupRequest? PostedGroupDraft { get; set; }
+
+    private CreateGroupRequest GroupDraft => PostedGroupDraft ??= new();
     private UserContext? _currentUser;
     private GroupListQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
     private PagedResult<GroupOverview> _groupPage = new(Array.Empty<GroupOverview>(), 0, 1, 20, 1);
+    private GroupUserMembershipQuery _groupUserQuery = new() { PageSize = 20, SortField = "displayName" };
+    private PagedResult<GroupUserAccessRow> _groupUserPage = new(Array.Empty<GroupUserAccessRow>(), 0, 1, 20, 1);
+    private readonly Dictionary<Guid, bool> _pendingMemberAssignments = [];
+    private Guid? _selectedGroupId;
+    private string? _selectedGroupName;
+    private bool _showCreateGroupForm;
+    private bool _isCreating;
     private bool _isDeleting;
     private Guid? _deletingGroupId;
+    private bool _isSavingMembers;
     private string? _message;
     private string? _error;
+
+    private bool _memberAssignmentsDirty => _pendingMemberAssignments.Count > 0;
+    private string SelectedGroupName => _selectedGroupName ?? "Selected group";
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,13 +290,61 @@ else
         }
 
         _currentUser = await JournalApp.GetCurrentUserAsync();
-        await LoadDataAsync();
+        await LoadGroupsAsync();
     }
 
-    private Task LoadDataAsync()
+    private Task LoadGroupsAsync()
     {
         _groupPage = JournalApp.GetGroups(_groupQuery);
         return Task.CompletedTask;
+    }
+
+    private Task LoadGroupUsersAsync()
+    {
+        if (!_selectedGroupId.HasValue)
+        {
+            _groupUserPage = new PagedResult<GroupUserAccessRow>(Array.Empty<GroupUserAccessRow>(), 0, 1, _groupUserQuery.PageSize, 1);
+            return Task.CompletedTask;
+        }
+
+        _groupUserQuery.GroupId = _selectedGroupId.Value;
+        _groupUserPage = JournalApp.GetGroupUsers(_groupUserQuery);
+        return Task.CompletedTask;
+    }
+
+    private void ToggleCreateGroupForm()
+    {
+        _showCreateGroupForm = !_showCreateGroupForm;
+        if (!_showCreateGroupForm)
+        {
+            ResetGroupForm();
+        }
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        ClearMessages();
+        _isCreating = true;
+        Logger.LogInformation("Admin group form submit: CreateGroup {GroupName}", GroupDraft.Name);
+
+        try
+        {
+            var group = JournalApp.CreateGroup(GroupDraft);
+            _message = $"Group '{group.Name}' created.";
+            ResetGroupForm();
+            _showCreateGroupForm = false;
+            await LoadGroupsAsync();
+            await SelectGroupAsync(group.GroupId, group.Name, resetMemberQuery: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin group create failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isCreating = false;
+        }
     }
 
     private async Task DeleteGroupAsync(Guid groupId, string groupName)
@@ -161,7 +365,12 @@ else
                 ? $"Group '{groupName}' deleted."
                 : $"Group '{groupName}' was already removed.";
 
-            await LoadDataAsync();
+            if (deleted && _selectedGroupId == groupId)
+            {
+                ClearSelectedGroup();
+            }
+
+            await LoadGroupsAsync();
         }
         catch (Exception ex)
         {
@@ -175,11 +384,122 @@ else
         }
     }
 
+    private async Task ToggleManageMembersAsync(Guid groupId, string groupName)
+    {
+        if (_selectedGroupId == groupId)
+        {
+            ClearSelectedGroup();
+            return;
+        }
+
+        await SelectGroupAsync(groupId, groupName, resetMemberQuery: true);
+    }
+
+    private async Task SelectGroupAsync(Guid groupId, string groupName, bool resetMemberQuery)
+    {
+        _selectedGroupId = groupId;
+        _selectedGroupName = groupName;
+        _pendingMemberAssignments.Clear();
+
+        if (resetMemberQuery)
+        {
+            _groupUserQuery = new GroupUserMembershipQuery { PageSize = _groupUserQuery.PageSize, SortField = "displayName" };
+        }
+        else
+        {
+            _groupUserQuery.Page = 1;
+        }
+
+        await LoadGroupUsersAsync();
+    }
+
+    private async Task SaveGroupMembersAsync()
+    {
+        if (!_selectedGroupId.HasValue)
+        {
+            _error = "Select a group first.";
+            return;
+        }
+
+        if (!_memberAssignmentsDirty)
+        {
+            _message = $"No member changes to save for group '{SelectedGroupName}'.";
+            _error = null;
+            return;
+        }
+
+        try
+        {
+            _isSavingMembers = true;
+            _message = null;
+            _error = null;
+
+            foreach (var (userId, shouldBeAssigned) in _pendingMemberAssignments)
+            {
+                var request = new AssignUserToGroupRequest { UserId = userId, GroupId = _selectedGroupId.Value };
+                if (shouldBeAssigned)
+                {
+                    JournalApp.AssignUserToGroup(request);
+                }
+                else
+                {
+                    JournalApp.RemoveUserFromGroup(request);
+                }
+            }
+
+            _pendingMemberAssignments.Clear();
+            await LoadGroupsAsync();
+            await LoadGroupUsersAsync();
+            _message = $"Members updated for group '{SelectedGroupName}'.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Saving group members failed for GroupId={GroupId}", _selectedGroupId);
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isSavingMembers = false;
+        }
+    }
+
+    private Task ResetGroupMemberEditsAsync()
+    {
+        _pendingMemberAssignments.Clear();
+        return LoadGroupUsersAsync();
+    }
+
+    private void ToggleUserLocal(GroupUserAccessRow user, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked == user.IsAssigned)
+        {
+            _pendingMemberAssignments.Remove(user.UserId);
+            return;
+        }
+
+        _pendingMemberAssignments[user.UserId] = isChecked;
+    }
+
+    private bool IsUserAssigned(GroupUserAccessRow row)
+        => _pendingMemberAssignments.TryGetValue(row.UserId, out var value) ? value : row.IsAssigned;
+
+    private bool IsManagingGroup(Guid groupId)
+        => _selectedGroupId == groupId;
+
+    private void ClearSelectedGroup()
+    {
+        _selectedGroupId = null;
+        _selectedGroupName = null;
+        _pendingMemberAssignments.Clear();
+        _groupUserPage = new PagedResult<GroupUserAccessRow>(Array.Empty<GroupUserAccessRow>(), 0, 1, _groupUserQuery.PageSize, 1);
+    }
+
     private async Task OnSearchChanged(ChangeEventArgs args)
     {
         _groupQuery.FilterText = args.Value?.ToString() ?? string.Empty;
         _groupQuery.Page = 1;
-        await LoadDataAsync();
+        await LoadGroupsAsync();
     }
 
     private async Task OnPageSizeChanged(ChangeEventArgs args)
@@ -188,7 +508,7 @@ else
         {
             _groupQuery.PageSize = pageSize;
             _groupQuery.Page = 1;
-            await LoadDataAsync();
+            await LoadGroupsAsync();
         }
     }
 
@@ -205,7 +525,7 @@ else
         }
 
         _groupQuery.Page = 1;
-        await LoadDataAsync();
+        await LoadGroupsAsync();
     }
 
     private async Task GoToPreviousPageAsync()
@@ -213,7 +533,7 @@ else
         if (_groupQuery.Page > 1)
         {
             _groupQuery.Page--;
-            await LoadDataAsync();
+            await LoadGroupsAsync();
         }
     }
 
@@ -222,14 +542,94 @@ else
         if (_groupQuery.Page < _groupPage.TotalPages)
         {
             _groupQuery.Page++;
-            await LoadDataAsync();
+            await LoadGroupsAsync();
         }
+    }
+
+    private async Task OnGroupUserSearchChanged(ChangeEventArgs args)
+    {
+        _groupUserQuery.FilterText = args.Value?.ToString() ?? string.Empty;
+        _groupUserQuery.Page = 1;
+        await LoadGroupUsersAsync();
+    }
+
+    private async Task OnGroupUserAssignedFilterChanged(ChangeEventArgs args)
+    {
+        _groupUserQuery.Assigned = (args.Value?.ToString() ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "assigned" => true,
+            "unassigned" => false,
+            _ => null
+        };
+
+        _groupUserQuery.Page = 1;
+        await LoadGroupUsersAsync();
+    }
+
+    private async Task OnGroupUserPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
+        {
+            _groupUserQuery.PageSize = pageSize;
+            _groupUserQuery.Page = 1;
+            await LoadGroupUsersAsync();
+        }
+    }
+
+    private async Task ChangeGroupUserSortAsync(string field)
+    {
+        if (string.Equals(_groupUserQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _groupUserQuery.SortDirection = _groupUserQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        }
+        else
+        {
+            _groupUserQuery.SortField = field;
+            _groupUserQuery.SortDirection = SortDirection.Asc;
+        }
+
+        _groupUserQuery.Page = 1;
+        await LoadGroupUsersAsync();
+    }
+
+    private async Task GoToPreviousGroupUserPageAsync()
+    {
+        if (_groupUserQuery.Page > 1)
+        {
+            _groupUserQuery.Page--;
+            await LoadGroupUsersAsync();
+        }
+    }
+
+    private async Task GoToNextGroupUserPageAsync()
+    {
+        if (_groupUserQuery.Page < _groupUserPage.TotalPages)
+        {
+            _groupUserQuery.Page++;
+            await LoadGroupUsersAsync();
+        }
+    }
+
+    private void ResetGroupForm()
+    {
+        GroupDraft.Name = string.Empty;
+        GroupDraft.Description = string.Empty;
     }
 
     private void ClearMessages()
     {
         _message = null;
         _error = null;
+    }
+
+    private static bool ParseCheckboxValue(ChangeEventArgs args)
+    {
+        if (args.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
     }
 
     private static string SortGlyph(string field, string currentField, SortDirection currentDirection)

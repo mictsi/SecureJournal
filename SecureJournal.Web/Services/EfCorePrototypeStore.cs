@@ -358,6 +358,59 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
         return new StorePagedResult<StoredGroupAccessRow>(items, totalCount);
     }
 
+    public StorePagedResult<StoredUserAccessRow> QueryGroupUsers(Guid groupId, StoreListQuery query)
+    {
+        Initialize();
+        using var db = _dbFactory.CreateDbContext();
+
+        var baseQuery = db.AppUsers
+            .AsNoTracking()
+            .Select(u => new
+            {
+                u.UserId,
+                u.Username,
+                u.DisplayName,
+                IsAssigned = db.UserGroups.Any(ug => ug.GroupId == groupId && ug.UserId == u.UserId)
+            });
+
+        var filter = query.FilterText?.Trim();
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var pattern = $"%{EscapeLikeLikePattern(filter)}%";
+            baseQuery = baseQuery.Where(x =>
+                EF.Functions.Like(x.Username, pattern, "\\") ||
+                EF.Functions.Like(x.DisplayName, pattern, "\\"));
+        }
+
+        if (query.Assigned.HasValue)
+        {
+            baseQuery = baseQuery.Where(x => x.IsAssigned == query.Assigned.Value);
+        }
+
+        var totalCount = baseQuery.Count();
+        var sortField = (query.SortField ?? string.Empty).Trim().ToLowerInvariant();
+        var sorted = sortField switch
+        {
+            "assigned" or "isassigned" or "is_assigned" => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.IsAssigned).ThenBy(x => x.UserId)
+                : baseQuery.OrderBy(x => x.IsAssigned).ThenBy(x => x.UserId),
+            "username" => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.Username).ThenBy(x => x.UserId)
+                : baseQuery.OrderBy(x => x.Username).ThenBy(x => x.UserId),
+            _ => query.SortDescending
+                ? baseQuery.OrderByDescending(x => x.DisplayName).ThenBy(x => x.UserId)
+                : baseQuery.OrderBy(x => x.DisplayName).ThenBy(x => x.UserId)
+        };
+
+        var items = sorted
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(x => new StoredUserAccessRow(x.UserId, x.Username, x.DisplayName, x.IsAssigned))
+            .ToList();
+
+        return new StorePagedResult<StoredUserAccessRow>(items, totalCount);
+    }
+
     public IReadOnlyList<StoredProjectGroupNameRow> LoadProjectGroupNamesForProjects(IReadOnlyCollection<Guid> projectIds)
     {
         Initialize();

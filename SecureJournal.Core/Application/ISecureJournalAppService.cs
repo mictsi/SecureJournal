@@ -24,6 +24,7 @@ public interface ISecureJournalAppService
     IReadOnlyList<UserOverview> GetUsers();
     PagedResult<UserOverview> GetUsers(UserListQuery request);
     PagedResult<GroupAccessRow> GetUserGroups(UserGroupMembershipQuery request);
+    PagedResult<GroupUserAccessRow> GetGroupUsers(GroupUserMembershipQuery request);
     ProjectOverview CreateProject(CreateProjectRequest request);
     ProjectOverview UpdateProject(UpdateProjectRequest request);
     bool DeleteProject(Guid projectId);

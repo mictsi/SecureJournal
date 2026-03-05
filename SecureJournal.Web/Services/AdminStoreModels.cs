@@ -19,6 +19,12 @@ public sealed record StoredGroupAccessRow(
     string Description,
     bool IsAssigned);
 
+public sealed record StoredUserAccessRow(
+    Guid UserId,
+    string Username,
+    string DisplayName,
+    bool IsAssigned);
+
 public sealed record StoredProjectGroupNameRow(
     Guid ProjectId,
     string GroupName);

@@ -136,7 +136,13 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: `RELEASE_NOTES.md`
+- Release notes: `docs/release_notes/v0.9.4.md`
 - Sanitized config templates:
+
+---
+
+## v0.9.4 Release
+
+This release updates the admin Create Project flow from a single form into a route-driven wizard that matches the requested sequence: define project, configure group permissions (existing vs new groups), optionally assign members to new groups, then persist everything only on final submit. The flow now supports step navigation (back/cancel) and returns to the start page after completion.
   - `SecureJournal.Web/appsettings.template.json`
   - `SecureJournal.Web/appsettings.Development.template.json`

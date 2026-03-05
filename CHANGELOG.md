@@ -1,3 +1,16 @@
+# v0.9.4 - 2026-03-05
+
+## Highlights
+- Admin Create Project flow updated to a route-driven wizard with step navigation and improved group/member assignment.
+
+## Details
+- The admin Create Project flow is now a multi-step wizard:
+  - Step 1: Define project
+  - Step 2: Configure group permissions (existing vs new groups)
+  - Step 3: Optionally assign members to new groups
+  - Step 4: Persist everything only on final submit
+- Supports step navigation (back/cancel) and returns to the start page after completion.
+
 # v0.9.1 - 2026-03-04
 
 ## Highlights

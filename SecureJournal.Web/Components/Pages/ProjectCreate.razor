@@ -1,4 +1,5 @@
 @page "/admin/projects/create"
+@page "/admin/projects/create/{Step:int}"
 @attribute [Authorize(Roles = "Administrator")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
@@ -36,63 +37,201 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    <section class="panel-card project-create-card">
-        <div class="panel-card-header">
-            <h3>Create project</h3>
+    <section class="panel-card project-create-card wizard-card">
+        <div class="panel-card-header wizard-header">
+            <div>
+                <h3>Create project</h3>
+                <p class="text-muted mb-0">Step @_currentStep of @TotalSteps</p>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CancelWizard">Cancel</button>
         </div>
 
-        <EditForm Model="ProjectDraft" OnValidSubmit="CreateProjectAsync" FormName="admin-project-create">
-            <AntiforgeryToken />
-            <DataAnnotationsValidator />
-            <ValidationSummary />
+        @if (_currentStep == 1)
+        {
+            <div>
+                <h4 class="h5">Step 1: Project information</h4>
+                <EditForm Model="_projectDraft" FormName="admin-project-create-step1">
+                    <AntiforgeryToken />
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
 
-            <div class="project-metadata-grid">
-                <div class="project-metadata-main">
-                    <label class="form-label" for="projectName">Name</label>
-                    <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Name" />
-                </div>
+                    <div class="project-metadata-grid">
+                        <div class="project-metadata-main">
+                            <label class="form-label" for="projectName">Name</label>
+                            <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="_projectDraft.Name" />
+                        </div>
 
-                <div class="project-metadata-main">
-                    <label class="form-label" for="projectDescription">Description</label>
-                    <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="ProjectDraft.Description" />
-                    <small class="text-muted">Project code is generated automatically (for example PRJ0001).</small>
-                </div>
+                        <div class="project-metadata-main">
+                            <label class="form-label" for="projectDescription">Description</label>
+                            <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="_projectDraft.Description" />
+                            <small class="text-muted">Project code is generated automatically (for example PRJ0001).</small>
+                        </div>
 
-                <div>
-                    <label class="form-label" for="projectOwner">Project Owner</label>
-                    <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="ProjectDraft.ProjectOwner" />
-                </div>
-                <div>
-                    <label class="form-label" for="projectDepartment">Department</label>
-                    <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="ProjectDraft.Department" />
-                </div>
-                <div>
-                    <label class="form-label" for="projectEmail">Project owner email</label>
-                    <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="ProjectDraft.ProjectEmail" />
-                </div>
-                <div>
-                    <label class="form-label" for="projectPhone">Project owner phone</label>
-                    <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="ProjectDraft.ProjectPhone" />
-                </div>
+                        <div>
+                            <label class="form-label" for="projectOwner">Project Owner</label>
+                            <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="_projectDraft.ProjectOwner" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="projectDepartment">Department</label>
+                            <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="_projectDraft.Department" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="projectEmail">Project owner email</label>
+                            <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="_projectDraft.ProjectEmail" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="projectPhone">Project owner phone</label>
+                            <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="_projectDraft.ProjectPhone" />
+                        </div>
+                    </div>
+                </EditForm>
             </div>
+        }
+        else if (_currentStep == 2)
+        {
+            <div>
+                <h4 class="h5">Step 2: Group permissions</h4>
+                <p class="text-muted">Choose existing groups or create a new group for this project.</p>
 
-            <div class="mt-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create new project</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ResetProjectForm">Reset</button>
-                <a href="/admin/projects" class="btn btn-outline-secondary">Project Management</a>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="radio"
+                               name="groupMode"
+                               id="groupModeExisting"
+                               checked="@(!_isCreatingNewGroup)"
+                               @onchange="@(() => SetGroupMode(false))" />
+                        <label class="form-check-label" for="groupModeExisting">Choose existing groups</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="radio"
+                               name="groupMode"
+                               id="groupModeNew"
+                               checked="@_isCreatingNewGroup"
+                               @onchange="@(() => SetGroupMode(true))" />
+                        <label class="form-check-label" for="groupModeNew">Create new group</label>
+                    </div>
+                </div>
+
+                @if (_isCreatingNewGroup)
+                {
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="groupName">Group Name</label>
+                            <input id="groupName" class="form-control" maxlength="100" @bind="_newGroupDraft.Name" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="groupDescription">Group Description</label>
+                            <textarea id="groupDescription" class="form-control" rows="3" maxlength="500" @bind="_newGroupDraft.Description"></textarea>
+                        </div>
+                    </div>
+                }
+                else if (_existingGroups.Count == 0)
+                {
+                    <p class="mb-0">No groups are available yet. Switch to <strong>Create new group</strong> to continue.</p>
+                }
+                else
+                {
+                    <div class="wizard-checkbox-list">
+                        @foreach (var group in _existingGroups)
+                        {
+                            <label class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_selectedExistingGroupIds.Contains(group.GroupId)"
+                                       @onchange="args => ToggleExistingGroup(group.GroupId, args)" />
+                                <span class="form-check-label">@group.Name</span>
+                            </label>
+                        }
+                    </div>
+                }
             </div>
-        </EditForm>
+        }
+        else if (_isCreatingNewGroup && _currentStep == 3)
+        {
+            <div>
+                <h4 class="h5">Step 3: Group members</h4>
+                <p class="text-muted">Choose users to add as members of the new group.</p>
+
+                @if (_users.Count == 0)
+                {
+                    <p class="mb-0">No users are available to add.</p>
+                }
+                else
+                {
+                    <div class="wizard-checkbox-list">
+                        @foreach (var user in _users)
+                        {
+                            <label class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_selectedMemberIds.Contains(user.UserId)"
+                                       @onchange="args => ToggleMember(user.UserId, args)" />
+                                <span class="form-check-label">@user.DisplayName (@user.Username)</span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div>
+                <h4 class="h5">Review</h4>
+                <p class="text-muted">Project and group updates will be applied after clicking <strong>Create Project</strong>.</p>
+                <ul class="mb-0">
+                    <li><strong>Project:</strong> @_projectDraft.Name</li>
+                    <li>
+                        <strong>Group action:</strong>
+                        @if (_isCreatingNewGroup)
+                        {
+                            <span>Create group '@_newGroupDraft.Name' with @_selectedMemberIds.Count member(s)</span>
+                        }
+                        else
+                        {
+                            <span>Assign @_selectedExistingGroupIds.Count existing group(s)</span>
+                        }
+                    </li>
+                </ul>
+            </div>
+        }
+
+        <div class="mt-4 d-flex justify-content-between gap-2">
+            <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
+            <div class="d-flex gap-2">
+                @if (_currentStep > 1)
+                {
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GoToPreviousStep">Back</button>
+                }
+                @if (_currentStep < TotalSteps)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="GoToNextStep">Next</button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary" @onclick="CreateProjectAsync">Create Project</button>
+                }
+            </div>
+        </div>
     </section>
 }
 
 @code {
-    [SupplyParameterFromForm(FormName = "admin-project-create")]
-    private CreateProjectRequest? PostedProjectDraft { get; set; }
-    private CreateProjectRequest ProjectDraft => PostedProjectDraft ??= new();
+    [Parameter] public int? Step { get; set; }
 
+    private readonly CreateProjectRequest _projectDraft = new();
+    private readonly CreateGroupRequest _newGroupDraft = new();
+    private readonly HashSet<Guid> _selectedExistingGroupIds = [];
+    private readonly HashSet<Guid> _selectedMemberIds = [];
+    private IReadOnlyList<GroupOverview> _existingGroups = Array.Empty<GroupOverview>();
+    private IReadOnlyList<UserOverview> _users = Array.Empty<UserOverview>();
     private UserContext? _currentUser;
+    private bool _isCreatingNewGroup;
+    private int _currentStep = 1;
     private string? _message;
     private string? _error;
+    private int TotalSteps => _isCreatingNewGroup ? 4 : 3;
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,18 +242,120 @@ else
         }
 
         _currentUser = await JournalApp.GetCurrentUserAsync();
+        _existingGroups = JournalApp.GetGroups();
+        _users = JournalApp.GetUsers();
+    }
+
+    protected override void OnParametersSet()
+    {
+        var requestedStep = Step.GetValueOrDefault(1);
+        requestedStep = Math.Clamp(requestedStep, 1, TotalSteps);
+        _currentStep = requestedStep;
+    }
+
+    private void SetGroupMode(bool createNewGroup)
+    {
+        _isCreatingNewGroup = createNewGroup;
+        _error = null;
+
+        if (!_isCreatingNewGroup && _currentStep > TotalSteps)
+        {
+            NavigateToStep(TotalSteps);
+        }
+    }
+
+    private void ToggleExistingGroup(Guid groupId, ChangeEventArgs args)
+    {
+        if (ParseCheckboxValue(args))
+        {
+            _selectedExistingGroupIds.Add(groupId);
+        }
+        else
+        {
+            _selectedExistingGroupIds.Remove(groupId);
+        }
+    }
+
+    private void ToggleMember(Guid userId, ChangeEventArgs args)
+    {
+        if (ParseCheckboxValue(args))
+        {
+            _selectedMemberIds.Add(userId);
+        }
+        else
+        {
+            _selectedMemberIds.Remove(userId);
+        }
+    }
+
+    private void GoToNextStep()
+    {
+        if (!ValidateCurrentStep())
+        {
+            return;
+        }
+
+        NavigateToStep(Math.Min(_currentStep + 1, TotalSteps));
+    }
+
+    private void GoToPreviousStep()
+        => NavigateToStep(Math.Max(_currentStep - 1, 1));
+
+    private void NavigateToStep(int step)
+    {
+        _error = null;
+        _message = null;
+        var boundedStep = Math.Clamp(step, 1, TotalSteps);
+        _currentStep = boundedStep;
+        Navigation.NavigateTo($"/admin/projects/create/{boundedStep}", forceLoad: false);
     }
 
     private Task CreateProjectAsync()
     {
-        ClearMessages();
-        Logger.LogInformation("Admin project form submit: CreateProject");
+        if (!ValidateProjectStep() || !ValidateGroupStep())
+        {
+            return Task.CompletedTask;
+        }
+
+        _error = null;
+        _message = null;
+        Logger.LogInformation("Admin project wizard submit: CreateProject");
 
         try
         {
-            var project = JournalApp.CreateProject(ProjectDraft);
-            _message = $"Project '{project.Code}' created.";
-            ResetProjectForm();
+            var project = JournalApp.CreateProject(_projectDraft);
+
+            if (_isCreatingNewGroup)
+            {
+                var createdGroup = JournalApp.CreateGroup(_newGroupDraft);
+                JournalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+                {
+                    ProjectId = project.ProjectId,
+                    GroupId = createdGroup.GroupId
+                });
+
+                foreach (var memberId in _selectedMemberIds)
+                {
+                    JournalApp.AssignUserToGroup(new AssignUserToGroupRequest
+                    {
+                        UserId = memberId,
+                        GroupId = createdGroup.GroupId
+                    });
+                }
+            }
+            else
+            {
+                foreach (var groupId in _selectedExistingGroupIds)
+                {
+                    JournalApp.AssignGroupToProject(new AssignGroupToProjectRequest
+                    {
+                        ProjectId = project.ProjectId,
+                        GroupId = groupId
+                    });
+                }
+            }
+
+            Navigation.NavigateTo("/", forceLoad: false);
         }
         catch (Exception ex)
         {
@@ -125,20 +366,59 @@ else
         return Task.CompletedTask;
     }
 
-    private void ClearMessages()
+    private bool ValidateCurrentStep()
     {
-        _message = null;
-        _error = null;
+        return _currentStep switch
+        {
+            1 => ValidateProjectStep(),
+            2 => ValidateGroupStep(),
+            _ => true
+        };
     }
 
-    private void ResetProjectForm()
+    private bool ValidateProjectStep()
     {
-        ProjectDraft.Code = string.Empty;
-        ProjectDraft.Name = string.Empty;
-        ProjectDraft.Description = string.Empty;
-        ProjectDraft.ProjectEmail = string.Empty;
-        ProjectDraft.ProjectPhone = string.Empty;
-        ProjectDraft.ProjectOwner = string.Empty;
-        ProjectDraft.Department = string.Empty;
+        if (string.IsNullOrWhiteSpace(_projectDraft.Name))
+        {
+            _error = "Project name is required.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ValidateGroupStep()
+    {
+        if (_isCreatingNewGroup)
+        {
+            if (string.IsNullOrWhiteSpace(_newGroupDraft.Name))
+            {
+                _error = "Group name is required when creating a new group.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (_selectedExistingGroupIds.Count == 0)
+        {
+            _error = "Select at least one existing group or choose to create a new group.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void CancelWizard()
+        => Navigation.NavigateTo("/", forceLoad: false);
+
+    private static bool ParseCheckboxValue(ChangeEventArgs args)
+    {
+        if (args.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
     }
 }

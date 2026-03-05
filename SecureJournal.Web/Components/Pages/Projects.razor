@@ -5,11 +5,11 @@
 
 <PageTitle>My Projects</PageTitle>
 
-<section class="page-head">
+<section class="page-head my-projects-head">
     <div>
         <p class="eyebrow">My Projects</p>
         <h2>Projects available to the current user</h2>
-        <p>Select a project to browse journal entries. Search supports partial text matches in subject, description, and notes.</p>
+        <p>Select a project to browse journal entries. Search supports partial matches in subject, description, and notes.</p>
     </div>
     @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
     {
@@ -27,277 +27,311 @@
     <div class="alert alert-success" role="alert">@_message</div>
 }
 
-<div class="projects-page-layout">
-    <div class="projects-left-column">
-        <section class="panel-card">
-            <div class="panel-card-header">
+<div class="my-projects-shell">
+    <aside class="panel-card my-project-directory-card">
+        <div class="my-project-directory-header">
+            <div>
                 <h3>Projects</h3>
-                <span class="text-muted">@FilteredProjectCount of @_projects.Count project(s)</span>
+                <p class="my-project-directory-copy">Browse the projects you can access</p>
             </div>
+            <span class="my-project-directory-total">@FilteredProjectCount of @_projects.Count</span>
+        </div>
 
-            <div class="row g-2 mb-3">
-                <div class="col-md-8">
-                    <label class="form-label" for="projectListSearch">Search projects</label>
-                    <input id="projectListSearch"
-                           class="form-control"
-                           type="text"
-                           value="@_projectSearchText"
-                           @oninput="OnProjectFilterChanged"
-                           placeholder="Filter by code, name, description..." />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label" for="projectListPageSize">Page size</label>
-                    <select id="projectListPageSize" class="form-select" @onchange="OnProjectListPageSizeChanged">
-                        @foreach (var pageSize in _projectListPageSizeOptions)
-                        {
-                            <option value="@pageSize" selected="@(pageSize == _projectListPageSize)">@pageSize</option>
-                        }
-                    </select>
-                </div>
-            </div>
+        <div class="my-project-directory-toolbar">
+            <label class="visually-hidden" for="projectListSearch">Search projects</label>
+            <input id="projectListSearch"
+                   class="form-control"
+                   type="text"
+                   value="@_projectSearchText"
+                   @oninput="OnProjectFilterChanged"
+                   placeholder="Search projects..." />
+        </div>
 
-            @if (_projects.Count == 0)
-            {
+        @if (_projects.Count == 0)
+        {
+            <div class="my-project-directory-empty">
                 <p class="mb-0">No projects are available for the current user.</p>
-            }
-            else if (FilteredProjectCount == 0)
-            {
+            </div>
+        }
+        else if (FilteredProjectCount == 0)
+        {
+            <div class="my-project-directory-empty">
                 <p class="mb-0">No projects match the current search text.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0 my-projects-table">
-                        <colgroup>
-                            <col class="my-projects-col-code" />
-                            <col class="my-projects-col-name" />
-                            <col class="my-projects-col-groups" />
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th>Assigned Groups</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var project in VisibleProjects)
-                            {
-                                var isSelected = _selectedProjectId == project.ProjectId;
-                                <tr class="my-projects-row @(isSelected ? "table-active" : string.Empty)"
-                                    @onclick="() => SelectProject(project.ProjectId)">
-                                    <td class="my-projects-code-cell">@project.Code</td>
-                                    <td class="my-projects-name-cell">
-                                        <div class="my-projects-name">@project.Name</div>
-                                        @if (!string.IsNullOrWhiteSpace(project.Description))
-                                        {
-                                            <small class="text-muted my-projects-description" title="@project.Description">@project.Description</small>
-                                        }
-                                    </td>
-                                    <td class="my-projects-groups-cell">
-                                        @if (project.AssignedGroups.Count == 0)
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
-                                        else
-                                        {
-                                            <div class="my-projects-group-tag-list">
-                                                @foreach (var groupName in project.AssignedGroups)
-                                                {
-                                                    <span class="my-projects-group-tag" title="@groupName">@groupName</span>
-                                                }
-                                            </div>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+            </div>
+        }
+        else
+        {
+            <div class="my-project-directory-list">
+                @foreach (var project in VisibleProjects)
+                {
+                    <button type="button"
+                            class="my-project-directory-item @(_selectedProjectId == project.ProjectId ? "is-active" : string.Empty)"
+                            @onclick="() => SelectProject(project.ProjectId)">
+                        <span class="my-project-avatar" aria-hidden="true">@ProjectInitial(project)</span>
+                        <span class="my-project-directory-item-body">
+                            <span class="my-project-directory-name">@project.Code</span>
+                            <span class="my-project-directory-subtitle">@project.Name</span>
+                            <span class="my-project-chip-list">
+                                @if (project.AssignedGroups.Count == 0)
+                                {
+                                    <span class="my-project-chip is-empty">No groups</span>
+                                }
+                                else
+                                {
+                                    @foreach (var groupName in project.AssignedGroups.Take(3))
+                                    {
+                                        <span class="my-project-chip">@groupName</span>
+                                    }
+                                    @if (project.AssignedGroups.Count > 3)
+                                    {
+                                        <span class="my-project-chip">+@(project.AssignedGroups.Count - 3) more</span>
+                                    }
+                                }
+                            </span>
+                        </span>
+                    </button>
+                }
+            </div>
 
-                <div class="pager-bar">
-                    <div class="text-muted">Page @_projectListPage of @ProjectListTotalPages (@FilteredProjectCount matching)</div>
+            <div class="my-project-directory-footer">
+                <div class="my-project-directory-footer-row">
+                    <span>Page @_projectListPage of @ProjectListTotalPages</span>
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_projectListPage <= 1)" @onclick="GoToPreviousProjectListPage">Previous</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_projectListPage >= ProjectListTotalPages)" @onclick="GoToNextProjectListPage">Next</button>
                     </div>
                 </div>
-            }
-        </section>
-
-        <section class="panel-card">
-            <h3>Current user context</h3>
-            <div class="projects-user-context-grid">
-                <div class="projects-user-context-item">
-                    <span class="project-user-context-label">Display name</span>
-                    <span class="projects-user-context-value">@_currentUser?.DisplayName</span>
-                </div>
-                <div class="projects-user-context-item">
-                    <span class="project-user-context-label">Username</span>
-                    <span class="projects-user-context-value">@_currentUser?.Username</span>
-                </div>
-                <div class="projects-user-context-item">
-                    <span class="project-user-context-label">Role</span>
-                    <span class="projects-user-context-value">@_currentUser?.Role</span>
-                </div>
-                <div class="projects-user-context-item">
-                    <span class="project-user-context-label">Group memberships</span>
-                    <span class="projects-user-context-value">@_currentUserGroupNames</span>
-                </div>
-            </div>
-        </section>
-    </div>
-
-    <div class="projects-right-column">
-        <section class="panel-card projects-journal-column">
-            <div class="panel-card-header">
-                <h3>@JournalEntriesPanelTitle</h3>
-                <div class="panel-card-header-actions">
-                    <span class="text-muted">@SelectedProjectLabel</span>
-                    @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
-                    {
-                        <a href="/journal" class="btn btn-primary btn-sm">Add Journal Entry</a>
-                    }
-                </div>
-            </div>
-
-            @if (_currentUser?.Role == AppRole.Auditor)
-            {
-                <p class="mb-0">Auditors can use this page to identify projects but cannot directly read journal entries. Use <a href="/audit">Audit Search</a> for evidence and activity.</p>
-            }
-            else if (_projects.Count == 0)
-            {
-                <p class="mb-0">Create or assign a project to view journal entries here.</p>
-            }
-            else if (!_selectedProjectId.HasValue)
-            {
-                <p class="mb-0">Select a project from the list above to view its journal entries.</p>
-            }
-            else
-            {
-                <div class="row g-2 mb-3">
-                    <div class="col-lg-5 col-md-6">
-                        <label class="form-label" for="projectJournalSearch">Search</label>
-                        <input id="projectJournalSearch"
-                               class="form-control"
-                               type="text"
-                               value="@_searchText"
-                               @oninput="OnSearchChanged"
-                               placeholder="Search subject, description, notes..." />
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label class="form-label" for="projectJournalPageSize">Page size</label>
-                        <select id="projectJournalPageSize" class="form-select" @onchange="OnPageSizeChanged">
-                            @foreach (var pageSize in _pageSizeOptions)
+                <div class="my-project-directory-footer-row">
+                    <span>@VisibleProjectRangeLabel()</span>
+                    <div class="my-project-page-size">
+                        <label class="project-page-size-label" for="projectListPageSize">Page size</label>
+                        <select id="projectListPageSize" class="form-select form-select-sm project-page-size-select" @onchange="OnProjectListPageSizeChanged">
+                            @foreach (var pageSize in _projectListPageSizeOptions)
                             {
-                                <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                                <option value="@pageSize" selected="@(pageSize == _projectListPageSize)">@pageSize</option>
                             }
                         </select>
                     </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label class="form-label" for="projectJournalSort">Sort by date</label>
-                        <select id="projectJournalSort" class="form-select" @onchange="OnSortOrderChanged">
-                            <option value="@DateSortNewest" selected="@(_dateSortOrder == DateSortNewest)">Newest first</option>
-                            <option value="@DateSortOldest" selected="@(_dateSortOrder == DateSortOldest)">Oldest first</option>
-                        </select>
-                    </div>
-                    <div class="col-lg-3 col-md-12 d-flex align-items-end">
-                        <div class="form-check mb-2">
-                            <input id="projectIncludeDeleted"
-                                   class="form-check-input"
-                                   type="checkbox"
-                                   checked="@_includeSoftDeleted"
-                                   disabled="@(_currentUser?.Role != AppRole.Administrator)"
-                                   @onchange="OnIncludeSoftDeletedChanged" />
-                            <label class="form-check-label" for="projectIncludeDeleted">Include deleted (Admin only)</label>
+                </div>
+            </div>
+        }
+    </aside>
+
+    <div class="my-project-detail-column">
+        <section class="panel-card my-project-context-card">
+            <div class="panel-card-header my-project-section-header">
+                <div>
+                    <p class="my-project-section-kicker">Context</p>
+                    <h3>Current user</h3>
+                    <p class="my-project-section-copy">Your role and visible group context for project access.</p>
+                </div>
+            </div>
+
+            <div class="my-project-context-grid">
+                <div class="my-project-context-item">
+                    <span class="my-project-context-label">Display name</span>
+                    <span class="my-project-context-value">@_currentUser?.DisplayName</span>
+                </div>
+                <div class="my-project-context-item">
+                    <span class="my-project-context-label">Username</span>
+                    <span class="my-project-context-value">@_currentUser?.Username</span>
+                </div>
+                <div class="my-project-context-item">
+                    <span class="my-project-context-label">Role</span>
+                    <span class="my-project-context-value">@_currentUser?.Role</span>
+                </div>
+                <div class="my-project-context-item">
+                    <span class="my-project-context-label">Group memberships</span>
+                    <span class="my-project-context-value">@_currentUserGroupNames</span>
+                </div>
+            </div>
+        </section>
+
+        @if (SelectedProject is null)
+        {
+            <section class="panel-card my-project-empty-card">
+                <h3>Select a project</h3>
+                <p class="mb-0">Choose a project from the directory to review details and browse journal entries.</p>
+            </section>
+        }
+        else
+        {
+            <section class="panel-card my-project-profile-card">
+                <div class="my-project-profile-summary">
+                    <span class="my-project-avatar my-project-avatar-large" aria-hidden="true">@ProjectInitial(SelectedProject)</span>
+                    <div class="my-project-profile-copy">
+                        <div class="my-project-profile-heading">
+                            <h3>@SelectedProject.Code</h3>
+                            <span class="my-project-status-badge">Selected Project</span>
+                        </div>
+                        <p class="my-project-profile-subtitle">@SelectedProject.Name</p>
+                        <p class="my-project-profile-description mb-0">@ProjectDescriptionOrFallback(SelectedProject)</p>
+                        <div class="my-project-profile-meta">
+                            <span>@SelectedProject.AssignedGroups.Count group(s)</span>
+                            <span>@SelectedProject.ProjectId</span>
+                        </div>
+                        <div class="my-project-chip-list">
+                            @if (SelectedProject.AssignedGroups.Count == 0)
+                            {
+                                <span class="my-project-chip is-empty">No groups assigned</span>
+                            }
+                            else
+                            {
+                                @foreach (var groupName in SelectedProject.AssignedGroups)
+                                {
+                                    <span class="my-project-chip">@groupName</span>
+                                }
+                            }
                         </div>
                     </div>
                 </div>
+            </section>
 
-                @if (!_entries.Any())
+            <section class="panel-card my-project-journal-card">
+                <div class="panel-card-header my-project-section-header">
+                    <div>
+                        <p class="my-project-section-kicker">Journal Entries</p>
+                        <h3>@JournalEntriesPanelTitle</h3>
+                        <p class="my-project-section-copy">@SelectedProjectLabel</p>
+                    </div>
+                    <div class="panel-card-header-actions">
+                        @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
+                        {
+                            <a href="/journal" class="btn btn-primary">Add Journal Entry</a>
+                        }
+                    </div>
+                </div>
+
+                @if (_currentUser?.Role == AppRole.Auditor)
                 {
-                    <p class="mb-0">No journal entries were found for this project.</p>
-                }
-                else if (!FilteredEntries.Any())
-                {
-                    <p class="mb-0">No journal entries match the current search text.</p>
+                    <p class="mb-0">Auditors can use this page to identify projects but cannot directly read journal entries. Use <a href="/audit">Audit Search</a> for evidence and activity.</p>
                 }
                 else
                 {
-                    <div class="entry-list" role="list">
-                        <div class="entry-inline-header" aria-hidden="true">
-                            <div class="entry-inline-field entry-inline-field-created">
-                                <span class="entry-inline-colname">Created</span>
-                            </div>
-                            <div class="entry-inline-field entry-inline-field-subject">
-                                <span class="entry-inline-colname">Subject</span>
-                            </div>
-                            <div class="entry-inline-field entry-inline-field-status">
-                                <span class="entry-inline-colname">Status</span>
-                            </div>
-                            <div class="entry-inline-actions">
-                                <span class="entry-inline-colname">Actions</span>
+                    <div class="row g-2 mb-3">
+                        <div class="col-lg-5 col-md-6">
+                            <label class="form-label" for="projectJournalSearch">Search</label>
+                            <input id="projectJournalSearch"
+                                   class="form-control"
+                                   type="text"
+                                   value="@_searchText"
+                                   @oninput="OnSearchChanged"
+                                   placeholder="Search subject, description, notes..." />
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <label class="form-label" for="projectJournalPageSize">Page size</label>
+                            <select id="projectJournalPageSize" class="form-select" @onchange="OnPageSizeChanged">
+                                @foreach (var pageSize in _pageSizeOptions)
+                                {
+                                    <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <label class="form-label" for="projectJournalSort">Sort by date</label>
+                            <select id="projectJournalSort" class="form-select" @onchange="OnSortOrderChanged">
+                                <option value="@DateSortNewest" selected="@(_dateSortOrder == DateSortNewest)">Newest first</option>
+                                <option value="@DateSortOldest" selected="@(_dateSortOrder == DateSortOldest)">Oldest first</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-12 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input id="projectIncludeDeleted"
+                                       class="form-check-input"
+                                       type="checkbox"
+                                       checked="@_includeSoftDeleted"
+                                       disabled="@(_currentUser?.Role != AppRole.Administrator)"
+                                       @onchange="OnIncludeSoftDeletedChanged" />
+                                <label class="form-check-label" for="projectIncludeDeleted">Include deleted (Admin only)</label>
                             </div>
                         </div>
+                    </div>
 
-                        @foreach (var entry in VisibleEntries)
-                        {
-                            <article class="entry-inline-row @(entry.IsSoftDeleted ? "entry-inline-row-soft-deleted" : string.Empty)" role="listitem">
+                    @if (!_entries.Any())
+                    {
+                        <p class="mb-0">No journal entries were found for this project.</p>
+                    }
+                    else if (!FilteredEntries.Any())
+                    {
+                        <p class="mb-0">No journal entries match the current search text.</p>
+                    }
+                    else
+                    {
+                        <div class="entry-list" role="list">
+                            <div class="entry-inline-header" aria-hidden="true">
                                 <div class="entry-inline-field entry-inline-field-created">
-                                    <span class="entry-inline-text" title="@($"{entry.CreatedAtUtc:yyyy-MM-dd} by {entry.CreatedBy}")">
-                                        @entry.CreatedAtUtc.ToString("yyyy-MM-dd") by @entry.CreatedBy
-                                    </span>
+                                    <span class="entry-inline-colname">Created</span>
                                 </div>
-
                                 <div class="entry-inline-field entry-inline-field-subject">
-                                    <a class="entry-inline-link"
-                                       href="@GetEntryDetailsUrl(entry)"
-                                       title="@entry.Subject">
-                                        @entry.Subject
-                                    </a>
+                                    <span class="entry-inline-colname">Subject</span>
                                 </div>
-
                                 <div class="entry-inline-field entry-inline-field-status">
-                                    @if (entry.IsSoftDeleted)
-                                    {
-                                        <span class="badge text-bg-warning">Soft-deleted</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge text-bg-success">Active</span>
-                                    }
+                                    <span class="entry-inline-colname">Status</span>
                                 </div>
-
                                 <div class="entry-inline-actions">
-                                    <a href="@GetEntryDetailsUrl(entry)" class="btn btn-outline-secondary btn-sm">View</a>
-                                    @if (!entry.IsSoftDeleted)
-                                    {
-                                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
-                                            Delete
-                                        </button>
-                                    }
-                                    else if (_currentUser?.Role == AppRole.Administrator)
-                                    {
-                                        <button type="button" class="btn btn-outline-success btn-sm" @onclick="() => Restore(entry.RecordId)">
-                                            Restore
-                                        </button>
-                                    }
+                                    <span class="entry-inline-colname">Actions</span>
                                 </div>
-                            </article>
-                        }
-                    </div>
+                            </div>
 
-                    <div class="pager-bar">
-                        <div class="text-muted">Page @_currentPage of @TotalPages (@FilteredEntries.Count() matching)</div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                            @foreach (var entry in VisibleEntries)
+                            {
+                                <article class="entry-inline-row @(entry.IsSoftDeleted ? "entry-inline-row-soft-deleted" : string.Empty)" role="listitem">
+                                    <div class="entry-inline-field entry-inline-field-created">
+                                        <span class="entry-inline-text" title="@($"{entry.CreatedAtUtc:yyyy-MM-dd} by {entry.CreatedBy}")">
+                                            @entry.CreatedAtUtc.ToString("yyyy-MM-dd") by @entry.CreatedBy
+                                        </span>
+                                    </div>
+
+                                    <div class="entry-inline-field entry-inline-field-subject">
+                                        <a class="entry-inline-link"
+                                           href="@GetEntryDetailsUrl(entry)"
+                                           title="@entry.Subject">
+                                            @entry.Subject
+                                        </a>
+                                    </div>
+
+                                    <div class="entry-inline-field entry-inline-field-status">
+                                        @if (entry.IsSoftDeleted)
+                                        {
+                                            <span class="badge text-bg-warning">Soft-deleted</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge text-bg-success">Active</span>
+                                        }
+                                    </div>
+
+                                    <div class="entry-inline-actions">
+                                        <a href="@GetEntryDetailsUrl(entry)" class="btn btn-outline-secondary btn-sm">View</a>
+                                        @if (!entry.IsSoftDeleted)
+                                        {
+                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => SoftDelete(entry.RecordId)">
+                                                Delete
+                                            </button>
+                                        }
+                                        else if (_currentUser?.Role == AppRole.Administrator)
+                                        {
+                                            <button type="button" class="btn btn-outline-success btn-sm" @onclick="() => Restore(entry.RecordId)">
+                                                Restore
+                                            </button>
+                                        }
+                                    </div>
+                                </article>
+                            }
                         </div>
-                    </div>
+
+                        <div class="pager-bar">
+                            <div class="text-muted">Page @_currentPage of @TotalPages (@FilteredEntries.Count() matching)</div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                            </div>
+                        </div>
+                    }
                 }
-            }
-        </section>
-</div>
+            </section>
+        }
+    </div>
 </div>
 
 @code {
@@ -325,6 +359,11 @@
     private string _currentUserGroupNames = "None";
     private string? _message;
     private string? _error;
+
+    private ProjectOverview? SelectedProject
+        => _selectedProjectId is { } id
+            ? _projects.FirstOrDefault(p => p.ProjectId == id)
+            : null;
 
     private IReadOnlyList<ProjectOverview> FilteredProjects
     {
@@ -392,17 +431,13 @@
     }
 
     private string SelectedProjectLabel
-        => _selectedProjectId.HasValue
-            ? _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId.Value) is { } project
-                ? $"{project.Code} - {project.Name}"
-                : "Selected project"
+        => SelectedProject is { } project
+            ? $"{project.Code} - {project.Name}"
             : "No project selected";
 
     private string JournalEntriesPanelTitle
-        => _selectedProjectId.HasValue
-            ? _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId.Value) is { } project
-                ? $"Displaying journal entries for {project.Name}"
-                : "Project Journal Entries"
+        => SelectedProject is { } project
+            ? $"Journal entries for {project.Name}"
             : "Project Journal Entries";
 
     protected override async Task OnInitializedAsync()
@@ -427,17 +462,17 @@
             ? "Unknown"
             : ResolveGroupNames(_currentUser.GroupIds);
 
+        if (ProjectId.HasValue && _projects.Any(p => p.ProjectId == ProjectId.Value))
+        {
+            _selectedProjectId = ProjectId.Value;
+        }
+        else if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
+        {
+            _selectedProjectId = _projects.FirstOrDefault()?.ProjectId;
+        }
+
         if (_currentUser?.Role != AppRole.Auditor)
         {
-            if (ProjectId.HasValue && _projects.Any(p => p.ProjectId == ProjectId.Value))
-            {
-                _selectedProjectId = ProjectId.Value;
-            }
-            else if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
-            {
-                _selectedProjectId = _projects.FirstOrDefault()?.ProjectId;
-            }
-
             RefreshSelectedProjectEntries();
         }
         else
@@ -595,8 +630,29 @@
         }
     }
 
+    private string VisibleProjectRangeLabel()
+    {
+        if (FilteredProjectCount == 0)
+        {
+            return "Showing 0 projects";
+        }
+
+        var start = ((_projectListPage - 1) * _projectListPageSize) + 1;
+        var end = Math.Min(_projectListPage * _projectListPageSize, FilteredProjectCount);
+        return $"Showing {start}-{end} of {FilteredProjectCount} projects";
+    }
+
     private static string GetEntryDetailsUrl(JournalEntryView entry)
         => $"/projects/entry/{entry.RecordId:D}?projectId={entry.ProjectId:D}";
+
+    private static string ProjectInitial(ProjectOverview project)
+    {
+        var source = string.IsNullOrWhiteSpace(project.Code) ? project.Name : project.Code;
+        return string.IsNullOrWhiteSpace(source) ? "P" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    private static string ProjectDescriptionOrFallback(ProjectOverview project)
+        => string.IsNullOrWhiteSpace(project.Description) ? "No description provided." : project.Description;
 
     private string ResolveGroupNames(IReadOnlyList<Guid> groupIds)
     {

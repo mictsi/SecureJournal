@@ -136,8 +136,14 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: `docs/release_notes/v0.9.4.md`
+- Release notes: `docs/release_notes/v0.10.0.md`
 - Sanitized config templates:
+
+---
+
+## v0.10.0 Release
+
+This release refactors the Project Management and Group Management pages for improved usability and responsiveness, standardizes group/user membership labels, and adds advanced group user management features (filtering, sorting, paging). Navigation and layout changes streamline admin workflows and reduce UI clutter.
 
 ---
 

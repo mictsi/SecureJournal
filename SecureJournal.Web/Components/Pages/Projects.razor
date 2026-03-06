@@ -118,34 +118,6 @@
     </aside>
 
     <div class="my-project-detail-column">
-        <section class="panel-card my-project-context-card">
-            <div class="panel-card-header my-project-section-header">
-                <div>
-                    <p class="my-project-section-kicker">Context</p>
-                    <h3>Current user</h3>
-                    <p class="my-project-section-copy">Your role and visible group context for project access.</p>
-                </div>
-            </div>
-
-            <div class="my-project-context-grid">
-                <div class="my-project-context-item">
-                    <span class="my-project-context-label">Display name</span>
-                    <span class="my-project-context-value">@_currentUser?.DisplayName</span>
-                </div>
-                <div class="my-project-context-item">
-                    <span class="my-project-context-label">Username</span>
-                    <span class="my-project-context-value">@_currentUser?.Username</span>
-                </div>
-                <div class="my-project-context-item">
-                    <span class="my-project-context-label">Role</span>
-                    <span class="my-project-context-value">@_currentUser?.Role</span>
-                </div>
-                <div class="my-project-context-item">
-                    <span class="my-project-context-label">Group memberships</span>
-                    <span class="my-project-context-value">@_currentUserGroupNames</span>
-                </div>
-            </div>
-        </section>
 
         @if (SelectedProject is null)
         {
@@ -345,7 +317,6 @@
 
     private UserContext? _currentUser;
     private List<ProjectOverview> _projects = new();
-    private List<GroupOverview> _groups = new();
     private List<JournalEntryView> _entries = new();
     private Guid? _selectedProjectId;
     private bool _includeSoftDeleted;
@@ -356,7 +327,6 @@
     private string _projectSearchText = string.Empty;
     private int _projectListPageSize = 20;
     private int _projectListPage = 1;
-    private string _currentUserGroupNames = "None";
     private string? _message;
     private string? _error;
 
@@ -455,12 +425,7 @@
     {
         _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
-        _groups = JournalApp.GetGroups().ToList();
         _projectListPage = 1;
-
-        _currentUserGroupNames = _currentUser is null
-            ? "Unknown"
-            : ResolveGroupNames(_currentUser.GroupIds);
 
         if (ProjectId.HasValue && _projects.Any(p => p.ProjectId == ProjectId.Value))
         {
@@ -654,22 +619,4 @@
     private static string ProjectDescriptionOrFallback(ProjectOverview project)
         => string.IsNullOrWhiteSpace(project.Description) ? "No description provided." : project.Description;
 
-    private string ResolveGroupNames(IReadOnlyList<Guid> groupIds)
-    {
-        if (_currentUser?.Role != AppRole.Administrator)
-        {
-            return groupIds.Count == 0 ? "None" : "Hidden (admin only)";
-        }
-
-        if (groupIds.Count == 0)
-        {
-            return "None";
-        }
-
-        var names = groupIds
-            .Select(id => _groups.FirstOrDefault(g => g.GroupId == id)?.Name ?? id.ToString("D"))
-            .ToList();
-
-        return string.Join(", ", names);
-    }
 }

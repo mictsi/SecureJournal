@@ -39,6 +39,8 @@
                 <dd>@_currentUser?.Username</dd>
                 <dt>Role</dt>
                 <dd>@_currentUser?.Role</dd>
+                <dt>Group memberships</dt>
+                <dd>@_currentUserGroupNames</dd>
             </dl>
         </section>
 
@@ -164,6 +166,8 @@
     private bool _enableOidc;
     private bool _enableAspNetIdentity;
     private UserContext? _currentUser;
+    private List<GroupOverview> _groups = new();
+    private string _currentUserGroupNames = "None";
 
     protected override async Task OnInitializedAsync()
     {
@@ -178,6 +182,10 @@
         _enableAspNetIdentity = bool.TryParse(Configuration["Authentication:EnableAspNetIdentity"], out var identity) && identity;
         _passwordMinLength = JournalApp.GetLocalPasswordMinLength();
         _currentUser = await JournalApp.GetCurrentUserAsync();
+        _groups = JournalApp.GetGroups().ToList();
+        _currentUserGroupNames = _currentUser is null
+            ? "Unknown"
+            : ResolveGroupNames(_currentUser.GroupIds);
     }
 
     protected override void OnParametersSet()
@@ -276,6 +284,25 @@
         PasswordChangeModel.CurrentPassword = string.Empty;
         PasswordChangeModel.NewPassword = string.Empty;
         PasswordChangeModel.ConfirmPassword = string.Empty;
+    }
+
+    private string ResolveGroupNames(IReadOnlyList<Guid> groupIds)
+    {
+        if (_currentUser?.Role != AppRole.Administrator)
+        {
+            return groupIds.Count == 0 ? "None" : "Hidden (admin only)";
+        }
+
+        if (groupIds.Count == 0)
+        {
+            return "None";
+        }
+
+        var names = groupIds
+            .Select(id => _groups.FirstOrDefault(g => g.GroupId == id)?.Name ?? id.ToString("D"))
+            .ToList();
+
+        return string.Join(", ", names);
     }
 
     private sealed class LoginForm

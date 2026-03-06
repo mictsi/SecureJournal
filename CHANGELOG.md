@@ -1,3 +1,16 @@
+# v0.10.2 - 2026-03-06
+
+## Highlights
+- Moved the current user context out of `My Projects` and merged it into `My Settings`.
+
+## Details
+- Removed the standalone `Current user` context panel from `/projects` to keep project browsing focused.
+- Extended `/login` (`My Settings`) → `My information` with user context data, including group memberships.
+- Preserved role-based visibility for group memberships:
+  - Administrators see resolved group names.
+  - Non-administrators see `Hidden (admin only)` when memberships exist.
+  - Users with no memberships see `None`.
+
 # v0.10.1 - 2026-03-05
 
 ## Highlights

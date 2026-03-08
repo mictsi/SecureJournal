@@ -24,14 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="SecureJournal.Core">
-      <HintPath>..\SecureJournal.Core\bin\Debug\net10.0\SecureJournal.Core.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <Reference Include="SecureJournal.Web">
-      <HintPath>..\SecureJournal.Web\bin\Debug\net10.0\SecureJournal.Web.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
+    <ProjectReference Include="..\SecureJournal.Core\SecureJournal.Core.csproj" />
+    <ProjectReference Include="..\SecureJournal.Web\SecureJournal.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

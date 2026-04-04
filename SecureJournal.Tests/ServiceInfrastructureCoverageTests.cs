@@ -295,6 +295,21 @@ public sealed class ProductionPersistenceOptionsTests
     }
 }
 
+public sealed class ProductionInfrastructureRegistrationTests
+{
+    [Fact]
+    public void BuildSqlServerLegacyJournalCategoryCompatibilitySql_UsesDynamicSqlForLegacyColumns()
+    {
+        var sql = ProductionInfrastructureRegistration.BuildSqlServerLegacyJournalCategoryCompatibilitySql();
+
+        Assert.Contains("EXEC(N'", sql, StringComparison.Ordinal);
+        Assert.Contains("WHERE [category_ciphertext] IS NULL;');", sql, StringComparison.Ordinal);
+        Assert.Contains("WHERE [category_checksum] IS NULL;');", sql, StringComparison.Ordinal);
+        Assert.Contains("DEFAULT (N'''') FOR [category_ciphertext];');", sql, StringComparison.Ordinal);
+        Assert.Contains("DEFAULT (N'''') FOR [category_checksum];');", sql, StringComparison.Ordinal);
+    }
+}
+
 public sealed class EnvironmentConfigurationOverridesTests
 {
     [Fact]

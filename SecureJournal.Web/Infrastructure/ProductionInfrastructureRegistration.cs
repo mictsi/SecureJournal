@@ -385,14 +385,21 @@ public static class ProductionInfrastructureRegistration
     {
         if (provider == ProductionDatabaseProvider.SqlServer)
         {
-            const string sqlServerCompatibilitySql = """
+            await database.ExecuteSqlRawAsync(BuildSqlServerLegacyJournalCategoryCompatibilitySql());
+        }
+    }
+
+    internal static string BuildSqlServerLegacyJournalCategoryCompatibilitySql()
+    {
+        return """
 IF OBJECT_ID(N'[dbo].[journal_entries]', N'U') IS NOT NULL
 BEGIN
     IF COL_LENGTH('dbo.journal_entries', 'category_ciphertext') IS NOT NULL
     BEGIN
-        UPDATE [dbo].[journal_entries]
-        SET [category_ciphertext] = N''
-        WHERE [category_ciphertext] IS NULL;
+        EXEC(N'
+UPDATE [dbo].[journal_entries]
+SET [category_ciphertext] = N''''
+WHERE [category_ciphertext] IS NULL;');
 
         IF NOT EXISTS (
             SELECT 1
@@ -403,17 +410,19 @@ BEGIN
             WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[journal_entries]')
               AND c.name = N'category_ciphertext')
         BEGIN
-            ALTER TABLE [dbo].[journal_entries]
-            ADD CONSTRAINT [DF_journal_entries_category_ciphertext]
-            DEFAULT (N'') FOR [category_ciphertext];
+            EXEC(N'
+ALTER TABLE [dbo].[journal_entries]
+ADD CONSTRAINT [DF_journal_entries_category_ciphertext]
+DEFAULT (N'''') FOR [category_ciphertext];');
         END
     END
 
     IF COL_LENGTH('dbo.journal_entries', 'category_checksum') IS NOT NULL
     BEGIN
-        UPDATE [dbo].[journal_entries]
-        SET [category_checksum] = N''
-        WHERE [category_checksum] IS NULL;
+        EXEC(N'
+UPDATE [dbo].[journal_entries]
+SET [category_checksum] = N''''
+WHERE [category_checksum] IS NULL;');
 
         IF NOT EXISTS (
             SELECT 1
@@ -424,15 +433,13 @@ BEGIN
             WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[journal_entries]')
               AND c.name = N'category_checksum')
         BEGIN
-            ALTER TABLE [dbo].[journal_entries]
-            ADD CONSTRAINT [DF_journal_entries_category_checksum]
-            DEFAULT (N'') FOR [category_checksum];
+            EXEC(N'
+ALTER TABLE [dbo].[journal_entries]
+ADD CONSTRAINT [DF_journal_entries_category_checksum]
+DEFAULT (N'''') FOR [category_checksum];');
         END
     END
 END
 """;
-
-            await database.ExecuteSqlRawAsync(sqlServerCompatibilitySql);
-        }
     }
 }

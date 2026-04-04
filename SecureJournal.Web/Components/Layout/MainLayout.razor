@@ -20,26 +20,8 @@ else
         <main class="main-panel">
             <header class="app-header">
                 <div>
+                    <p class="app-header-label">Workspace</p>
                     <h1 class="app-header-title">Secure Journal</h1>
-                </div>
-
-                <div class="header-actions">
-                    <div class="session-chip">
-                        <div class="session-chip-row">
-                            <span class="session-chip-label">Current user:</span>
-                            <span class="session-chip-user">@_currentUser!.Username</span>
-                        </div>
-                        <div class="session-chip-row">
-                            <span class="session-chip-label">Role:</span>
-                            <span class="session-chip-role">@_currentUser.Role</span>
-                        </div>
-                    </div>
-
-                    <form method="post" action="/auth/logout" class="d-inline">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="returnUrl" value="/" />
-                        <button type="submit" class="btn btn-outline-danger">Logout</button>
-                    </form>
                 </div>
             </header>
 
@@ -59,12 +41,10 @@ else
 @code {
     private bool _authChecked;
     private bool _isAuthenticated;
-    private UserContext? _currentUser;
 
     protected override async Task OnParametersSetAsync()
     {
         _isAuthenticated = await JournalApp.HasCurrentUserAsync();
-        _currentUser = _isAuthenticated ? await JournalApp.GetCurrentUserAsync() : null;
         _authChecked = true;
 
         if (!_isAuthenticated)
@@ -72,5 +52,4 @@ else
             Navigation.NavigateTo("/", forceLoad: false);
         }
     }
-
 }

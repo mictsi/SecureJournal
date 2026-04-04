@@ -1,64 +1,310 @@
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
 @using SecureJournal.Core.Domain
 @inject ISecureJournalAppService JournalApp
+@inject NavigationManager Navigation
 
 <div class="sj-nav-shell">
-    <div class="brand-panel">
-        <div class="brand-kicker">Secure Journal</div>
+    <div class="sj-brand-panel">
+        <div class="sj-brand-badge" aria-hidden="true">SJ</div>
+        <div class="sj-brand-copy">
+            <div class="sj-brand-title">Secure Journal</div>
+        </div>
     </div>
 
-    <nav class="sj-nav" aria-label="Primary navigation">
-        <div class="sj-nav-main">
-            <NavLink class="sj-nav-link" href="projects" Match="NavLinkMatch.Prefix">
-                My Projects
-            </NavLink>
-            @if (_showAdminLinks)
+    <div class="sj-nav-scroll">
+        <nav class="sj-nav" aria-label="Primary navigation">
+            <section class="@GetSectionClass(MenuSection.Projects)">
+                <button type="button"
+                        class="sj-menu-toggle"
+                        aria-expanded="@IsSectionExpanded(MenuSection.Projects)"
+                        @onclick="() => ToggleSection(MenuSection.Projects)">
+                    <span class="sj-menu-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3.75 7.75A1.75 1.75 0 0 1 5.5 6h4.13l1.58 1.75h7.29a1.75 1.75 0 0 1 1.75 1.75v7A1.75 1.75 0 0 1 18.5 18.25h-13A1.75 1.75 0 0 1 3.75 16.5z" />
+                        </svg>
+                    </span>
+                    <span class="sj-menu-copy">
+                        <span class="sj-menu-title">Projects</span>
+                        <span class="sj-menu-description">Projects and journal entry workspace</span>
+                    </span>
+                    <span class="sj-menu-chevron @(IsSectionExpanded(MenuSection.Projects) ? "is-open" : string.Empty)" aria-hidden="true"></span>
+                </button>
+
+                @if (IsSectionExpanded(MenuSection.Projects))
+                {
+                    <div class="sj-menu-links">
+                        <NavLink class="sj-menu-link" href="projects" Match="NavLinkMatch.Prefix">
+                            My Projects
+                        </NavLink>
+                        <NavLink class="sj-menu-link" href="journal" Match="NavLinkMatch.All">
+                            New Journal Entry
+                        </NavLink>
+                    </div>
+                }
+            </section>
+
+            @if (_canAccessAudit)
             {
-                <NavLink class="sj-nav-sub-link" href="admin/projects/create">
-                    Create project
-                </NavLink>
+                <section class="@GetSectionClass(MenuSection.Audit)">
+                    <button type="button"
+                            class="sj-menu-toggle"
+                            aria-expanded="@IsSectionExpanded(MenuSection.Audit)"
+                            @onclick="() => ToggleSection(MenuSection.Audit)">
+                        <span class="sj-menu-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="6.5" />
+                                <path d="m16 16 4.25 4.25" />
+                            </svg>
+                        </span>
+                        <span class="sj-menu-copy">
+                            <span class="sj-menu-title">Audit</span>
+                            <span class="sj-menu-description">Search audit history and linked journal evidence</span>
+                        </span>
+                        <span class="sj-menu-chevron @(IsSectionExpanded(MenuSection.Audit) ? "is-open" : string.Empty)" aria-hidden="true"></span>
+                    </button>
+
+                    @if (IsSectionExpanded(MenuSection.Audit))
+                    {
+                        <div class="sj-menu-links">
+                            <NavLink class="sj-menu-link" href="audit" Match="NavLinkMatch.All">
+                                Audit Search
+                            </NavLink>
+                        </div>
+                    }
+                </section>
             }
-            <NavLink class="sj-nav-link" href="journal">
-                New Journal Entry
-            </NavLink>
-            @if (_showAdminLinks)
+
+            @if (_showAdminLinks || _canAccessExports)
             {
-                <NavLink class="sj-nav-link" href="admin/projects">
-                    Project Management
-                </NavLink>
-                <NavLink class="sj-nav-link" href="admin/groups">
-                    Group Management
-                </NavLink>
-                <NavLink class="sj-nav-link" href="admin/users">
-                    User Management
-                </NavLink>
-                <NavLink class="sj-nav-link" href="admin/projects/trash">
-                    Trash
-                </NavLink>
+                <section class="@GetSectionClass(MenuSection.Admin)">
+                    <button type="button"
+                            class="sj-menu-toggle"
+                            aria-expanded="@IsSectionExpanded(MenuSection.Admin)"
+                            @onclick="() => ToggleSection(MenuSection.Admin)">
+                        <span class="sj-menu-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3.1" />
+                                <path d="M19.3 15.08a1.1 1.1 0 0 0 .22 1.21l.05.05a1.55 1.55 0 0 1 0 2.19 1.55 1.55 0 0 1-2.19 0l-.05-.05a1.1 1.1 0 0 0-1.21-.22 1.1 1.1 0 0 0-.67 1v.15A1.55 1.55 0 0 1 13.9 21h-3.8a1.55 1.55 0 0 1-1.55-1.55v-.15a1.1 1.1 0 0 0-.67-1 1.1 1.1 0 0 0-1.21.22l-.05.05a1.55 1.55 0 0 1-2.19 0 1.55 1.55 0 0 1 0-2.19l.05-.05a1.1 1.1 0 0 0 .22-1.21 1.1 1.1 0 0 0-1-.67h-.15A1.55 1.55 0 0 1 2 13.9v-3.8A1.55 1.55 0 0 1 3.55 8.55h.15a1.1 1.1 0 0 0 1-.67 1.1 1.1 0 0 0-.22-1.21l-.05-.05a1.55 1.55 0 0 1 0-2.19 1.55 1.55 0 0 1 2.19 0l.05.05a1.1 1.1 0 0 0 1.21.22 1.1 1.1 0 0 0 .67-1v-.15A1.55 1.55 0 0 1 10.1 2h3.8a1.55 1.55 0 0 1 1.55 1.55v.15a1.1 1.1 0 0 0 .67 1 1.1 1.1 0 0 0 1.21-.22l.05-.05a1.55 1.55 0 0 1 2.19 0 1.55 1.55 0 0 1 0 2.19l-.05.05a1.1 1.1 0 0 0-.22 1.21 1.1 1.1 0 0 0 1 .67h.15A1.55 1.55 0 0 1 22 10.1v3.8a1.55 1.55 0 0 1-1.55 1.55h-.15a1.1 1.1 0 0 0-1 .67Z" />
+                            </svg>
+                        </span>
+                        <span class="sj-menu-copy">
+                            <span class="sj-menu-title">Admin</span>
+                            <span class="sj-menu-description">Users, config, exports, and restore tools</span>
+                        </span>
+                        <span class="sj-menu-chevron @(IsSectionExpanded(MenuSection.Admin) ? "is-open" : string.Empty)" aria-hidden="true"></span>
+                    </button>
+
+                    @if (IsSectionExpanded(MenuSection.Admin))
+                    {
+                        <div class="sj-menu-links">
+                            @if (_canAccessExports)
+                            {
+                                <NavLink class="sj-menu-link" href="exports" Match="NavLinkMatch.All">
+                                    Exports
+                                </NavLink>
+                            }
+
+                            @if (_showAdminLinks)
+                            {
+                                <NavLink class="sj-menu-link" href="admin/projects/create" Match="NavLinkMatch.Prefix">
+                                    Create Project
+                                </NavLink>
+                                <NavLink class="sj-menu-link" href="admin/users" Match="NavLinkMatch.All">
+                                    User Management
+                                </NavLink>
+                                <NavLink class="sj-menu-link" href="admin/groups" Match="NavLinkMatch.All">
+                                    Group Management
+                                </NavLink>
+                                <NavLink class="sj-menu-link" href="admin/projects" Match="NavLinkMatch.All">
+                                    Project Management
+                                </NavLink>
+                                <NavLink class="sj-menu-link" href="admin/projects/trash" Match="NavLinkMatch.All">
+                                    Trash
+                                </NavLink>
+                            }
+                        </div>
+                    }
+                </section>
             }
-            <NavLink class="sj-nav-link" href="audit">
-                Audit Search
+        </nav>
+    </div>
+
+    @if (_currentUser is not null)
+    {
+        <div class="sj-profile-panel">
+            <div class="sj-profile-kicker">Workspace Access</div>
+            <div class="sj-profile-card">
+                <div class="sj-profile-avatar" aria-hidden="true">@CurrentUserInitial</div>
+                <div class="sj-profile-copy">
+                    <div class="sj-profile-name">@CurrentDisplayName</div>
+                    <div class="sj-profile-meta">@_currentUser.Username · @CurrentRoleLabel</div>
+                </div>
+            </div>
+
+            <NavLink class="sj-footer-link" href="login" Match="NavLinkMatch.All">
+                <span class="sj-footer-link-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="3.25" />
+                        <path d="M5 19a7 7 0 0 1 14 0" />
+                    </svg>
+                </span>
+                <span>My Settings</span>
             </NavLink>
-            <NavLink class="sj-nav-link" href="exports">
-                Exports
-            </NavLink>
-            <NavLink class="sj-nav-link" href="login">
-                My Settings
-            </NavLink>
+
+            <form method="post" action="/auth/logout" class="sj-footer-form">
+                <AntiforgeryToken />
+                <input type="hidden" name="returnUrl" value="/" />
+                <button type="submit" class="sj-footer-link sj-footer-button">
+                    <span class="sj-footer-link-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5.75A1.75 1.75 0 0 1 4 19.25V4.75A1.75 1.75 0 0 1 5.75 3H9" />
+                            <path d="M16 17l4-5-4-5" />
+                            <path d="M20 12H9" />
+                        </svg>
+                    </span>
+                    <span>Logout</span>
+                </button>
+            </form>
         </div>
-    </nav>
+    }
 </div>
 
 @code {
+    private UserContext? _currentUser;
     private bool _showAdminLinks;
+    private bool _canAccessAudit;
+    private bool _canAccessExports;
+    private string _currentRelativePath = string.Empty;
+    private bool _projectsExpanded = true;
+    private bool _auditExpanded;
+    private bool _adminExpanded;
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+        UpdateCurrentRelativePath();
+
+        await LoadCurrentUserAsync();
+        ApplySectionExpansionForCurrentRoute();
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+
+    private async Task LoadCurrentUserAsync()
     {
         if (!await JournalApp.HasCurrentUserAsync())
         {
+            _currentUser = null;
             _showAdminLinks = false;
+            _canAccessAudit = false;
+            _canAccessExports = false;
             return;
         }
 
-        _showAdminLinks = (await JournalApp.GetCurrentUserAsync()).Role == AppRole.Administrator;
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+        _showAdminLinks = _currentUser.Role == AppRole.Administrator;
+        _canAccessAudit = _currentUser.Role is AppRole.Administrator or AppRole.Auditor;
+        _canAccessExports = _canAccessAudit;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateCurrentRelativePath();
+        ApplySectionExpansionForCurrentRoute();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleSection(MenuSection section)
+    {
+        switch (section)
+        {
+            case MenuSection.Projects:
+                _projectsExpanded = !_projectsExpanded;
+                break;
+            case MenuSection.Audit:
+                _auditExpanded = !_auditExpanded;
+                break;
+            case MenuSection.Admin:
+                _adminExpanded = !_adminExpanded;
+                break;
+        }
+    }
+
+    private void UpdateCurrentRelativePath()
+    {
+        _currentRelativePath = Navigation.ToBaseRelativePath(Navigation.Uri).Trim('/');
+    }
+
+    private void ApplySectionExpansionForCurrentRoute()
+    {
+        _projectsExpanded = IsSectionActive(MenuSection.Projects);
+        _auditExpanded = IsSectionActive(MenuSection.Audit);
+        _adminExpanded = IsSectionActive(MenuSection.Admin);
+
+        if (!_projectsExpanded && !_auditExpanded && !_adminExpanded)
+        {
+            _projectsExpanded = true;
+        }
+    }
+
+    private bool IsSectionExpanded(MenuSection section) => section switch
+    {
+        MenuSection.Projects => _projectsExpanded,
+        MenuSection.Audit => _auditExpanded,
+        MenuSection.Admin => _adminExpanded,
+        _ => false
+    };
+
+    private bool IsSectionActive(MenuSection section) => section switch
+    {
+        MenuSection.Projects => _currentRelativePath.StartsWith("projects", StringComparison.OrdinalIgnoreCase)
+            || _currentRelativePath.Equals("journal", StringComparison.OrdinalIgnoreCase),
+        MenuSection.Audit => _currentRelativePath.StartsWith("audit", StringComparison.OrdinalIgnoreCase),
+        MenuSection.Admin => _currentRelativePath.StartsWith("admin", StringComparison.OrdinalIgnoreCase)
+            || _currentRelativePath.Equals("exports", StringComparison.OrdinalIgnoreCase),
+        _ => false
+    };
+
+    private string GetSectionClass(MenuSection section)
+    {
+        var classes = "sj-menu-section";
+        if (IsSectionActive(section))
+        {
+            classes += " is-active";
+        }
+
+        if (IsSectionExpanded(section))
+        {
+            classes += " is-open";
+        }
+
+        return classes;
+    }
+
+    private string CurrentDisplayName => string.IsNullOrWhiteSpace(_currentUser?.DisplayName)
+        ? _currentUser?.Username ?? "User"
+        : _currentUser.DisplayName;
+
+    private string CurrentUserInitial => string.IsNullOrWhiteSpace(CurrentDisplayName)
+        ? "U"
+        : CurrentDisplayName[..1].ToUpperInvariant();
+
+    private string CurrentRoleLabel => _currentUser?.Role switch
+    {
+        AppRole.Administrator => "Administrator",
+        AppRole.Auditor => "Auditor",
+        AppRole.ProjectUser => "Project User",
+        _ => "User"
+    };
+
+    private enum MenuSection
+    {
+        Projects,
+        Audit,
+        Admin
     }
 }

@@ -50,6 +50,8 @@
     display: flex;
     align-items: flex-start;
     gap: 0.6rem;
+    position: relative;
+    padding-left: 1rem;
     padding: 0.85rem 1rem;
     border: 1px solid rgba(166, 191, 231, 0.12);
     border-radius: 1rem;
@@ -57,11 +59,15 @@
 }
 
 .project-create-mode-toggle .form-check-input {
-    margin-top: 0.15rem;
+    position: static;
+    float: none;
+    margin: 0.2rem 0 0;
+    flex: 0 0 auto;
 }
 
 .project-create-mode-toggle .form-check-label {
     margin: 0;
+    flex: 1 1 auto;
 }
 
 .project-create-selection-panel,

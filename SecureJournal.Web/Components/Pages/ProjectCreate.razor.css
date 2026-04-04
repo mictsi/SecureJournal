@@ -1,5 +1,22 @@
 .project-create-card {
-    width: min(100%, 60rem);
+    width: min(100%, 72rem);
+    margin: 0;
+}
+
+.project-create-progress {
+    margin-bottom: 1rem;
+    width: min(100%, 72rem);
+}
+
+.project-create-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+    color: var(--sj-muted);
+    font-size: 0.88rem;
+    letter-spacing: 0.02em;
 }
 
 .project-metadata-grid {
@@ -10,6 +27,57 @@
 
 .project-metadata-main {
     grid-column: 1 / -1;
+}
+
+.project-create-card .list-group {
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.project-create-step-copy {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--sj-muted);
+}
+
+.project-create-mode-toggle {
+    display: grid;
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+}
+
+.project-create-mode-toggle .form-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(166, 191, 231, 0.12);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.project-create-mode-toggle .form-check-input {
+    margin-top: 0.15rem;
+}
+
+.project-create-mode-toggle .form-check-label {
+    margin: 0;
+}
+
+.project-create-selection-panel,
+.project-create-member-card {
+    border-color: rgba(166, 191, 231, 0.12) !important;
+    background: rgba(255, 255, 255, 0.035);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.project-create-selection-panel .form-check:last-child,
+.project-create-member-card .form-check:last-child {
+    margin-bottom: 0;
+}
+
+.project-create-list .list-group-item {
+    padding: 0.9rem 1rem;
 }
 
 @media (max-width: 900px) {

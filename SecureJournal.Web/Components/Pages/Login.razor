@@ -1,9 +1,7 @@
 @page "/login"
 @inject ISecureJournalAppService JournalApp
-@inject PrototypeSessionCookieCoordinator SessionCookies
 @inject NavigationManager Navigation
 @inject ILogger<Login> Logger
-@inject IConfiguration Configuration
 
 <PageTitle>My Settings</PageTitle>
 
@@ -12,8 +10,7 @@
         <p class="eyebrow">My Settings</p>
         <h2>My Settings</h2>
         <p>
-            Uses users stored in the configured app database. The startup administrator is configured in `appsettings` under `BootstrapAdmin`.
-            Root (`/`) is the public login page. This page is available after sign-in for account actions.
+            Review your account details and update the password for your current local account.
         </p>
     </div>
 </section>
@@ -76,70 +73,6 @@
                 </div>
             </EditForm>
         </section>
-
-        <section class="panel-card">
-            <h3>Login</h3>
-            @if (_enableLocalLogin)
-            {
-                @if (_enableAspNetIdentity)
-                {
-                    <form method="post" action="/auth/local-login" data-enhance="false">
-                        <AntiforgeryToken />
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label" for="loginUsername">Username</label>
-                                <input id="loginUsername" class="form-control" name="username" autocomplete="username" required />
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label" for="loginPassword">Password</label>
-                                <input id="loginPassword" class="form-control" type="password" name="password" autocomplete="current-password" required />
-                            </div>
-                        </div>
-                        <input type="hidden" name="returnUrl" value="/projects" />
-                        <input type="hidden" name="failurePath" value="/login" />
-
-                        <div class="mt-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Login</button>
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    <EditForm Model="LoginModel" OnValidSubmit="LoginAsync" FormName="login-form">
-                        <AntiforgeryToken />
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label class="form-label" for="loginUsername">Username</label>
-                                <InputText id="loginUsername" class="form-control" @bind-Value="LoginModel.Username" />
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label" for="loginPassword">Password</label>
-                                <InputText id="loginPassword" class="form-control" type="password" @bind-Value="LoginModel.Password" />
-                            </div>
-                        </div>
-
-                        <div class="mt-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Login</button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="ResetLogin">Reset</button>
-                        </div>
-                    </EditForm>
-                }
-            }
-
-            @if (_enableOidc)
-            {
-                <div class="mt-3">
-                    <a class="btn btn-oidc"
-                       href="/auth/oidc-login?returnUrl=%2Fprojects"
-                       data-enhance-nav="false">
-                        Login with OpenID
-                    </a>
-                </div>
-            }
-        </section>
     </div>
 
     <div class="settings-column settings-column-right"></div>
@@ -152,19 +85,13 @@
     [SupplyParameterFromQuery(Name = "message")]
     private string? QueryMessage { get; set; }
 
-    [SupplyParameterFromForm(FormName = "login-form")]
-    private LoginForm? PostedLoginModel { get; set; }
-    private LoginForm LoginModel => PostedLoginModel ??= new();
-
     [SupplyParameterFromForm(FormName = "change-password-form")]
     private ChangePasswordForm? PostedPasswordChangeModel { get; set; }
     private ChangePasswordForm PasswordChangeModel => PostedPasswordChangeModel ??= new();
+
     private string? _message;
     private string? _error;
     private int _passwordMinLength;
-    private bool _enableLocalLogin;
-    private bool _enableOidc;
-    private bool _enableAspNetIdentity;
     private UserContext? _currentUser;
     private List<GroupOverview> _groups = new();
     private string _currentUserGroupNames = "None";
@@ -177,9 +104,6 @@
             return;
         }
 
-        _enableLocalLogin = bool.TryParse(Configuration["Authentication:EnableLocalLogin"], out var localLogin) && localLogin;
-        _enableOidc = bool.TryParse(Configuration["Authentication:EnableOidc"], out var oidc) && oidc;
-        _enableAspNetIdentity = bool.TryParse(Configuration["Authentication:EnableAspNetIdentity"], out var identity) && identity;
         _passwordMinLength = JournalApp.GetLocalPasswordMinLength();
         _currentUser = await JournalApp.GetCurrentUserAsync();
         _groups = JournalApp.GetGroups().ToList();
@@ -198,34 +122,6 @@
         if (!string.IsNullOrWhiteSpace(QueryMessage))
         {
             _message = QueryMessage;
-        }
-    }
-
-    private async Task LoginAsync()
-    {
-        ClearMessages();
-        Logger.LogInformation("Login form submitted for username {Username}", LoginModel.Username);
-
-        try
-        {
-            var result = await JournalApp.TryLocalLoginAsync(LoginModel.Username, LoginModel.Password);
-            if (!result.Success)
-            {
-                Logger.LogWarning("Login failed for username {Username}: {Message}", LoginModel.Username, result.Message);
-                _error = result.Message;
-                return;
-            }
-
-            Logger.LogInformation("Login succeeded for username {Username}", LoginModel.Username);
-            await SessionCookies.PersistCurrentLoginAsync();
-            _message = result.Message;
-            ResetLogin();
-            Navigation.NavigateTo("/projects", forceLoad: false);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Login form submit threw an exception for username {Username}", LoginModel.Username);
-            _error = ex.Message;
         }
     }
 
@@ -273,12 +169,6 @@
         _error = null;
     }
 
-    private void ResetLogin()
-    {
-        LoginModel.Username = string.Empty;
-        LoginModel.Password = string.Empty;
-    }
-
     private void ResetPasswordChange()
     {
         PasswordChangeModel.CurrentPassword = string.Empty;
@@ -303,15 +193,6 @@
             .ToList();
 
         return string.Join(", ", names);
-    }
-
-    private sealed class LoginForm
-    {
-        [Required]
-        public string Username { get; set; } = string.Empty;
-
-        [Required]
-        public string Password { get; set; } = string.Empty;
     }
 
     private sealed class ChangePasswordForm

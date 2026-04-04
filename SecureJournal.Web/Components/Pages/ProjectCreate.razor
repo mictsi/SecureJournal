@@ -16,15 +16,15 @@
     </div>
 </section>
 
-<div class="mb-4">
-    <div class="d-flex justify-content-between text-muted mb-1">
+<section class="panel-card project-create-progress">
+    <div class="project-create-progress-labels">
         <span>Progress</span>
         <span>@ProgressPercent%</span>
     </div>
     <div class="progress" role="progressbar" aria-label="Create project wizard progress" aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar" style="width:@($"{ProgressPercent}%")"></div>
     </div>
-</div>
+</section>
 
 @if (!string.IsNullOrWhiteSpace(_error))
 {
@@ -102,9 +102,9 @@ else if (CurrentStep == 2)
             <h3>Step 2: Group Permissions</h3>
         </div>
 
-        <p class="text-muted">Choose existing groups or create new groups to assign to this project.</p>
+        <p class="project-create-step-copy">Choose existing groups or create new groups to assign to this project.</p>
 
-        <div class="mb-3">
+        <div class="project-create-mode-toggle">
             <div class="form-check">
                 <input class="form-check-input" id="useExistingGroups" type="radio" name="groupMode" checked="@WizardState.UseExistingGroups" @onchange="() => SetGroupMode(true)" />
                 <label class="form-check-label" for="useExistingGroups">Choose Existing Groups</label>
@@ -123,7 +123,7 @@ else if (CurrentStep == 2)
             }
             else
             {
-                <div class="border rounded p-3">
+                <div class="border rounded p-3 project-create-selection-panel">
                     @foreach (var group in _existingGroups)
                     {
                         <label class="form-check mb-2">
@@ -139,7 +139,7 @@ else if (CurrentStep == 2)
         }
         else
         {
-            <div class="border rounded p-3 mb-3">
+            <div class="border rounded p-3 mb-3 project-create-selection-panel">
                 <div class="mb-2">
                     <label class="form-label" for="newGroupName">Group Name</label>
                     <input id="newGroupName" class="form-control" maxlength="100" @bind="_newGroupDraft.Name" />
@@ -157,7 +157,7 @@ else if (CurrentStep == 2)
             }
             else
             {
-                <ul class="list-group">
+                <ul class="list-group project-create-list">
                     @foreach (var group in WizardState.NewGroups)
                     {
                         <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -203,7 +203,7 @@ else
         {
             @foreach (var group in WizardState.NewGroups)
             {
-                <div class="border rounded p-3 mb-3">
+                <div class="border rounded p-3 mb-3 project-create-member-card">
                     <h4 class="h6 mb-2">@group.Name</h4>
                     <p class="text-muted mb-2">@RenderValueOrDash(group.Description)</p>
                     <div class="row row-cols-1 row-cols-md-2 g-2">

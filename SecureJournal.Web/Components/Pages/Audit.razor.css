@@ -2,3 +2,38 @@
 .audit-results-table td {
     vertical-align: top;
 }
+
+.audit-results-table {
+    table-layout: fixed;
+}
+
+.audit-timestamp-column {
+    width: 8rem;
+}
+
+.audit-action-column {
+    width: 8.5rem;
+}
+
+.audit-outcome-column {
+    width: 7.5rem;
+}
+
+.audit-details-column {
+    width: 28rem;
+}
+
+.audit-results-table .badge {
+    display: inline-flex;
+    align-items: center;
+}
+
+@media (max-width: 1200px) {
+    .audit-results-table {
+        table-layout: auto;
+    }
+
+    .audit-details-column {
+        width: auto;
+    }
+}

@@ -212,29 +212,46 @@ else
             {
                 <section class="panel-card user-profile-card">
                     <div class="user-profile-summary">
-                        <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
-                        <div class="user-profile-copy">
-                            <div class="user-profile-heading">
-                                <h3>@SelectedUser.DisplayName</h3>
-                                <span class="user-status-badge @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
-                                    @(SelectedUser.IsDisabled ? "Disabled" : "Active")
-                                </span>
+                        <div class="user-profile-identity">
+                            <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
+                            <div class="user-profile-copy">
+                                <div class="user-profile-heading">
+                                    <h3>@SelectedUser.DisplayName</h3>
+                                    <span class="user-status-badge @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
+                                        @(SelectedUser.IsDisabled ? "Disabled" : "Active")
+                                    </span>
+                                </div>
+                                <div class="user-profile-role-list">
+                                    @foreach (var role in UserRoles(SelectedUser))
+                                    {
+                                        <span class="user-role-badge is-strong">@RoleLabel(role)</span>
+                                    }
+                                </div>
                             </div>
-                            <div class="user-profile-meta">
-                                <span>@SelectedUser.Username</span>
-                                <span>@(SelectedUser.IsLocalAccount ? "Local account" : "External account")</span>
-                                <span>@SelectedUser.Groups.Count group(s)</span>
+                        </div>
+
+                        <div class="user-profile-stats">
+                            <div class="user-profile-stat">
+                                <span class="user-profile-stat-label">Username</span>
+                                <strong>@SelectedUser.Username</strong>
                             </div>
-                            <div class="user-profile-role-list">
-                                @foreach (var role in UserRoles(SelectedUser))
-                                {
-                                    <span class="user-role-badge is-strong">@RoleLabel(role)</span>
-                                }
+                            <div class="user-profile-stat">
+                                <span class="user-profile-stat-label">Access</span>
+                                <strong>@(SelectedUser.IsLocalAccount ? "Local" : "External")</strong>
+                            </div>
+                            <div class="user-profile-stat">
+                                <span class="user-profile-stat-label">Roles</span>
+                                <strong>@UserRoles(SelectedUser).Count</strong>
+                            </div>
+                            <div class="user-profile-stat">
+                                <span class="user-profile-stat-label">Groups</span>
+                                <strong>@SelectedUser.Groups.Count</strong>
                             </div>
                         </div>
                     </div>
                 </section>
 
+                <div class="user-detail-grid">
                 <section class="panel-card user-roles-card">
                     <div class="panel-card-header user-section-header">
                         <div>
@@ -313,7 +330,7 @@ else
                     }
                 </section>
 
-                <section class="panel-card user-groups-card">
+                <section class="panel-card user-groups-card @(_showGroupBrowser ? "is-expanded" : string.Empty)">
                     <div class="panel-card-header user-section-header">
                         <div>
                             <p class="user-section-kicker">Groups</p>
@@ -457,6 +474,7 @@ else
                         </div>
                     </div>
                 </section>
+                </div>
             }
         </div>
     </div>

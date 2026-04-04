@@ -10,12 +10,12 @@
 
 .project-management-head,
 .project-management-shell {
-    --project-surface: linear-gradient(180deg, rgba(20, 30, 50, 0.94), rgba(12, 20, 36, 0.94));
-    --project-surface-muted: linear-gradient(180deg, rgba(24, 36, 60, 0.96), rgba(15, 24, 42, 0.96));
-    --project-border: rgba(120, 174, 252, 0.14);
-    --project-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+    --project-surface: rgba(37, 50, 73, 0.74);
+    --project-surface-muted: rgba(44, 59, 84, 0.82);
+    --project-border: rgba(166, 191, 231, 0.12);
+    --project-shadow: 0 14px 28px rgba(6, 12, 24, 0.16);
     --project-ink: #edf4ff;
-    --project-subtle-ink: #9daecc;
+    --project-subtle-ink: #aab9cd;
 }
 
 .project-directory-card,
@@ -111,25 +111,25 @@
     align-items: flex-start;
     gap: 0.85rem;
     width: 100%;
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(166, 191, 231, 0.1);
     border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.035);
     color: var(--project-ink);
     padding: 0.9rem 0.95rem;
     text-align: left;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .project-directory-item:hover {
-    border-color: rgba(96, 165, 250, 0.34);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
-    transform: translateY(-1px);
+    border-color: rgba(166, 191, 231, 0.22);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
 }
 
 .project-directory-item.is-active {
-    border-color: rgba(96, 165, 250, 0.72);
-    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.18), 0 14px 26px rgba(0, 0, 0, 0.26);
-    background: linear-gradient(180deg, rgba(33, 60, 110, 0.78), rgba(16, 27, 49, 0.96));
+    border-color: rgba(166, 191, 231, 0.32);
+    box-shadow: 0 0 0 1px rgba(166, 191, 231, 0.08);
+    background: rgba(136, 165, 210, 0.14);
 }
 
 .project-avatar {
@@ -140,7 +140,8 @@
     justify-content: center;
     align-items: center;
     border-radius: 999px;
-    background: linear-gradient(135deg, #5a6bff, #8f48f6);
+    border: 1px solid rgba(166, 191, 231, 0.16);
+    background: rgba(136, 165, 210, 0.2);
     color: #fff;
     font-weight: 700;
 }
@@ -169,7 +170,7 @@
 
 .project-directory-subtitle,
 .project-profile-subtitle {
-    color: #d6e5ff;
+    color: #dce8fa;
     font-weight: 600;
 }
 
@@ -201,7 +202,7 @@
 }
 
 .project-chip {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.07);
     color: #f4f7ff;
 }
 
@@ -211,18 +212,18 @@
 }
 
 .project-status-badge.is-active {
-    background: #e8f7ee;
-    color: #1d7c4b;
+    background: rgba(136, 165, 210, 0.16);
+    color: #e1ebfb;
 }
 
 .project-status-badge.is-disabled {
-    background: #fdecee;
-    color: #be384b;
+    background: rgba(151, 74, 93, 0.18);
+    color: #ffd9e1;
 }
 
 .project-directory-footer {
     padding-bottom: 1rem;
-    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    border-top: 1px solid rgba(166, 191, 231, 0.1);
 }
 
 .project-directory-footer-row {
@@ -286,7 +287,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #60a5fa;
+    color: #a9c1e8;
 }
 
 .project-danger-kicker {
@@ -309,9 +310,9 @@
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.85rem 0.95rem;
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(166, 191, 231, 0.1);
     border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .project-field-value {
@@ -322,7 +323,7 @@
 .project-group-browser {
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    border-top: 1px solid rgba(166, 191, 231, 0.1);
 }
 
 .project-group-browser .table {
@@ -331,7 +332,7 @@
 
 .project-group-browser .table > :not(caption) > * > * {
     background: transparent;
-    border-color: rgba(148, 163, 184, 0.14);
+    border-color: rgba(166, 191, 231, 0.1);
 }
 
 .project-section-actions {
@@ -344,19 +345,19 @@
 .project-management-shell .btn-outline-secondary,
 .project-management-head .btn-outline-secondary {
     --bs-btn-color: var(--project-ink);
-    --bs-btn-border-color: rgba(148, 163, 184, 0.18);
-    --bs-btn-hover-bg: rgba(120, 174, 252, 0.12);
+    --bs-btn-border-color: rgba(166, 191, 231, 0.16);
+    --bs-btn-hover-bg: rgba(255, 255, 255, 0.06);
     --bs-btn-hover-color: var(--project-ink);
-    --bs-btn-hover-border-color: rgba(120, 174, 252, 0.4);
+    --bs-btn-hover-border-color: rgba(166, 191, 231, 0.24);
 }
 
 .project-management-shell .btn-outline-primary,
 .project-management-head .btn-outline-primary {
     --bs-btn-color: #dbe9ff;
-    --bs-btn-border-color: rgba(120, 174, 252, 0.32);
-    --bs-btn-hover-bg: rgba(120, 174, 252, 0.18);
+    --bs-btn-border-color: rgba(166, 191, 231, 0.22);
+    --bs-btn-hover-bg: rgba(136, 165, 210, 0.14);
     --bs-btn-hover-color: #fff;
-    --bs-btn-hover-border-color: rgba(120, 174, 252, 0.54);
+    --bs-btn-hover-border-color: rgba(166, 191, 231, 0.3);
 }
 
 .project-management-shell .btn-link,
@@ -375,8 +376,8 @@
 }
 
 .project-danger-card {
-    border-color: rgba(251, 113, 133, 0.34);
-    background: linear-gradient(180deg, rgba(77, 20, 35, 0.54), rgba(32, 10, 18, 0.7));
+    border-color: rgba(207, 129, 147, 0.22);
+    background: rgba(88, 44, 56, 0.42);
 }
 
 .project-danger-card h3,

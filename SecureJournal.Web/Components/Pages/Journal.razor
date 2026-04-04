@@ -1,7 +1,9 @@
 @page "/journal"
 @attribute [Authorize]
+@implements IAsyncDisposable
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>New Journal Entry</PageTitle>
 
@@ -39,7 +41,7 @@
     }
     else
     {
-        <EditForm Model="DraftModel" OnValidSubmit="CreateEntry" FormName="journal-create-entry">
+        <EditForm Model="DraftModel" OnValidSubmit="CreateEntryAsync" FormName="journal-create-entry">
             <AntiforgeryToken />
             <DataAnnotationsValidator />
             <ValidationSummary />
@@ -62,34 +64,25 @@
 
                 <div class="col-12">
                     <label class="form-label" for="descriptionInput">Description</label>
-                    <div class="format-toolbar" role="toolbar" aria-label="Description formatting tools">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("**bold**")'><strong>B</strong></button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("*italic*")'><em>I</em></button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("`code`")'>Code</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("# Heading")'>H1</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendDescriptionSnippet("- item")'>List</button>
-                    </div>
-                    <InputTextArea id="descriptionInput" class="form-control" maxlength="@FieldLimits.DescriptionMax" rows="4" @bind-Value="DraftModel.Description" />
-                    <small class="text-muted">Basic formatting preview supports `#`, `**bold**`, `*italic*`, and `` `code` ``.</small>
-                    <div class="format-preview" aria-live="polite">
-                        <div class="format-preview-label">Description preview</div>
-                        <div class="format-preview-body">@SimpleMarkupPreview.Render(DraftModel.Description)</div>
+                    <div class="journal-editor-shell">
+                        <InputTextArea id="descriptionInput"
+                                       class="form-control journal-rich-editor-source"
+                                       maxlength="@FieldLimits.DescriptionMax"
+                                       rows="8"
+                                       @bind-Value="DraftModel.Description" />
+                        <p class="journal-editor-hint">Use the built-in editor toolbar for headings, lists, links, and emphasis.</p>
                     </div>
                 </div>
 
                 <div class="col-12">
                     <label class="form-label" for="notesInput">Notes</label>
-                    <div class="format-toolbar" role="toolbar" aria-label="Notes formatting tools">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("**bold**")'><strong>B</strong></button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("*italic*")'><em>I</em></button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("`code`")'>Code</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("# Heading")'>H1</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick='() => AppendNotesSnippet("- item")'>List</button>
-                    </div>
-                    <InputTextArea id="notesInput" class="form-control" maxlength="@FieldLimits.NotesMax" rows="4" @bind-Value="DraftModel.Notes" />
-                    <div class="format-preview" aria-live="polite">
-                        <div class="format-preview-label">Notes preview</div>
-                        <div class="format-preview-body">@SimpleMarkupPreview.Render(DraftModel.Notes)</div>
+                    <div class="journal-editor-shell">
+                        <InputTextArea id="notesInput"
+                                       class="form-control journal-rich-editor-source"
+                                       maxlength="@FieldLimits.NotesMax"
+                                       rows="10"
+                                       @bind-Value="DraftModel.Notes" />
+                        <p class="journal-editor-hint">Notes are optional and support the same rich formatting.</p>
                     </div>
                 </div>
             </div>
@@ -111,6 +104,10 @@
     private List<ProjectOverview> _projects = new();
     private string? _message;
     private string? _error;
+    private readonly string[] _editorIds = ["descriptionInput", "notesInput"];
+
+    private bool CanUseRichEditor
+        => _projects.Count > 0 && _currentUser?.Role != AppRole.Auditor;
 
     protected override async Task OnInitializedAsync()
     {
@@ -121,6 +118,30 @@
         }
 
         await LoadDataAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!CanUseRichEditor)
+        {
+            await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("secureJournalEditors.syncTinyMce", new object[] {
+            new
+            {
+                id = "descriptionInput",
+                value = DraftModel.Description ?? string.Empty,
+                minHeight = 240
+            },
+            new
+            {
+                id = "notesInput",
+                value = DraftModel.Notes ?? string.Empty,
+                minHeight = 300
+            }
+        }, _editorIds);
     }
 
     private async Task LoadDataAsync()
@@ -134,13 +155,14 @@
         }
     }
 
-    private void CreateEntry()
+    private async Task CreateEntryAsync()
     {
         _message = null;
         _error = null;
 
         try
         {
+            await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
             var selectedProject = DraftModel.ProjectId;
             JournalApp.CreateJournalEntry(DraftModel);
             Navigation.NavigateTo($"/projects?projectId={selectedProject:D}");
@@ -160,22 +182,18 @@
         DraftModel.ProjectId = selectedProject;
         _message = null;
         _error = null;
+        StateHasChanged();
     }
 
-    private void AppendDescriptionSnippet(string snippet)
-        => DraftModel.Description = AppendSnippet(DraftModel.Description, snippet);
-
-    private void AppendNotesSnippet(string snippet)
-        => DraftModel.Notes = AppendSnippet(DraftModel.Notes, snippet);
-
-    private static string AppendSnippet(string? currentValue, string snippet)
+    public async ValueTask DisposeAsync()
     {
-        var current = currentValue ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(current))
+        try
         {
-            return snippet;
+            await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
         }
-
-        return $"{current}{Environment.NewLine}{snippet}";
+        catch (JSDisconnectedException)
+        {
+            // The page is already tearing down.
+        }
     }
 }

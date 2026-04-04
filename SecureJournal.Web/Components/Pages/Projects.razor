@@ -128,37 +128,6 @@
         }
         else
         {
-            <section class="panel-card my-project-profile-card">
-                <div class="my-project-profile-summary">
-                    <span class="my-project-avatar my-project-avatar-large" aria-hidden="true">@ProjectInitial(SelectedProject)</span>
-                    <div class="my-project-profile-copy">
-                        <div class="my-project-profile-heading">
-                            <h3>@SelectedProject.Code</h3>
-                            <span class="my-project-status-badge">Selected Project</span>
-                        </div>
-                        <p class="my-project-profile-subtitle">@SelectedProject.Name</p>
-                        <p class="my-project-profile-description mb-0">@ProjectDescriptionOrFallback(SelectedProject)</p>
-                        <div class="my-project-profile-meta">
-                            <span>@SelectedProject.AssignedGroups.Count group(s)</span>
-                            <span>@SelectedProject.ProjectId</span>
-                        </div>
-                        <div class="my-project-chip-list">
-                            @if (SelectedProject.AssignedGroups.Count == 0)
-                            {
-                                <span class="my-project-chip is-empty">No groups assigned</span>
-                            }
-                            else
-                            {
-                                @foreach (var groupName in SelectedProject.AssignedGroups)
-                                {
-                                    <span class="my-project-chip">@groupName</span>
-                                }
-                            }
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <section class="panel-card my-project-journal-card">
                 <div class="panel-card-header my-project-section-header">
                     <div>
@@ -615,8 +584,5 @@
         var source = string.IsNullOrWhiteSpace(project.Code) ? project.Name : project.Code;
         return string.IsNullOrWhiteSpace(source) ? "P" : source.Trim()[0].ToString().ToUpperInvariant();
     }
-
-    private static string ProjectDescriptionOrFallback(ProjectOverview project)
-        => string.IsNullOrWhiteSpace(project.Description) ? "No description provided." : project.Description;
 
 }

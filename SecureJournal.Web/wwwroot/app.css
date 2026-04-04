@@ -951,8 +951,51 @@ body[data-theme="dark"] .landing-login-card {
 }
 
 .audit-journal-preview-text {
-    white-space: pre-wrap;
     margin-top: 0.15rem;
+}
+
+.rich-content {
+    color: inherit;
+}
+
+.rich-content p:last-child,
+.rich-content ul:last-child,
+.rich-content ol:last-child,
+.rich-content blockquote:last-child,
+.rich-content pre:last-child {
+    margin-bottom: 0;
+}
+
+.rich-content ul,
+.rich-content ol {
+    padding-left: 1.2rem;
+}
+
+.rich-content blockquote {
+    margin: 0.85rem 0;
+    padding-left: 0.95rem;
+    border-left: 3px solid rgba(166, 191, 231, 0.28);
+    color: var(--sj-muted);
+}
+
+.rich-content pre {
+    margin: 0.85rem 0;
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    background: rgba(8, 15, 28, 0.76);
+    color: var(--sj-ink);
+    overflow-x: auto;
+}
+
+.rich-content code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.4rem;
+    background: rgba(8, 15, 28, 0.52);
+    color: var(--sj-ink);
+}
+
+.rich-content a {
+    color: #b8d0ff;
 }
 
 html[data-theme="dark"] .audit-journal-preview,

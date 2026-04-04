@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Administrator,Auditor")]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
+@using SecureJournal.Web.Utilities
 
 <PageTitle>Audit Search</PageTitle>
 
@@ -180,13 +181,13 @@
                                         <div class="audit-journal-preview-field"><strong>Subject:</strong> @row.RelatedJournalEntry.Subject</div>
                                         <div class="audit-journal-preview-field">
                                             <strong>Description:</strong>
-                                            <div class="audit-journal-preview-text">@row.RelatedJournalEntry.Description</div>
+                                            <div class="audit-journal-preview-text rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Description)</div>
                                         </div>
                                         @if (!string.IsNullOrWhiteSpace(row.RelatedJournalEntry.Notes))
                                         {
                                             <div class="audit-journal-preview-field">
                                                 <strong>Notes:</strong>
-                                                <div class="audit-journal-preview-text">@row.RelatedJournalEntry.Notes</div>
+                                                <div class="audit-journal-preview-text rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Notes)</div>
                                             </div>
                                         }
                                     </div>

@@ -86,6 +86,53 @@
     padding: 0.9rem 1rem;
 }
 
+.journal-editor-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.journal-editor-hint {
+    margin: 0;
+    color: var(--sj-muted);
+    font-size: 0.88rem;
+}
+
+.journal-rich-editor-source {
+    min-height: 10rem;
+}
+
+.journal-editor-shell ::deep(.tox-tinymce) {
+    border: 1px solid rgba(166, 191, 231, 0.14);
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.journal-editor-shell ::deep(.tox .tox-editor-header) {
+    background: rgba(18, 29, 44, 0.92);
+    border-bottom: 1px solid rgba(166, 191, 231, 0.12);
+    box-shadow: none;
+}
+
+.journal-editor-shell ::deep(.tox .tox-toolbar),
+.journal-editor-shell ::deep(.tox .tox-toolbar__primary),
+.journal-editor-shell ::deep(.tox .tox-toolbar__overflow) {
+    background: transparent;
+}
+
+.journal-editor-shell ::deep(.tox .tox-edit-area__iframe) {
+    background: #202c3e;
+}
+
+.journal-editor-shell ::deep(.tox .tox-statusbar) {
+    display: none;
+}
+
+.journal-editor-shell ::deep(.tox .tox-toolbar__group) {
+    border-color: rgba(166, 191, 231, 0.08);
+}
+
 @media (max-width: 900px) {
     .project-metadata-grid {
         grid-template-columns: 1fr;

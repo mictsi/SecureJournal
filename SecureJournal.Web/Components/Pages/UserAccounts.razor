@@ -1,24 +1,247 @@
+@page "/admin/users/create"
 @page "/admin/user-accounts"
 @attribute [Authorize(Roles = "Administrator")]
+@inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
+@inject ILogger<UserAccounts> Logger
 
-<PageTitle>User Management</PageTitle>
+<PageTitle>Create User</PageTitle>
 
-<section class="page-head">
+<section class="page-head user-create-head">
     <div>
         <p class="eyebrow">Administration</p>
-        <h2>User Management</h2>
-        <p>Redirecting to the consolidated user management page.</p>
+        <h2>Create User</h2>
+        <p>Add a new account, choose local or external access, and set initial roles.</p>
     </div>
 </section>
 
-<section class="panel-card redirect-card">
-    <p class="mb-0">Taking you there now...</p>
-</section>
+@if (!string.IsNullOrWhiteSpace(_error))
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (_currentUser is null)
+{
+    <p>Loading current user...</p>
+}
+else if (_currentUser.Role != AppRole.Administrator)
+{
+    <div class="alert alert-warning" role="alert">
+        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    </div>
+}
+else
+{
+    <section class="panel-card user-create-shell">
+        <div class="panel-card-header user-section-header">
+            <div>
+                <p class="user-section-kicker">Create User</p>
+                <h3>Add a new account</h3>
+                <p class="user-section-copy">Create local or external users and assign their initial roles before returning to user management.</p>
+            </div>
+        </div>
+
+        <EditForm Model="_createUserDraft" OnValidSubmit="CreateUserAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="createUsername">Username</label>
+                    <InputText id="createUsername" class="form-control" maxlength="100" @bind-Value="_createUserDraft.Username" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="createDisplayName">Display Name</label>
+                    <InputText id="createDisplayName" class="form-control" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
+                </div>
+            </div>
+
+            <div class="user-create-toggle form-check">
+                <InputCheckbox id="createLocalAccount" class="form-check-input" @bind-Value="_createUserDraft.IsLocalAccount" />
+                <label class="form-check-label" for="createLocalAccount">Local account</label>
+            </div>
+
+            @if (_createUserDraft.IsLocalAccount)
+            {
+                <div class="mt-3">
+                    <label class="form-label" for="createLocalPassword">Local Password</label>
+                    <InputText id="createLocalPassword" type="password" class="form-control" @bind-Value="_createUserDraft.LocalPassword" />
+                    <div class="form-text">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
+                </div>
+            }
+
+            <div class="mt-4">
+                <label class="form-label d-block">Initial Roles</label>
+                <div class="user-role-stack">
+                    @foreach (var role in _roles)
+                    {
+                        <label class="user-role-option @RoleOptionClass(_createUserRoles.Contains(role))">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   checked="@_createUserRoles.Contains(role)"
+                                   @onchange="args => ToggleCreateRole(role, args)" />
+                            <span class="user-role-option-body">
+                                <span class="user-role-option-title">@RoleLabel(role)</span>
+                                <span class="user-role-option-description">@RoleDescription(role)</span>
+                            </span>
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <div class="user-section-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_isCreatingUser">
+                    @(_isCreatingUser ? "Creating..." : "Create User")
+                </button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ResetCreateUserForm" disabled="@_isCreatingUser">Reset</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_isCreatingUser">Cancel</button>
+            </div>
+        </EditForm>
+    </section>
+}
 
 @code {
-    protected override void OnInitialized()
+    private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
+
+    private UserContext? _currentUser;
+    private CreateUserRequest _createUserDraft = new()
     {
-        Navigation.NavigateTo("/admin/users", forceLoad: false);
+        IsLocalAccount = true,
+        Role = AppRole.ProjectUser
+    };
+    private HashSet<AppRole> _createUserRoles = [AppRole.ProjectUser];
+    private int _localPasswordMinLength = 8;
+    private bool _isCreatingUser;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!await JournalApp.HasCurrentUserAsync())
+            {
+                Navigation.NavigateTo("/", forceLoad: false);
+                return;
+            }
+
+            _currentUser = await JournalApp.GetCurrentUserAsync();
+            _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Create user page initialization failed");
+            _error = $"Failed to load create user page: {ex.Message}";
+        }
     }
+
+    private async Task CreateUserAsync()
+    {
+        _error = null;
+
+        try
+        {
+            _isCreatingUser = true;
+
+            if (_createUserRoles.Count == 0)
+            {
+                _createUserRoles.Add(AppRole.ProjectUser);
+            }
+
+            var effectiveRole = ResolveEffectiveRole(_createUserRoles);
+            _createUserDraft.Role = effectiveRole;
+            var created = await JournalApp.CreateUserAsync(_createUserDraft);
+
+            foreach (var additionalRole in _createUserRoles.Where(role => role != effectiveRole))
+            {
+                JournalApp.AddUserToRole(new UserRoleMembershipRequest
+                {
+                    UserId = created.UserId,
+                    Role = additionalRole
+                });
+            }
+
+            Logger.LogInformation("Admin user create submitted: {Username}", created.Username);
+            Navigation.NavigateTo("/admin/users", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Admin user create failed");
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isCreatingUser = false;
+        }
+    }
+
+    private void Cancel()
+        => Navigation.NavigateTo("/admin/users", forceLoad: false);
+
+    private void ToggleCreateRole(AppRole role, ChangeEventArgs args)
+    {
+        var isChecked = ParseCheckboxValue(args);
+        if (isChecked)
+        {
+            _createUserRoles.Add(role);
+            return;
+        }
+
+        _createUserRoles.Remove(role);
+    }
+
+    private void ResetCreateUserForm()
+    {
+        _error = null;
+        _createUserDraft = new CreateUserRequest
+        {
+            IsLocalAccount = true,
+            Role = AppRole.ProjectUser
+        };
+        _createUserRoles = [AppRole.ProjectUser];
+    }
+
+    private static AppRole ResolveEffectiveRole(IReadOnlyCollection<AppRole> roles)
+    {
+        if (roles.Contains(AppRole.Administrator))
+        {
+            return AppRole.Administrator;
+        }
+
+        if (roles.Contains(AppRole.ProjectUser))
+        {
+            return AppRole.ProjectUser;
+        }
+
+        if (roles.Contains(AppRole.Auditor))
+        {
+            return AppRole.Auditor;
+        }
+
+        return AppRole.ProjectUser;
+    }
+
+    private static bool ParseCheckboxValue(ChangeEventArgs args)
+    {
+        if (args.Value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
+    }
+
+    private static string RoleLabel(AppRole role)
+        => role == AppRole.ProjectUser ? "Project User" : role.ToString();
+
+    private static string RoleDescription(AppRole role)
+        => role switch
+        {
+            AppRole.Administrator => "Full system access and administrative control.",
+            AppRole.ProjectUser => "Create and edit journal content for assigned projects.",
+            AppRole.Auditor => "Review records, history, and auditing activity.",
+            _ => string.Empty
+        };
+
+    private static string RoleOptionClass(bool isSelected)
+        => isSelected ? "is-selected" : string.Empty;
 }

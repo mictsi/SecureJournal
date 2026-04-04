@@ -15,8 +15,8 @@
         <p>Manage members, permissions, security, and group access from one page.</p>
     </div>
     <div class="user-management-head-actions">
-        <button type="button" class="btn btn-primary" @onclick="ToggleCreateUserForm">
-            @(_showCreateUserForm ? "Hide Create User" : "Create User")
+        <button type="button" class="btn btn-primary" @onclick="NavigateToCreateUser">
+            Create User
         </button>
     </div>
 </section>
@@ -43,75 +43,6 @@ else if (_currentUser.Role != AppRole.Administrator)
 }
 else
 {
-    @if (_showCreateUserForm)
-    {
-        <section class="panel-card user-create-card">
-            <div class="panel-card-header user-section-header">
-                <div>
-                    <p class="user-section-kicker">Create User</p>
-                    <h3>Add a new account</h3>
-                    <p class="user-section-copy">Create local or external users and assign their initial roles without leaving this page.</p>
-                </div>
-            </div>
-
-            <EditForm Model="_createUserDraft" OnValidSubmit="CreateUserAsync">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="createUsername">Username</label>
-                        <InputText id="createUsername" class="form-control" maxlength="100" @bind-Value="_createUserDraft.Username" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="createDisplayName">Display Name</label>
-                        <InputText id="createDisplayName" class="form-control" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
-                    </div>
-                </div>
-
-                <div class="user-create-toggle form-check">
-                    <InputCheckbox id="createLocalAccount" class="form-check-input" @bind-Value="_createUserDraft.IsLocalAccount" />
-                    <label class="form-check-label" for="createLocalAccount">Local account</label>
-                </div>
-
-                @if (_createUserDraft.IsLocalAccount)
-                {
-                    <div class="mt-3">
-                        <label class="form-label" for="createLocalPassword">Local Password</label>
-                        <InputText id="createLocalPassword" type="password" class="form-control" @bind-Value="_createUserDraft.LocalPassword" />
-                        <div class="form-text">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
-                    </div>
-                }
-
-                <div class="mt-4">
-                    <label class="form-label d-block">Initial Roles</label>
-                    <div class="user-role-stack">
-                        @foreach (var role in _roles)
-                        {
-                            <label class="user-role-option @RoleOptionClass(_createUserRoles.Contains(role))">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       checked="@_createUserRoles.Contains(role)"
-                                       @onchange="args => ToggleCreateRole(role, args)" />
-                                <span class="user-role-option-body">
-                                    <span class="user-role-option-title">@RoleLabel(role)</span>
-                                    <span class="user-role-option-description">@RoleDescription(role)</span>
-                                </span>
-                            </label>
-                        }
-                    </div>
-                </div>
-
-                <div class="user-section-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_isCreatingUser">
-                        @(_isCreatingUser ? "Creating..." : "Create User")
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetCreateUserForm" disabled="@_isCreatingUser">Reset</button>
-                </div>
-            </EditForm>
-        </section>
-    }
-
     <div class="user-management-shell">
         <aside class="panel-card user-directory-card">
             <div class="user-directory-header">
@@ -210,127 +141,153 @@ else
             }
             else
             {
-                <section class="panel-card user-profile-card">
-                    <div class="user-profile-summary">
-                        <div class="user-profile-identity">
-                            <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
-                            <div class="user-profile-copy">
-                                <div class="user-profile-heading">
-                                    <h3>@SelectedUser.DisplayName</h3>
-                                    <span class="user-status-badge @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
-                                        @(SelectedUser.IsDisabled ? "Disabled" : "Active")
-                                    </span>
+                <div class="user-detail-grid">
+                    <section class="panel-card user-overview-card">
+                        <div class="user-overview-grid">
+                            <section class="user-account-card">
+                                <div class="user-account-section user-account-section-summary">
+                                    <div class="user-account-summary">
+                                        <div class="user-panel-summary-identity">
+                                            <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
+                                            <div class="user-panel-summary-copy">
+                                                <strong>@SelectedUser.DisplayName</strong>
+                                                <span>@SelectedUser.Username</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="user-panel-stat-grid">
+                                            <span class="user-panel-stat-pill user-panel-status-pill @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
+                                                <span>Status</span>
+                                                <strong>@(SelectedUser.IsDisabled ? "Disabled" : "Active")</strong>
+                                            </span>
+                                            <span class="user-panel-stat-pill">
+                                                <span>Access</span>
+                                                <strong>@(SelectedUser.IsLocalAccount ? "Local" : "External")</strong>
+                                            </span>
+                                            <span class="user-panel-stat-pill">
+                                                <span>Roles</span>
+                                                <strong>@UserRoles(SelectedUser).Count</strong>
+                                            </span>
+                                            <span class="user-panel-stat-pill">
+                                                <span>Groups</span>
+                                                <strong>@SelectedUser.Groups.Count</strong>
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="user-profile-role-list">
-                                    @foreach (var role in UserRoles(SelectedUser))
+
+                                <div class="user-account-section user-account-section-security">
+                                    <div class="panel-card-header user-section-header">
+                                        <div>
+                                            <p class="user-section-kicker">Security</p>
+                                            <h3>Password &amp; access</h3>
+                                            <p class="user-section-copy">Update password and security settings.</p>
+                                        </div>
+                                    </div>
+
+                                    @if (!SelectedUser.IsLocalAccount)
                                     {
-                                        <span class="user-role-badge is-strong">@RoleLabel(role)</span>
+                                        <p class="mb-0">Password reset is available for local accounts only.</p>
+                                    }
+                                    else
+                                    {
+                                        <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
+                                            <DataAnnotationsValidator />
+                                            <ValidationSummary />
+
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label" for="manageResetPassword">New Password</label>
+                                                    <InputText id="manageResetPassword"
+                                                               type="password"
+                                                               class="form-control"
+                                                               @bind-Value="_resetPasswordRequest.NewPassword" />
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                                    <InputText id="manageResetPasswordConfirm"
+                                                               type="password"
+                                                               class="form-control"
+                                                               @bind-Value="_confirmResetPassword" />
+                                                </div>
+                                            </div>
+
+                                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+
+                                            <div class="user-section-actions">
+                                                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateSuggestedPassword" disabled="@_isSaving">Generate Password</button>
+                                                <button type="submit" class="btn btn-primary" disabled="@_isSaving">Update Password</button>
+                                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                                            </div>
+                                        </EditForm>
                                     }
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="user-profile-stats">
-                            <div class="user-profile-stat">
-                                <span class="user-profile-stat-label">Username</span>
-                                <strong>@SelectedUser.Username</strong>
-                            </div>
-                            <div class="user-profile-stat">
-                                <span class="user-profile-stat-label">Access</span>
-                                <strong>@(SelectedUser.IsLocalAccount ? "Local" : "External")</strong>
-                            </div>
-                            <div class="user-profile-stat">
-                                <span class="user-profile-stat-label">Roles</span>
-                                <strong>@UserRoles(SelectedUser).Count</strong>
-                            </div>
-                            <div class="user-profile-stat">
-                                <span class="user-profile-stat-label">Groups</span>
-                                <strong>@SelectedUser.Groups.Count</strong>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                                <div class="user-account-section user-account-section-danger">
+                                    <div class="panel-card-header user-section-header">
+                                        <div>
+                                            <p class="user-section-kicker user-danger-kicker">Danger Zone</p>
+                                            <h3>Irreversible actions</h3>
+                                            <p class="user-section-copy">Delete accounts or disable access for this user.</p>
+                                        </div>
+                                    </div>
 
-                <div class="user-detail-grid">
-                <section class="panel-card user-roles-card">
-                    <div class="panel-card-header user-section-header">
-                        <div>
-                            <p class="user-section-kicker">Roles &amp; Permissions</p>
-                            <h3>Access levels</h3>
-                            <p class="user-section-copy">Manage user roles and access levels.</p>
-                        </div>
-                    </div>
-
-                    <div class="user-role-stack">
-                        @foreach (var role in _roles)
-                        {
-                            <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       checked="@_editedRoles.Contains(role)"
-                                       @onchange="args => ToggleRoleLocal(role, args)" />
-                                <span class="user-role-option-body">
-                                    <span class="user-role-option-title">@RoleLabel(role)</span>
-                                    <span class="user-role-option-description">@RoleDescription(role)</span>
-                                </span>
-                            </label>
-                        }
-                    </div>
-
-                    <div class="user-section-actions">
-                        <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
-                        <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
-                    </div>
-                </section>
-
-                <section class="panel-card user-security-card">
-                    <div class="panel-card-header user-section-header">
-                        <div>
-                            <p class="user-section-kicker">Security</p>
-                            <h3>Password &amp; access</h3>
-                            <p class="user-section-copy">Update password and security settings.</p>
-                        </div>
-                    </div>
-
-                    @if (!SelectedUser.IsLocalAccount)
-                    {
-                        <p class="mb-0">Password reset is available for local accounts only.</p>
-                    }
-                    else
-                    {
-                        <EditForm Model="_resetPasswordRequest" OnValidSubmit="ResetSelectedUserPasswordAsync">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary />
-
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label" for="manageResetPassword">New Password</label>
-                                    <InputText id="manageResetPassword"
-                                               type="password"
-                                               class="form-control"
-                                               @bind-Value="_resetPasswordRequest.NewPassword" />
+                                    <div class="user-danger-actions">
+                                        <div class="user-danger-copy">
+                                            <strong>@(SelectedUser.IsDisabled ? "Enable or keep disabled" : "Delete or disable")</strong>
+                                            <span>
+                                                @(IsSelectedCurrentUser
+                                                    ? "You cannot disable or delete the currently signed-in administrator."
+                                                    : "Once deleted, this user account cannot be recovered.")
+                                            </span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button type="button"
+                                                    class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-outline-secondary")"
+                                                    @onclick="ToggleSelectedUserEnabledAsync"
+                                                    disabled="@(_isSaving || IsSelectedCurrentUser)">
+                                                @(SelectedUser.IsDisabled ? "Enable User" : "Disable User")
+                                            </button>
+                                            <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete User</button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
-                                    <InputText id="manageResetPasswordConfirm"
-                                               type="password"
-                                               class="form-control"
-                                               @bind-Value="_confirmResetPassword" />
+                            </section>
+
+                            <section class="user-roles-card">
+                                <div class="panel-card-header user-section-header">
+                                    <div>
+                                        <p class="user-section-kicker">Roles &amp; Permissions</p>
+                                        <h3>Roles</h3>
+                                        <p class="user-section-copy">Manage user roles and access levels.</p>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+                                <div class="user-role-stack">
+                                    @foreach (var role in _roles)
+                                    {
+                                        <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   checked="@_editedRoles.Contains(role)"
+                                                   @onchange="args => ToggleRoleLocal(role, args)" />
+                                            <span class="user-role-option-body">
+                                                <span class="user-role-option-title">@RoleLabel(role)</span>
+                                                <span class="user-role-option-description">@RoleDescription(role)</span>
+                                            </span>
+                                        </label>
+                                    }
+                                </div>
 
-                            <div class="user-section-actions">
-                                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateSuggestedPassword" disabled="@_isSaving">Generate Password</button>
-                                <button type="submit" class="btn btn-primary" disabled="@_isSaving">Update Password</button>
-                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
-                            </div>
-                        </EditForm>
-                    }
-                </section>
+                                <div class="user-section-actions">
+                                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
+                                </div>
+                            </section>
+                        </div>
+                    </section>
 
-                <section class="panel-card user-groups-card @(_showGroupBrowser ? "is-expanded" : string.Empty)">
+                    <section class="panel-card user-groups-card @(_showGroupBrowser ? "is-expanded" : string.Empty)">
                     <div class="panel-card-header user-section-header">
                         <div>
                             <p class="user-section-kicker">Groups</p>
@@ -445,35 +402,6 @@ else
                     }
                 </section>
 
-                <section class="panel-card user-danger-card">
-                    <div class="panel-card-header user-section-header">
-                        <div>
-                            <p class="user-section-kicker user-danger-kicker">Danger Zone</p>
-                            <h3>Irreversible actions</h3>
-                            <p class="user-section-copy">Delete accounts or disable access for this user.</p>
-                        </div>
-                    </div>
-
-                    <div class="user-danger-actions">
-                        <div class="user-danger-copy">
-                            <strong>@(SelectedUser.IsDisabled ? "Enable or keep disabled" : "Delete or disable")</strong>
-                            <span>
-                                @(IsSelectedCurrentUser
-                                    ? "You cannot disable or delete the currently signed-in administrator."
-                                    : "Once deleted, this user account cannot be recovered.")
-                            </span>
-                        </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="button"
-                                    class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-outline-secondary")"
-                                    @onclick="ToggleSelectedUserEnabledAsync"
-                                    disabled="@(_isSaving || IsSelectedCurrentUser)">
-                                @(SelectedUser.IsDisabled ? "Enable User" : "Disable User")
-                            </button>
-                            <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete User</button>
-                        </div>
-                    </div>
-                </section>
                 </div>
             }
         </div>
@@ -492,15 +420,6 @@ else
     private UserListQuery _userQuery = new() { PageSize = 20, SortField = "username" };
     private UserGroupMembershipQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
     private Guid? _selectedUserId;
-
-    private CreateUserRequest _createUserDraft = new()
-    {
-        IsLocalAccount = true,
-        Role = AppRole.ProjectUser
-    };
-    private HashSet<AppRole> _createUserRoles = [AppRole.ProjectUser];
-    private bool _showCreateUserForm;
-    private bool _isCreatingUser;
 
     private HashSet<AppRole> _originalRoles = [];
     private HashSet<AppRole> _editedRoles = [];
@@ -623,59 +542,6 @@ else
         _confirmResetPassword = string.Empty;
     }
 
-    private void ToggleCreateUserForm()
-    {
-        _showCreateUserForm = !_showCreateUserForm;
-        if (!_showCreateUserForm)
-        {
-            ResetCreateUserForm();
-        }
-    }
-
-    private async Task CreateUserAsync()
-    {
-        ClearMessages();
-
-        try
-        {
-            _isCreatingUser = true;
-
-            if (_createUserRoles.Count == 0)
-            {
-                _createUserRoles.Add(AppRole.ProjectUser);
-            }
-
-            var effectiveRole = ResolveEffectiveRole(_createUserRoles);
-            _createUserDraft.Role = effectiveRole;
-            var created = await JournalApp.CreateUserAsync(_createUserDraft);
-
-            foreach (var additionalRole in _createUserRoles.Where(role => role != effectiveRole))
-            {
-                JournalApp.AddUserToRole(new UserRoleMembershipRequest
-                {
-                    UserId = created.UserId,
-                    Role = additionalRole
-                });
-            }
-
-            Logger.LogInformation("Admin user create submitted: {Username}", _createUserDraft.Username);
-
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
-            _message = $"User '{created.Username}' created.";
-            _showCreateUserForm = false;
-            ResetCreateUserForm();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Admin user create failed");
-            _error = ex.Message;
-        }
-        finally
-        {
-            _isCreatingUser = false;
-        }
-    }
-
     private async Task SaveRolesAsync()
     {
         var selectedUser = SelectedUser;
@@ -773,18 +639,6 @@ else
         }
     }
 
-    private void ToggleCreateRole(AppRole role, ChangeEventArgs args)
-    {
-        var isChecked = ParseCheckboxValue(args);
-        if (isChecked)
-        {
-            _createUserRoles.Add(role);
-            return;
-        }
-
-        _createUserRoles.Remove(role);
-    }
-
     private void ToggleRoleLocal(AppRole role, ChangeEventArgs args)
     {
         var isChecked = ParseCheckboxValue(args);
@@ -827,6 +681,9 @@ else
     {
         _showGroupBrowser = !_showGroupBrowser;
     }
+
+    private void NavigateToCreateUser()
+        => Navigation.NavigateTo("/admin/users/create");
 
     private async Task ToggleSelectedUserEnabledAsync()
     {
@@ -1087,16 +944,6 @@ else
         await LoadGroupsAsync();
     }
 
-    private void ResetCreateUserForm()
-    {
-        _createUserDraft = new CreateUserRequest
-        {
-            IsLocalAccount = true,
-            Role = AppRole.ProjectUser
-        };
-        _createUserRoles = [AppRole.ProjectUser];
-    }
-
     private void ResetLocalPasswordForm()
     {
         _resetPasswordRequest.NewPassword = string.Empty;
@@ -1107,26 +954,6 @@ else
     {
         _message = null;
         _error = null;
-    }
-
-    private static AppRole ResolveEffectiveRole(IReadOnlyCollection<AppRole> roles)
-    {
-        if (roles.Contains(AppRole.Administrator))
-        {
-            return AppRole.Administrator;
-        }
-
-        if (roles.Contains(AppRole.ProjectUser))
-        {
-            return AppRole.ProjectUser;
-        }
-
-        if (roles.Contains(AppRole.Auditor))
-        {
-            return AppRole.Auditor;
-        }
-
-        return AppRole.ProjectUser;
     }
 
     private static bool ParseCheckboxValue(ChangeEventArgs args)

@@ -134,13 +134,6 @@
     font-weight: 700;
 }
 
-.my-project-avatar-large {
-    width: 3.4rem;
-    height: 3.4rem;
-    flex-basis: 3.4rem;
-    font-size: 1.25rem;
-}
-
 .my-project-directory-item-body,
 .my-project-profile-copy {
     min-width: 0;
@@ -150,22 +143,17 @@
 }
 
 .my-project-directory-name,
-.my-project-profile-heading h3,
 .my-project-section-title {
     font-weight: 700;
     color: var(--my-project-ink);
 }
 
-.my-project-directory-subtitle,
-.my-project-profile-subtitle {
+.my-project-directory-subtitle {
     color: #dce8fa;
     font-weight: 600;
 }
 
 .my-project-directory-description,
-.my-project-profile-description,
-.my-project-profile-meta,
-.my-project-profile-meta span,
 .my-project-empty-card,
 .my-project-context-label,
 .my-project-danger-copy span {
@@ -198,11 +186,6 @@
     background: rgba(255, 255, 255, 0.06);
 }
 
-.my-project-status-badge {
-    background: rgba(136, 165, 210, 0.16);
-    color: #e1ebfb;
-}
-
 .my-project-directory-footer {
     padding-bottom: 1rem;
     border-top: 1px solid rgba(166, 191, 231, 0.1);
@@ -232,30 +215,6 @@
     flex-direction: column;
     gap: 1rem;
     min-width: 0;
-}
-
-.my-project-profile-summary {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-}
-
-.my-project-profile-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.my-project-profile-heading h3 {
-    margin: 0;
-}
-
-.my-project-profile-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.9rem;
-    font-size: 0.95rem;
 }
 
 .my-project-section-header {
@@ -358,7 +317,6 @@
         align-items: flex-start;
     }
 
-    .my-project-profile-summary,
     .my-project-directory-footer-row {
         flex-direction: column;
         align-items: flex-start;

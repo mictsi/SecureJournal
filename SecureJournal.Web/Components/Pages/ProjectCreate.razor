@@ -1,10 +1,12 @@
 @page "/admin/projects/create"
 @page "/admin/projects/create/{Step:int}"
 @attribute [Authorize(Roles = "Administrator")]
+@implements IAsyncDisposable
 @inject ISecureJournalAppService JournalApp
 @inject ProjectCreateWizardState WizardState
 @inject NavigationManager Navigation
 @inject ILogger<ProjectCreate> Logger
+@inject IJSRuntime JS
 
 <PageTitle>Create project</PageTitle>
 
@@ -66,7 +68,14 @@ else if (CurrentStep == 1)
 
                 <div class="project-metadata-main">
                     <label class="form-label" for="projectDescription">Description</label>
-                    <InputTextArea id="projectDescription" class="form-control" rows="3" maxlength="500" @bind-Value="WizardState.ProjectDraft.Description" />
+                    <div class="journal-editor-shell">
+                        <InputTextArea id="projectDescription"
+                                       class="form-control journal-rich-editor-source"
+                                       rows="8"
+                                       maxlength="500"
+                                       @bind-Value="WizardState.ProjectDraft.Description" />
+                        <p class="journal-editor-hint">Use the built-in editor toolbar for project context, lists, and links.</p>
+                    </div>
                     <small class="text-muted">Project code is generated automatically (for example PRJ0001).</small>
                 </div>
 
@@ -146,9 +155,16 @@ else if (CurrentStep == 2)
                 </div>
                 <div class="mb-3">
                     <label class="form-label" for="newGroupDescription">Group Description</label>
-                    <textarea id="newGroupDescription" class="form-control" rows="3" maxlength="500" @bind="_newGroupDraft.Description"></textarea>
+                    <div class="journal-editor-shell">
+                        <textarea id="newGroupDescription"
+                                  class="form-control journal-rich-editor-source"
+                                  rows="6"
+                                  maxlength="500"
+                                  @bind="_newGroupDraft.Description"></textarea>
+                        <p class="journal-editor-hint">Use rich text if you want to describe group responsibilities or access scope.</p>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-outline-secondary" @onclick="AddNewGroup">Add New Group</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="AddNewGroupAsync">Add New Group</button>
             </div>
 
             @if (WizardState.NewGroups.Count == 0)
@@ -252,6 +268,7 @@ else
     private CreateGroupRequest _newGroupDraft = new();
     private List<GroupOverview> _existingGroups = [];
     private List<UserOverview> _users = [];
+    private readonly string[] _editorIds = ["projectDescription", "newGroupDescription"];
 
     private int CurrentStep { get; set; } = MinStep;
 
@@ -307,6 +324,32 @@ else
         {
             Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var editors = new List<object>();
+
+        if (CurrentStep == 1)
+        {
+            editors.Add(new
+            {
+                id = "projectDescription",
+                value = WizardState.ProjectDraft.Description ?? string.Empty,
+                minHeight = 220
+            });
+        }
+        else if (CurrentStep == 2 && !WizardState.UseExistingGroups)
+        {
+            editors.Add(new
+            {
+                id = "newGroupDescription",
+                value = _newGroupDraft.Description ?? string.Empty,
+                minHeight = 180
+            });
+        }
+
+        await JS.InvokeVoidAsync("secureJournalEditors.syncTinyMce", editors, _editorIds);
     }
 
     private Task GoToStepTwoAsync()
@@ -372,9 +415,10 @@ else
         WizardState.SelectedExistingGroupIds.Remove(groupId);
     }
 
-    private void AddNewGroup()
+    private async Task AddNewGroupAsync()
     {
         ClearMessages();
+        await SyncEditorValuesAsync();
         var name = (_newGroupDraft.Name ?? string.Empty).Trim();
         var description = (_newGroupDraft.Description ?? string.Empty).Trim();
 
@@ -513,4 +557,19 @@ else
 
     private static string RenderValueOrDash(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private async Task SyncEditorValuesAsync()
+        => await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The page is already tearing down.
+        }
+    }
 }

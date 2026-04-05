@@ -126,6 +126,11 @@ body[data-theme="dark"] .btn-oidc {
     border-color: var(--sj-input-border);
 }
 
+.form-select option {
+    color: #09121d;
+    background-color: #f3f7fd;
+}
+
 .form-control,
 .form-select,
 .btn {

@@ -19,7 +19,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.7" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
-    <PackageReference Include="TinyMCE" Version="8.4.0" />
+    <PackageReference Include="TinyMCE" Version="8.5.1" />
   </ItemGroup>
 
   <PropertyGroup>

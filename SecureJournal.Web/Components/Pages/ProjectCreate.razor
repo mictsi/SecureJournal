@@ -10,33 +10,20 @@
 
 <PageTitle>Create project</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">Administration</p>
-        <h2>Create project</h2>
-        <p>Step @CurrentStep of 3: @StepTitle</p>
-    </div>
-</section>
+<PageHeader Title="Create project"
+            Description="Define the project, choose its groups, then review before creating." />
 
 <section class="panel-card project-create-progress">
     <div class="project-create-progress-labels">
         <span>Progress</span>
         <span>@ProgressPercent%</span>
     </div>
-    <div class="progress" role="progressbar" aria-label="Create project wizard progress" aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar" style="width:@($"{ProgressPercent}%")"></div>
+    <div class="sk-progress" role="progressbar" aria-label="Create project wizard progress" aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+        <div class="sk-progress__bar" style="width:@($"{ProgressPercent}%")"></div>
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 @if (_currentUser is null)
 {
@@ -44,8 +31,9 @@
 }
 else if (_currentUser.Role != AppRole.Administrator)
 {
-    <div class="alert alert-warning" role="alert">
-        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    <div class="sk-alert sk-alert--warning" role="alert">
+    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
+    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
     </div>
 }
 else if (CurrentStep == 1)
@@ -62,44 +50,44 @@ else if (CurrentStep == 1)
 
             <div class="project-metadata-grid">
                 <div class="project-metadata-main">
-                    <label class="form-label" for="projectName">Name</label>
-                    <InputText id="projectName" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.Name" />
+                    <label class="sk-field__label" for="projectName">Name</label>
+                    <InputText id="projectName" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.Name" />
                 </div>
 
                 <div class="project-metadata-main">
-                    <label class="form-label" for="projectDescription">Description</label>
+                    <label class="sk-field__label" for="projectDescription">Description</label>
                     <div class="journal-editor-shell">
                         <InputTextArea id="projectDescription"
-                                       class="form-control journal-rich-editor-source"
+                                       class="sk-input journal-rich-editor-source"
                                        rows="8"
                                        maxlength="500"
                                        @bind-Value="WizardState.ProjectDraft.Description" />
-                        <p class="journal-editor-hint">Use the built-in editor toolbar for project context, lists, and links.</p>
+                        <p class="journal-editor-hint">Use the editor toolbar for project context, lists, tables and links.</p>
                     </div>
-                    <small class="text-muted">Project code is generated automatically (for example PRJ0001).</small>
+                    <small class="sj-muted">Project code is generated automatically (for example PRJ0001).</small>
                 </div>
 
-                <div>
-                    <label class="form-label" for="projectOwner">Project Owner</label>
-                    <InputText id="projectOwner" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.ProjectOwner" />
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectOwner">Project Owner</label>
+                    <InputText id="projectOwner" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.ProjectOwner" />
                 </div>
-                <div>
-                    <label class="form-label" for="projectDepartment">Department</label>
-                    <InputText id="projectDepartment" class="form-control" maxlength="100" @bind-Value="WizardState.ProjectDraft.Department" />
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectDepartment">Department</label>
+                    <InputText id="projectDepartment" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.Department" />
                 </div>
-                <div>
-                    <label class="form-label" for="projectEmail">Project owner email</label>
-                    <InputText id="projectEmail" class="form-control" maxlength="254" @bind-Value="WizardState.ProjectDraft.ProjectEmail" />
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectEmail">Project owner email</label>
+                    <InputText id="projectEmail" class="sk-input" maxlength="254" @bind-Value="WizardState.ProjectDraft.ProjectEmail" />
                 </div>
-                <div>
-                    <label class="form-label" for="projectPhone">Project owner phone</label>
-                    <InputText id="projectPhone" class="form-control" maxlength="32" @bind-Value="WizardState.ProjectDraft.ProjectPhone" />
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectPhone">Project owner phone</label>
+                    <InputText id="projectPhone" class="sk-input" maxlength="32" @bind-Value="WizardState.ProjectDraft.ProjectPhone" />
                 </div>
             </div>
 
-            <div class="mt-4 d-flex justify-content-between">
-                <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
-                <button type="submit" class="btn btn-primary">Next</button>
+            <div class="sk-cluster">
+                <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
+                <button type="submit" class="sk-button sk-button--primary">Next</button>
             </div>
         </EditForm>
     </section>
@@ -114,33 +102,43 @@ else if (CurrentStep == 2)
         <p class="project-create-step-copy">Choose existing groups or create new groups to assign to this project.</p>
 
         <div class="project-create-mode-toggle">
-            <div class="form-check">
-                <input class="form-check-input" id="useExistingGroups" type="radio" name="groupMode" checked="@WizardState.UseExistingGroups" @onchange="() => SetGroupMode(true)" />
-                <label class="form-check-label" for="useExistingGroups">Choose Existing Groups</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" id="createNewGroups" type="radio" name="groupMode" checked="@(!WizardState.UseExistingGroups)" @onchange="() => SetGroupMode(false)" />
-                <label class="form-check-label" for="createNewGroups">Create New Group</label>
-            </div>
+            <label class="sk-radio">
+                <input class="sk-radio__input" id="useExistingGroups" type="radio" name="groupMode" checked="@WizardState.UseExistingGroups" @onchange="() => SetGroupMode(true)" />
+                <span class="sk-radio__control" aria-hidden="true"></span>
+                <span class="sk-radio__content">
+                    <span class="sk-radio__label">Choose existing groups</span>
+                </span>
+            </label>
+            <label class="sk-radio">
+                <input class="sk-radio__input" id="createNewGroups" type="radio" name="groupMode" checked="@(!WizardState.UseExistingGroups)" @onchange="() => SetGroupMode(false)" />
+                <span class="sk-radio__control" aria-hidden="true"></span>
+                <span class="sk-radio__content">
+                    <span class="sk-radio__label">Create new group</span>
+                </span>
+            </label>
         </div>
 
         @if (WizardState.UseExistingGroups)
         {
             @if (_existingGroups.Count == 0)
             {
-                <p class="mb-0">No groups exist yet. Switch to "Create New Group" to continue.</p>
+                <p>No groups exist yet. Switch to "Create New Group" to continue.</p>
             }
             else
             {
-                <div class="border rounded p-3 project-create-selection-panel">
+                <div class="project-create-selection-panel">
                     @foreach (var group in _existingGroups)
                     {
-                        <label class="form-check mb-2">
-                            <input class="form-check-input"
+                        <label class="sk-checkbox">
+                            <input class="sk-checkbox__input"
                                    type="checkbox"
                                    checked="@WizardState.SelectedExistingGroupIds.Contains(group.GroupId)"
                                    @onchange="args => ToggleExistingGroup(group.GroupId, args)" />
-                            <span class="form-check-label">@group.Name <span class="text-muted">(@RenderValueOrDash(group.Description))</span></span>
+                            <span class="sk-checkbox__box" aria-hidden="true"></span>
+                            <span class="sk-checkbox__content">
+                                <span class="sk-checkbox__label">@group.Name</span>
+                                <span class="sk-checkbox__description">@RenderValueOrDash(group.Description)</span>
+                            </span>
                         </label>
                     }
                 </div>
@@ -148,58 +146,58 @@ else if (CurrentStep == 2)
         }
         else
         {
-            <div class="border rounded p-3 mb-3 project-create-selection-panel">
-                <div class="mb-2">
-                    <label class="form-label" for="newGroupName">Group Name</label>
-                    <input id="newGroupName" class="form-control" maxlength="100" @bind="_newGroupDraft.Name" />
+            <div class="project-create-selection-panel">
+                <div class="sk-field">
+                    <label class="sk-field__label" for="newGroupName">Group Name</label>
+                    <input id="newGroupName" class="sk-input" maxlength="100" @bind="_newGroupDraft.Name" />
                 </div>
-                <div class="mb-3">
-                    <label class="form-label" for="newGroupDescription">Group Description</label>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="newGroupDescription">Group Description</label>
                     <div class="journal-editor-shell">
                         <textarea id="newGroupDescription"
-                                  class="form-control journal-rich-editor-source"
+                                  class="sk-input journal-rich-editor-source"
                                   rows="6"
                                   maxlength="500"
                                   @bind="_newGroupDraft.Description"></textarea>
                         <p class="journal-editor-hint">Use rich text if you want to describe group responsibilities or access scope.</p>
                     </div>
                 </div>
-                <button type="button" class="btn btn-outline-secondary" @onclick="AddNewGroupAsync">Add New Group</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="AddNewGroupAsync">Add New Group</button>
             </div>
 
             @if (WizardState.NewGroups.Count == 0)
             {
-                <p class="mb-0">Add at least one group to continue.</p>
+                <p>Add at least one group to continue.</p>
             }
             else
             {
                 <ul class="list-group project-create-list">
                     @foreach (var group in WizardState.NewGroups)
                     {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="sj-list-item sk-cluster">
                             <div>
                                 <strong>@group.Name</strong>
-                                <div class="text-muted">@RenderValueOrDash(group.Description)</div>
+                                <div class="sj-muted">@RenderValueOrDash(group.Description)</div>
                             </div>
-                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RemoveNewGroup(group.DraftId)">Remove</button>
+                            <button type="button" class="sk-button sk-button--danger sk-button--sm" @onclick="() => RemoveNewGroup(group.DraftId)">Remove</button>
                         </li>
                     }
                 </ul>
             }
         }
 
-        <div class="mt-4 d-flex justify-content-between">
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="GoToStepOne">Back</button>
+        <div class="sk-cluster">
+            <div class="sk-cluster">
+                <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="GoToStepOne">Back</button>
             </div>
             @if (WizardState.UseExistingGroups)
             {
-                <button type="button" class="btn btn-primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
+                <button type="button" class="sk-button sk-button--primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
             }
             else
             {
-                <button type="button" class="btn btn-primary" @onclick="GoToStepThree">Next</button>
+                <button type="button" class="sk-button sk-button--primary" @onclick="GoToStepThree">Next</button>
             }
         </div>
     </section>
@@ -213,25 +211,29 @@ else
 
         @if (_users.Count == 0)
         {
-            <p class="mb-0">No users are available to assign as group members.</p>
+            <p>No users are available to assign as group members.</p>
         }
         else
         {
             @foreach (var group in WizardState.NewGroups)
             {
-                <div class="border rounded p-3 mb-3 project-create-member-card">
-                    <h4 class="h6 mb-2">@group.Name</h4>
-                    <p class="text-muted mb-2">@RenderValueOrDash(group.Description)</p>
-                    <div class="row row-cols-1 row-cols-md-2 g-2">
+                <div class="project-create-member-card">
+                    <h4 class="sj-subheading">@group.Name</h4>
+                    <p class="sj-muted">@RenderValueOrDash(group.Description)</p>
+                    <div class="sk-grid sk-grid--cols-2">
                         @foreach (var user in _users)
                         {
-                            <div class="col">
-                                <label class="form-check">
-                                    <input class="form-check-input"
+                            <div>
+                                <label class="sk-checkbox">
+                                    <input class="sk-checkbox__input"
                                            type="checkbox"
                                            checked="@group.MemberUserIds.Contains(user.UserId)"
                                            @onchange="args => ToggleGroupMember(group, user.UserId, args)" />
-                                    <span class="form-check-label">@user.DisplayName (@user.Username)</span>
+                                    <span class="sk-checkbox__box" aria-hidden="true"></span>
+                                    <span class="sk-checkbox__content">
+                                        <span class="sk-checkbox__label">@user.DisplayName</span>
+                                        <span class="sk-checkbox__description">@user.Username</span>
+                                    </span>
                                 </label>
                             </div>
                         }
@@ -240,12 +242,12 @@ else
             }
         }
 
-        <div class="mt-4 d-flex justify-content-between">
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" @onclick="CancelWizard">Cancel</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="GoToStepTwo">Back</button>
+        <div class="sk-cluster">
+            <div class="sk-cluster">
+                <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="GoToStepTwo">Back</button>
             </div>
-            <button type="button" class="btn btn-primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
+            <button type="button" class="sk-button sk-button--primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
         </div>
     </section>
 }
@@ -268,6 +270,12 @@ else
     private CreateGroupRequest _newGroupDraft = new();
     private List<GroupOverview> _existingGroups = [];
     private List<UserOverview> _users = [];
+    // JavaScript interop is only legal once the component has rendered
+    // interactively. A form POST re-renders the page statically, and the editor
+    // calls made during that pass threw "JavaScript interop calls cannot be issued
+    // at this time", which surfaced as an unhandled error on every submit.
+    private bool _jsReady;
+
     private readonly string[] _editorIds = ["projectDescription", "newGroupDescription"];
 
     private int CurrentStep { get; set; } = MinStep;
@@ -563,13 +571,22 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        if (!_jsReady)
+        {
+            return;
+        }
+
         try
         {
             await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
         }
         catch (JSDisconnectedException)
         {
-            // The page is already tearing down.
+            // The circuit is already gone.
+        }
+        catch (InvalidOperationException)
+        {
+            // Teardown during a static render; there is no interop to make.
         }
     }
 }

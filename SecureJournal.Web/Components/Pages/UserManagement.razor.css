@@ -1,187 +1,263 @@
-.user-management-head {
-    align-items: center;
-}
+/* User management.
 
-.user-management-head-actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-}
+   Rewritten onto semantic tokens and flex composition. The previous version
+   hard-coded 50 colours (so the page stayed dark under a light theme) and laid
+   the page out with `grid-template-columns` carrying rigid minimums — which is
+   why the summary chips collided once the detail column narrowed.
 
-.user-create-card {
-    margin-bottom: 1rem;
-}
+   Per the responsive-layout foundation: compose with flex, wrap by default,
+   express width as flex-basis, and put min-inline-size: 0 on anything holding
+   text. Surfaces and separators come from sekura.css via .sk-card. */
 
-.user-management-head,
-.user-create-card,
+/* --- Page shell: directory beside detail, wrapping on its own --- */
 .user-management-shell {
-    --user-surface: rgba(37, 50, 73, 0.74);
-    --user-surface-muted: rgba(44, 59, 84, 0.82);
-    --user-border: rgba(166, 191, 231, 0.12);
-    --user-shadow: 0 14px 28px rgba(6, 12, 24, 0.16);
-    --user-ink: #edf4ff;
-    --user-subtle-ink: #aab9cd;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-24);
+    align-items: flex-start;
+    min-inline-size: 0;
 }
 
+/* The rail is the page's index: it must show a display name and a username in
+   full. A 20rem basis truncated both. */
+.user-directory-card {
+    flex: 1 1 24rem;
+    min-inline-size: 0;
+    max-inline-size: 32rem;
+}
+
+.user-detail-column {
+    /* Large grow with a zero basis takes the remaining space; the basis is what
+       triggers the wrap when there is not enough of it. */
+    flex: 999 1 32rem;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-24);
+}
+
+/* --- Cards --- */
 .user-create-card,
 .user-directory-card,
+.user-empty-card,
+.user-overview-card,
+.user-roles-card,
 .user-detail-column > .panel-card,
 .user-detail-grid > .panel-card {
-    background: var(--user-surface);
-    border-color: var(--user-border);
-    box-shadow: var(--user-shadow);
-    color: var(--user-ink);
-    backdrop-filter: blur(10px);
+    background-color: var(--sk-color-surface-raised);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-lg);
+    padding: var(--sk-space-16);
+    min-inline-size: 0;
 }
 
-.user-management-shell {
-    display: grid;
-    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
-}
-
-.user-directory-card,
-.user-detail-column > .panel-card {
-    min-width: 0;
-}
-
-.user-directory-card {
-    background: var(--user-surface-muted);
-    padding: 0;
-    overflow: hidden;
-}
-
-.user-create-card h3,
-.user-directory-card h3,
-.user-detail-column > .panel-card h3,
-.user-detail-grid > .panel-card h3,
-.user-create-card label,
-.user-detail-column > .panel-card label,
-.user-detail-grid > .panel-card label,
-.user-directory-card label,
-.user-create-card strong,
-.user-detail-column > .panel-card strong,
-.user-detail-grid > .panel-card strong,
-.user-directory-card strong {
-    color: var(--user-ink);
-}
-
-.user-directory-header,
-.user-directory-toolbar,
-.user-directory-footer {
-    padding: 1rem 1rem 0;
-}
-
-.user-directory-header {
+.user-detail-grid,
+.user-overview-grid {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sk-space-16);
     align-items: flex-start;
-    gap: 0.75rem;
+    min-inline-size: 0;
 }
 
-.user-directory-copy,
-.user-section-copy {
-    margin: 0.25rem 0 0;
-    color: var(--user-subtle-ink);
+.user-overview-grid > .user-account-card {
+    flex: 999 1 28rem;
+    min-inline-size: 0;
 }
 
-.user-directory-total {
-    color: var(--user-subtle-ink);
-    font-size: 0.92rem;
+.user-overview-grid > .user-roles-card {
+    flex: 1 1 20rem;
+    min-inline-size: 0;
+}
+
+/* Default for any panel in the detail column. The two rules below override it
+   and carry equal specificity, so they must come after this one. */
+.user-detail-grid > .panel-card {
+    flex: 1 1 22rem;
+}
+
+/* The overview takes the row; the group browser is a full-width region below it
+   rather than a second column squeezing the overview into a narrow strip. */
+.user-detail-grid > .user-overview-card {
+    flex: 999 1 34rem;
+}
+
+.user-detail-grid > .user-groups-card {
+    flex: 1 1 100%;
+}
+
+.user-account-card {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+}
+
+.user-account-section + .user-account-section {
+    margin-block-start: var(--sk-space-16);
+    padding-block-start: var(--sk-space-16);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+/* --- Identity summary --- */
+.user-account-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-16);
+    align-items: center;
+    min-inline-size: 0;
+}
+
+.user-panel-summary-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--sk-space-12);
+    flex: 1 1 14rem;
+    min-inline-size: 0;
+}
+
+.user-panel-summary-copy {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+}
+
+.user-panel-summary-copy > strong {
+    min-inline-size: 0;
+    color: var(--sk-color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.user-directory-toolbar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1rem;
+.user-panel-summary-copy > span {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
 }
 
-.user-directory-sort {
+/* Attributes of the selected account, rendered as a description list. It takes
+   the full width of the summary row so the pairs can sit side by side. */
+.user-panel-stat-grid {
+    flex: 1 1 100%;
+    min-inline-size: 0;
+    margin: 0;
+}
+
+/* --- Avatars --- */
+.user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-surface-brand-subtle);
+    color: var(--sk-color-text-brand);
+    font-weight: var(--sk-font-weight-semibold);
+}
+
+.user-avatar-large {
+    inline-size: 3rem;
+    block-size: 3rem;
+    font-size: var(--sk-font-size-heading-xs);
+}
+
+/* --- Directory --- */
+.user-directory-header,
+.user-directory-toolbar,
+.user-directory-footer-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    align-items: center;
+    gap: var(--sk-space-8) var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.user-directory-empty {
-    padding: 0 1rem 1rem;
-    color: var(--user-subtle-ink);
+.user-directory-header > :first-child,
+.user-directory-footer-row > :first-child {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+}
+
+.user-directory-copy {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
+}
+
+.user-directory-total {
+    flex: 0 0 auto;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
 .user-directory-list {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    padding: 0 1rem 1rem;
-    max-height: min(68vh, 54rem);
-    overflow: auto;
+    gap: var(--sk-space-8);
+    margin-block: var(--sk-space-12);
+    /* Scrolls itself rather than growing the page without limit. */
+    max-block-size: min(68vh, 54rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-inline-size: 0;
 }
 
 .user-directory-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.85rem;
-    width: 100%;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.035);
-    color: var(--user-ink);
-    padding: 0.9rem 0.95rem;
-    text-align: left;
-    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+    padding: var(--sk-space-12);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background-color: var(--sk-color-surface-base);
+    color: var(--sk-color-text-primary);
+    text-align: start;
+    cursor: pointer;
 }
 
 .user-directory-item:hover {
-    border-color: rgba(166, 191, 231, 0.22);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: none;
+    background-color: var(--sk-color-surface-hover);
+    border-color: var(--sk-color-border-default);
 }
 
-.user-directory-item.is-active {
-    border-color: rgba(166, 191, 231, 0.32);
-    box-shadow: 0 0 0 1px rgba(166, 191, 231, 0.08);
-    background: rgba(136, 165, 210, 0.14);
+.user-directory-item:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
-.user-avatar {
-    width: 2.35rem;
-    height: 2.35rem;
-    flex: 0 0 2.35rem;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 999px;
-    border: 1px solid rgba(166, 191, 231, 0.16);
-    background: rgba(136, 165, 210, 0.2);
-    color: #fff;
-    font-weight: 700;
+.user-directory-item.is-selected,
+.user-directory-item[aria-current="true"] {
+    background-color: var(--sk-color-surface-selected);
+    border-color: var(--sk-color-border-brand);
 }
 
-.user-avatar-large {
-    width: 3.15rem;
-    height: 3.15rem;
-    flex-basis: 3.15rem;
-    font-size: 1.15rem;
-}
-
-.user-directory-item-body,
-.user-profile-copy {
-    min-width: 0;
+.user-directory-item-body {
+    /* Name, subtitle and chips are stacked content, not a row. Laid out as a
+       row they competed for the rail's width and the name lost — a project code
+       was being clipped to 43px. */
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    align-items: flex-start;
+    gap: var(--sk-space-4);
+    min-inline-size: 0;
 }
 
 .user-directory-name,
-.user-profile-heading h3 {
-    font-weight: 700;
-    color: var(--user-ink);
+.user-directory-username {
+    display: block;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.user-directory-name {
+    font-weight: var(--sk-font-weight-medium);
+    color: var(--sk-color-text-primary);
 }
 
 .user-directory-username {
-    color: var(--user-subtle-ink);
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
 }
 
 .user-directory-role-list,
@@ -189,396 +265,162 @@
 .user-group-pill-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--sk-space-4);
+    margin: var(--sk-space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    min-inline-size: 0;
 }
 
+.user-directory-empty {
+    padding: var(--sk-space-16);
+    color: var(--sk-color-text-tertiary);
+    font-size: var(--sk-font-size-body-sm);
+}
+
+.user-directory-footer {
+    padding-block-start: var(--sk-space-12);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.user-directory-sort,
+.user-page-size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8);
+    min-inline-size: 0;
+}
+
+.table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-4) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-sm);
+    background: none;
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-label-sm);
+    cursor: pointer;
+}
+
+.table-sort:hover { background-color: var(--sk-color-surface-hover); }
+
+.table-sort:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
+}
+
+/* --- Badges and pills --- */
 .user-role-badge,
 .user-status-badge,
 .user-group-pill {
     display: inline-flex;
     align-items: center;
-    border-radius: 999px;
-    padding: 0.18rem 0.6rem;
-    font-size: 0.78rem;
-    line-height: 1.2;
-}
-
-.user-role-badge {
-    background: rgba(255, 255, 255, 0.07);
-    color: #f4f7ff;
-}
-
-.user-role-badge.is-strong {
-    background: rgba(136, 165, 210, 0.18);
-    color: #fff;
-}
-
-.user-status-badge {
-    background: rgba(136, 165, 210, 0.16);
-    color: #e1ebfb;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-2) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-status-neutral-border);
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-status-neutral-surface);
+    color: var(--sk-color-status-neutral-text);
+    font-size: var(--sk-font-size-body-xs);
+    font-weight: var(--sk-font-weight-medium);
 }
 
 .user-status-badge.is-disabled {
-    background: rgba(151, 74, 93, 0.18);
-    color: #ffd9e1;
+    border-color: var(--sk-color-status-danger-border);
+    background-color: var(--sk-color-status-danger-surface);
+    color: var(--sk-color-status-danger-text);
 }
 
-.user-group-pill {
-    background: rgba(136, 165, 210, 0.16);
-    color: #e1ebfb;
-}
-
-.user-group-pill.is-empty {
-    color: var(--user-subtle-ink);
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.user-directory-footer {
-    padding-bottom: 1rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.user-directory-footer-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--user-subtle-ink);
-    font-size: 0.9rem;
-}
-
-.user-directory-footer-row + .user-directory-footer-row {
-    margin-top: 0.75rem;
-}
-
-.user-page-size {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.user-detail-column {
-    display: grid;
-    gap: 1rem;
-    min-width: 0;
-}
-
-.user-detail-grid {
-    display: grid;
-    gap: 0.95rem;
-    align-items: start;
-}
-
-.user-detail-grid > .panel-card {
-    min-width: 0;
-}
-
-.user-overview-card {
-    padding: 1rem 1.05rem;
-}
-
-.user-overview-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.18fr) minmax(21rem, 0.92fr);
-    gap: 1rem;
-    align-items: start;
-}
-
-.user-section-header {
-    margin-bottom: 0.75rem;
-    align-items: flex-start;
-}
-
-.user-account-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.user-account-section {
-    padding: 0;
-}
-
-.user-account-section + .user-account-section {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.user-account-summary {
-    display: grid;
-    grid-template-columns: minmax(15rem, 1.05fr) minmax(0, 1.45fr);
-    gap: 0.85rem;
-    align-items: stretch;
-}
-
-.user-panel-summary-identity {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
-    min-height: 4.25rem;
-    padding: 0.75rem 0.9rem;
-    border: 1px solid rgba(177, 205, 244, 0.12);
-    border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.user-panel-summary-copy {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    gap: 0.18rem;
-}
-
-.user-panel-summary-copy strong,
-.user-panel-summary-copy span {
-    line-height: 1.2;
-}
-
-.user-panel-summary-copy strong {
-    font-size: 1.08rem;
-}
-
-.user-panel-summary-copy span {
-    color: var(--user-subtle-ink);
-    font-size: 0.82rem;
-}
-
-.user-panel-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.65rem;
-    align-items: stretch;
-}
-
-.user-panel-stat-pill {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.18rem;
-    min-height: 4.25rem;
-    padding: 0.72rem 0.8rem;
-    border: 1px solid rgba(177, 205, 244, 0.12);
-    border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.user-panel-status-pill.is-active {
-    background: rgba(136, 165, 210, 0.14);
-    border-color: rgba(166, 191, 231, 0.2);
-}
-
-.user-panel-status-pill.is-disabled {
-    background: rgba(151, 74, 93, 0.14);
-    border-color: rgba(251, 113, 133, 0.22);
-}
-
-.user-panel-status-pill.is-disabled strong {
-    color: #ffd9e1;
-}
-
-.user-panel-stat-pill span {
-    color: var(--user-subtle-ink);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    line-height: 1.1;
-}
-
-.user-panel-stat-pill strong {
-    color: var(--user-ink);
-    font-size: 0.96rem;
-    line-height: 1.15;
-}
-
-.user-roles-card {
-    min-width: 0;
-    padding: 1rem;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.035);
-}
-
-.user-section-kicker {
-    margin: 0;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #a9c1e8;
-}
-
-.user-danger-kicker {
-    color: #fb7185;
-}
-
+/* --- Roles --- */
 .user-role-stack {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: var(--sk-space-8);
+    min-inline-size: 0;
 }
 
 .user-role-option {
     display: flex;
     align-items: flex-start;
-    gap: 0.7rem;
-    margin: 0;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 0.9rem;
-    padding: 0.72rem 0.85rem;
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--user-ink);
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    gap: var(--sk-space-12);
+    padding: var(--sk-space-12);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background-color: var(--sk-color-surface-base);
+    min-inline-size: 0;
 }
 
 .user-role-option.is-selected {
-    border-color: rgba(166, 191, 231, 0.28);
-    background: rgba(136, 165, 210, 0.12);
-    box-shadow: 0 0 0 1px rgba(166, 191, 231, 0.08);
+    border-color: var(--sk-color-border-brand);
+    background-color: var(--sk-color-surface-selected);
 }
 
-.user-role-option-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.12rem;
-}
+.user-role-option-body { min-inline-size: 0; }
 
 .user-role-option-title {
-    font-weight: 700;
-    color: var(--user-ink);
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-primary);
 }
 
 .user-role-option-description {
-    color: var(--user-subtle-ink);
-    font-size: 0.88rem;
-    line-height: 1.3;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
 }
 
-.user-section-actions {
+/* --- Section headers --- */
+.user-section-header {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 0.8rem;
-}
-
-.user-create-toggle {
-    margin-top: 1rem;
-}
-
-.user-group-browser {
-    margin-top: 0.8rem;
-    padding-top: 0.8rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.user-group-browser .table {
-    color: var(--user-ink);
-}
-
-.user-group-browser .table > :not(caption) > * > * {
-    background: transparent;
-    border-color: rgba(166, 191, 231, 0.1);
-}
-
-.user-danger-actions {
-    display: grid;
-    gap: 0.8rem;
-}
-
-.user-danger-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.user-danger-copy span {
-    color: #f1bec8;
-}
-
-.user-empty-card {
-    color: var(--user-subtle-ink);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sk-space-12);
+    margin-block-end: var(--sk-space-12);
+    min-inline-size: 0;
 }
 
 .user-section-copy {
-    font-size: 0.9rem;
-    line-height: 1.4;
+    flex: 1 1 16rem;
+    min-inline-size: 0;
 }
 
-.user-detail-grid .panel-card-header {
-    padding-bottom: 0.7rem;
+.user-section-actions,
+.user-danger-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-8);
 }
 
-.user-detail-grid > .panel-card:not(.user-overview-card) {
-    padding: 0.92rem 1rem;
+.user-section-kicker,
+.user-danger-kicker,
+.user-profile-heading {
+    font-size: var(--sk-font-size-overline);
+    font-weight: var(--sk-font-weight-semibold);
+    letter-spacing: var(--sk-letter-spacing-overline);
+    text-transform: uppercase;
+    color: var(--sk-color-text-tertiary);
 }
 
-.user-account-section-security .row {
-    --bs-gutter-x: 0.8rem;
-    --bs-gutter-y: 0.7rem;
+.user-danger-kicker { color: var(--sk-color-status-danger-text); }
+
+.user-danger-copy {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
 }
 
-.user-account-section-security .form-text {
-    margin-top: 0.55rem !important;
+.user-profile-copy { min-inline-size: 0; }
+
+.user-group-browser {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.table-sort {
-    color: inherit;
-    text-decoration: none;
-    font-size: 0.83rem;
-    font-weight: 600;
-}
-
-.table-sort:hover {
-    text-decoration: underline;
-}
-
-@media (max-width: 1100px) {
-    .user-management-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .user-overview-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .user-directory-list {
-        max-height: none;
-    }
-}
-
-@media (max-width: 900px) {
-    .user-account-summary {
-        grid-template-columns: 1fr;
-    }
-
-    .user-panel-stat-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 720px) {
-    .user-management-head {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .user-danger-actions,
-    .user-directory-footer-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .user-page-size {
-        flex-wrap: wrap;
-    }
-
-    .user-account-summary {
-        width: 100%;
-    }
-
-    .user-panel-stat-grid {
-        grid-template-columns: 1fr;
-    }
+.user-create-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-8);
 }

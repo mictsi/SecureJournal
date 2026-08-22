@@ -6,229 +6,281 @@
 
 <PageTitle>Audit Search</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">Audit trail</p>
-        <h2>Search audit events and linked journal evidence</h2>
-        <p>
-            Event details are stored in plaintext per the current specification decision, with SHA-256 checksums for integrity.
-            This page filters on searchable metadata (time range, user, project, action, entity, outcome) for authorized roles and shows linked journal entry content when the audit row references a journal entry.
-        </p>
+<PageHeader Title="Audit search"
+            Description="Filter audit events on searchable metadata — time range, user, project, action, entity and outcome — and read the linked journal entry when a row references one. Event details are stored in plaintext per the current specification decision, with SHA-256 checksums for integrity." />
+
+<PageAlerts Error="@_error" />
+
+<section class="sk-card sj-panel">
+    <div class="sk-card__header">
+        <h2 class="sk-card__title">Filters</h2>
+        <div class="sk-cluster sk-cluster--gap-8">
+            <button type="button" class="sk-button sk-button--primary sk-button--sm" @onclick="ApplyFilters">Apply filters</button>
+            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="ClearFilters">Clear filters</button>
+        </div>
+    </div>
+
+    <div class="sk-card__body">
+        <div class="sk-grid sk-grid--cols-4 sk-grid--gap-16">
+            <div class="sk-field">
+                <label class="sk-field__label" for="fromDate">From (UTC date)</label>
+                <input id="fromDate" class="sk-input" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="toDate">To (UTC date)</label>
+                <input id="toDate" class="sk-input" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="actorText">User</label>
+                <input id="actorText" class="sk-input" type="text" placeholder="alice.admin" @bind="_actorUsername" />
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="projectFilter">Project</label>
+                <div class="sk-select-wrapper">
+                    <select id="projectFilter" class="sk-select" @bind="_projectFilterValue">
+                        <option value="">Any</option>
+                        @foreach (var project in _projects)
+                        {
+                            <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="actionFilter">Action</label>
+                <div class="sk-select-wrapper">
+                    <select id="actionFilter" class="sk-select" @bind="_actionFilterValue">
+                        <option value="">Any</option>
+                        @foreach (var action in _auditActions)
+                        {
+                            <option value="@action">@action</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="entityFilter">Entity</label>
+                <div class="sk-select-wrapper">
+                    <select id="entityFilter" class="sk-select" @bind="_entityFilterValue">
+                        <option value="">Any</option>
+                        @foreach (var entity in _auditEntities)
+                        {
+                            <option value="@entity">@entity</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="outcomeFilter">Outcome</label>
+                <div class="sk-select-wrapper">
+                    <select id="outcomeFilter" class="sk-select" @bind="_outcomeFilterValue">
+                        <option value="">Any</option>
+                        @foreach (var outcome in _auditOutcomes)
+                        {
+                            <option value="@outcome">@outcome</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="sk-field">
+                <label class="sk-field__label" for="textFieldFilter">Text field</label>
+                <div class="sk-select-wrapper">
+                    <select id="textFieldFilter" class="sk-select" @bind="_textSearchField">
+                        @foreach (var field in _textSearchFields)
+                        {
+                            <option value="@field">@GetTextSearchFieldLabel(field)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="sk-field sk-grid__span-full">
+                <label class="sk-field__label" for="textContains">Contains (case-insensitive)</label>
+                <input id="textContains" class="sk-input" type="text" placeholder="Search within the selected field…" @bind="_textSearchValue" />
+            </div>
+        </div>
     </div>
 </section>
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-<section class="panel-card">
-    <div class="panel-card-header">
-        <h3>Filters</h3>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-primary btn-sm" @onclick="ApplyFilters">Apply</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ClearFilters">Clear</button>
-        </div>
+<section class="sk-card sj-panel">
+    <div class="sk-card__header">
+        <h2 class="sk-card__title">Results</h2>
+        <span class="sk-badge sk-badge--neutral">@_rows.Count event(s)</span>
     </div>
 
-    <div class="row g-3">
-        <div class="col-md-3">
-            <label class="form-label" for="fromDate">From (UTC date)</label>
-            <input id="fromDate" class="form-control" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label" for="toDate">To (UTC date)</label>
-            <input id="toDate" class="form-control" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label" for="actorText">User</label>
-            <input id="actorText" class="form-control" type="text" placeholder="alice.admin" @bind="_actorUsername" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label" for="projectFilter">Project</label>
-            <select id="projectFilter" class="form-select" @bind="_projectFilterValue">
-                <option value="">Any</option>
-                @foreach (var project in _projects)
-                {
-                    <option value="@project.ProjectId">@project.Code - @project.Name</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="actionFilter">Action</label>
-            <select id="actionFilter" class="form-select" @bind="_actionFilterValue">
-                <option value="">Any</option>
-                @foreach (var action in _auditActions)
-                {
-                    <option value="@action">@action</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="entityFilter">Entity</label>
-            <select id="entityFilter" class="form-select" @bind="_entityFilterValue">
-                <option value="">Any</option>
-                @foreach (var entity in _auditEntities)
-                {
-                    <option value="@entity">@entity</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="outcomeFilter">Outcome</label>
-            <select id="outcomeFilter" class="form-select" @bind="_outcomeFilterValue">
-                <option value="">Any</option>
-                @foreach (var outcome in _auditOutcomes)
-                {
-                    <option value="@outcome">@outcome</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label" for="textFieldFilter">Text Field</label>
-            <select id="textFieldFilter" class="form-select" @bind="_textSearchField">
-                @foreach (var field in _textSearchFields)
-                {
-                    <option value="@field">@GetTextSearchFieldLabel(field)</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-8">
-            <label class="form-label" for="textContains">Contains (case-insensitive)</label>
-            <input id="textContains" class="form-control" type="text" placeholder="Search within selected field..." @bind="_textSearchValue" />
-        </div>
-    </div>
-</section>
-
-<section class="panel-card">
-    <div class="panel-card-header">
-        <h3>Results</h3>
-        <span class="text-muted">@_rows.Count event(s)</span>
-    </div>
-
-    @if (_rows.Count == 0)
-    {
-        <p class="mb-0">No audit rows match the current filter criteria, or the current role cannot view audit logs.</p>
-    }
-    else
-    {
-        <div class="row g-2 mb-3">
-            <div class="col-md-3">
-                <label class="form-label" for="auditPageSize">Page size</label>
-                <select id="auditPageSize" class="form-select" @onchange="OnPageSizeChanged">
-                    @foreach (var pageSize in _pageSizeOptions)
-                    {
-                        <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
-                    }
-                </select>
+    <div class="sk-card__body">
+        @if (_rows.Count == 0)
+        {
+            <div class="sk-empty-state">
+                <svg class="sk-empty-state__icon" aria-hidden="true" focusable="false" width="48" height="48"><use href="#sk-illus-search" /></svg>
+                <h3 class="sk-empty-state__heading">No audit events match these filters</h3>
+                <p class="sk-empty-state__body">
+                    Widen the date range or clear a filter. If you expected results, your role may not permit viewing audit logs.
+                </p>
+                <div class="sk-empty-state__actions">
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear filters</button>
+                </div>
             </div>
-            <div class="col-md-9 d-flex align-items-end justify-content-md-end">
-                <small class="text-muted">Page @_currentPage of @TotalPages</small>
+        }
+        else
+        {
+            <div class="sk-cluster sk-cluster--between sk-cluster--gap-16 sj-table-toolbar">
+                <div class="sk-field sk-field--inline">
+                    <label class="sk-field__label" for="auditPageSize">Page size</label>
+                    <div class="sk-select-wrapper">
+                        <select id="auditPageSize" class="sk-select sk-select--sm" @onchange="OnPageSizeChanged">
+                            @foreach (var pageSize in _pageSizeOptions)
+                            {
+                                <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <p class="sk-pagination__status" role="status">Page @_currentPage of @TotalPages</p>
             </div>
-        </div>
 
-        <div class="table-responsive">
-            <table class="table table-sm audit-results-table">
-                <thead>
-                    <tr>
-                        <th class="audit-timestamp-column">Timestamp (UTC)</th>
-                        <th>User</th>
-                        <th class="audit-action-column">Action</th>
-                        <th>Entity</th>
-                        <th>Project</th>
-                        <th class="audit-outcome-column">Outcome</th>
-                        <th class="audit-details-column">Details</th>
-                        <th>Integrity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in PagedRows)
-                    {
+            @* Sekura's responsive-tables pattern: scroll the table, never drop a
+               column. The region is focusable so the scroll is keyboard-reachable. *@
+            <div class="sk-table sj-audit-table" role="region" aria-labelledby="audit-caption" tabindex="0">
+                <table>
+                    <caption id="audit-caption" class="sk-visually-hidden">
+                        Audit events
+                        <span class="sk-table__caption-detail">@_rows.Count events, newest first</span>
+                    </caption>
+                    <thead>
                         <tr>
-                            <td class="audit-timestamp-column">@row.TimestampUtc.ToString("yyyy-MM-dd")</td>
-                            <td>@row.ActorUsername</td>
-                            <td class="audit-action-column">@row.Action</td>
-                            <td>
-                                <div>@row.EntityType</div>
-                                @if (!string.IsNullOrWhiteSpace(row.EntityId))
-                                {
-                                    <small class="text-muted">@row.EntityId</small>
-                                }
-                            </td>
-                            <td>@(row.ProjectCode ?? "-")</td>
-                            <td class="audit-outcome-column">
-                                <span class="badge @(row.Outcome == AuditOutcome.Success ? "text-bg-success" : row.Outcome == AuditOutcome.Denied ? "text-bg-danger" : "text-bg-warning")">
-                                    @row.Outcome
-                                </span>
-                            </td>
-                            <td class="audit-details-column">
-                                <div>@row.Details</div>
-                                @if (row.RelatedJournalEntry is not null)
-                                {
-                                    <div class="audit-journal-preview mt-2">
-                                        <div class="audit-journal-preview-title">
-                                            Journal Entry @row.RelatedJournalEntry.RecordId
-                                            @if (row.RelatedJournalEntry.IsSoftDeleted)
-                                            {
-                                                <span class="badge text-bg-warning ms-2">Soft-deleted</span>
-                                            }
-                                        </div>
-                                        <div class="audit-journal-preview-meta">
-                                            <span><strong>Project:</strong> @row.RelatedJournalEntry.ProjectCode</span>
-                                            <span><strong>Created:</strong> @row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd") UTC</span>
-                                            <span><strong>By:</strong> @row.RelatedJournalEntry.CreatedBy</span>
-                                        </div>
-                                        <div class="audit-journal-preview-field"><strong>Subject:</strong> @row.RelatedJournalEntry.Subject</div>
-                                        <div class="audit-journal-preview-field">
-                                            <strong>Description:</strong>
-                                            <div class="audit-journal-preview-text rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Description)</div>
-                                        </div>
-                                        @if (!string.IsNullOrWhiteSpace(row.RelatedJournalEntry.Notes))
-                                        {
-                                            <div class="audit-journal-preview-field">
-                                                <strong>Notes:</strong>
-                                                <div class="audit-journal-preview-text rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Notes)</div>
+                            <th scope="col" class="sj-col-timestamp">Timestamp (UTC)</th>
+                            <th scope="col" class="sj-col-user">User</th>
+                            <th scope="col" class="sj-col-action">Action</th>
+                            <th scope="col" class="sj-col-entity">Entity</th>
+                            <th scope="col" class="sj-col-project">Project</th>
+                            <th scope="col" class="sj-col-outcome">Outcome</th>
+                            <th scope="col" class="sj-col-details">Details</th>
+                            <th scope="col" class="sj-col-integrity">Integrity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in PagedRows)
+                        {
+                            <tr>
+                                <td class="sj-col-timestamp">
+                                    <time datetime="@row.TimestampUtc.ToString("o")">@row.TimestampUtc.ToString("yyyy-MM-dd")</time>
+                                    <span class="sj-cell-secondary">@row.TimestampUtc.ToString("HH:mm:ss")</span>
+                                </td>
+                                <td class="sj-col-user">@row.ActorUsername</td>
+                                <td class="sj-col-action">@row.Action</td>
+                                <td class="sj-col-entity">
+                                    <div>@row.EntityType</div>
+                                    @if (!string.IsNullOrWhiteSpace(row.EntityId))
+                                    {
+                                        <span class="sj-cell-id sk-truncate" title="@row.EntityId">@row.EntityId</span>
+                                    }
+                                </td>
+                                <td class="sj-col-project">@(row.ProjectCode ?? "—")</td>
+                                <td class="sj-col-outcome">
+                                    <span class="sk-status @OutcomeStatusClass(row.Outcome)">
+                                        <span class="sk-status__dot" aria-hidden="true"></span>
+                                        <span class="sk-status__label">@row.Outcome</span>
+                                    </span>
+                                </td>
+                                <td class="sj-col-details">
+                                    <div>@row.Details</div>
+                                    @if (row.RelatedJournalEntry is not null)
+                                    {
+                                        @* The preview is what used to crush every other column, so it
+                                           is collapsed by default and opens in place. *@
+                                        <div class="sk-disclosure sj-journal-preview" data-sk-disclosure>
+                                            <button type="button" class="sk-disclosure__trigger"
+                                                    id="@($"journal-trigger-{row.AuditId}")"
+                                                    aria-expanded="false"
+                                                    aria-controls="@($"journal-panel-{row.AuditId}")">
+                                                <svg class="sk-disclosure__marker" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-right" /></svg>
+                                                <span class="sk-disclosure__label">
+                                                    Journal entry @row.RelatedJournalEntry.RecordId
+                                                </span>
+                                                @if (row.RelatedJournalEntry.IsSoftDeleted)
+                                                {
+                                                    <span class="sk-badge sk-badge--warning">Soft-deleted</span>
+                                                }
+                                            </button>
+                                            <div class="sk-disclosure__panel sk-stack sk-stack--gap-8"
+                                                 id="@($"journal-panel-{row.AuditId}")"
+                                                 aria-labelledby="@($"journal-trigger-{row.AuditId}")"
+                                                 hidden>
+                                                <dl class="sk-dl">
+                                                    <div class="sk-dl__group">
+                                                        <dt class="sk-dl__term">Project</dt>
+                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.ProjectCode</dd>
+                                                    </div>
+                                                    <div class="sk-dl__group">
+                                                        <dt class="sk-dl__term">Created</dt>
+                                                        <dd class="sk-dl__detail">
+                                                            <time datetime="@row.RelatedJournalEntry.CreatedAtUtc.ToString("o")">@row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd")</time> UTC
+                                                        </dd>
+                                                    </div>
+                                                    <div class="sk-dl__group">
+                                                        <dt class="sk-dl__term">Created by</dt>
+                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.CreatedBy</dd>
+                                                    </div>
+                                                    <div class="sk-dl__group">
+                                                        <dt class="sk-dl__term">Subject</dt>
+                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.Subject</dd>
+                                                    </div>
+                                                </dl>
+                                                <div>
+                                                    <p class="sk-field__label">Description</p>
+                                                    <div class="sk-prose rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Description)</div>
+                                                </div>
+                                                @if (!string.IsNullOrWhiteSpace(row.RelatedJournalEntry.Notes))
+                                                {
+                                                    <div>
+                                                        <p class="sk-field__label">Notes</p>
+                                                        <div class="sk-prose rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Notes)</div>
+                                                    </div>
+                                                }
                                             </div>
-                                        }
-                                    </div>
-                                }
-                            </td>
-                            <td>
-                                <div class="audit-integrity-cell">
-                                    <small class="text-muted">Checksum</small>
-                                    <span class="audit-checksum">@row.DetailsChecksum</span>
-                                    <div class="audit-integrity-actions">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => ValidateChecksum(row.AuditId)">
-                                            Validate checksum
+                                        </div>
+                                    }
+                                </td>
+                                <td class="sj-col-integrity">
+                                    <div class="sk-stack sk-stack--gap-4">
+                                        <code class="sk-code sj-checksum" title="@row.DetailsChecksum">@row.DetailsChecksum</code>
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => ValidateChecksum(row.AuditId)">
+                                            Validate
                                         </button>
                                         @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
                                         {
                                             @if (validation.IsValid)
                                             {
-                                                <span class="checksum-status checksum-status-valid">☑ Valid</span>
+                                                <span class="sk-status sk-status--success">
+                                                    <span class="sk-status__dot" aria-hidden="true"></span>
+                                                    <span class="sk-status__label">Valid</span>
+                                                </span>
                                             }
                                             else
                                             {
-                                                <span class="checksum-status checksum-status-invalid" title="@($"Computed: {validation.ComputedChecksum}")">☒ Invalid</span>
+                                                <span class="sk-status sk-status--danger" title="@($"Computed: {validation.ComputedChecksum}")">
+                                                    <span class="sk-status__dot" aria-hidden="true"></span>
+                                                    <span class="sk-status__label">Invalid</span>
+                                                </span>
                                             }
                                         }
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <div class="pager-bar">
-            <div class="text-muted">Showing @PagedRows.Count() of @_rows.Count results</div>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-        </div>
-    }
+
+            <nav class="sk-pagination" aria-label="Pagination">
+                <p class="sk-pagination__status" role="status">Showing @PagedRows.Count() of @_rows.Count results</p>
+                <div class="sk-cluster sk-cluster--gap-8">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                </div>
+            </nav>
+        }
+    </div>
 </section>
 
 @code {
@@ -242,6 +294,13 @@
         EntityType,
         Outcome
     }
+
+    private static string OutcomeStatusClass(AuditOutcome outcome) => outcome switch
+    {
+        AuditOutcome.Success => "sk-status--success",
+        AuditOutcome.Denied => "sk-status--danger",
+        _ => "sk-status--warning"
+    };
 
     private readonly AuditActionType[] _auditActions = Enum.GetValues<AuditActionType>();
     private readonly AuditEntityType[] _auditEntities = Enum.GetValues<AuditEntityType>();

@@ -7,18 +7,10 @@
 
 <PageTitle>Create User</PageTitle>
 
-<section class="page-head user-create-head">
-    <div>
-        <p class="eyebrow">Administration</p>
-        <h2>Create User</h2>
-        <p>Add a new account, choose local or external access, and set initial roles.</p>
-    </div>
-</section>
+<PageHeader Title="Create user"
+            Description="Add a local account and assign its role and group memberships." />
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
+<PageAlerts Error="@_error" />
 
 @if (_currentUser is null)
 {
@@ -26,8 +18,9 @@
 }
 else if (_currentUser.Role != AppRole.Administrator)
 {
-    <div class="alert alert-warning" role="alert">
-        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    <div class="sk-alert sk-alert--warning" role="alert">
+    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
+    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
     </div>
 }
 else
@@ -45,38 +38,38 @@ else
             <DataAnnotationsValidator />
             <ValidationSummary />
 
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="createUsername">Username</label>
-                    <InputText id="createUsername" class="form-control" maxlength="100" @bind-Value="_createUserDraft.Username" />
+            <div class="sk-stack sk-stack--gap-16">
+                <div class="sk-field">
+                    <label class="sk-field__label" for="createUsername">Username</label>
+                    <InputText id="createUsername" class="sk-input" maxlength="100" @bind-Value="_createUserDraft.Username" />
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="createDisplayName">Display Name</label>
-                    <InputText id="createDisplayName" class="form-control" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
+                <div class="sk-field">
+                    <label class="sk-field__label" for="createDisplayName">Display Name</label>
+                    <InputText id="createDisplayName" class="sk-input" maxlength="100" @bind-Value="_createUserDraft.DisplayName" />
                 </div>
             </div>
 
-            <div class="user-create-toggle form-check">
-                <InputCheckbox id="createLocalAccount" class="form-check-input" @bind-Value="_createUserDraft.IsLocalAccount" />
-                <label class="form-check-label" for="createLocalAccount">Local account</label>
+            <div class="user-create-toggle sk-checkbox">
+                <InputCheckbox id="createLocalAccount" class="sk-checkbox__input" @bind-Value="_createUserDraft.IsLocalAccount" />
+                <label class="sk-checkbox__label" for="createLocalAccount">Local account</label>
             </div>
 
             @if (_createUserDraft.IsLocalAccount)
             {
-                <div class="mt-3">
-                    <label class="form-label" for="createLocalPassword">Local Password</label>
-                    <InputText id="createLocalPassword" type="password" class="form-control" @bind-Value="_createUserDraft.LocalPassword" />
-                    <div class="form-text">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="createLocalPassword">Local Password</label>
+                    <InputText id="createLocalPassword" type="password" class="sk-input" @bind-Value="_createUserDraft.LocalPassword" />
+                    <div class="sk-field__hint">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
                 </div>
             }
 
-            <div class="mt-4">
-                <label class="form-label d-block">Initial Roles</label>
+            <div class="sk-field">
+                <label class="sk-field__label">Initial Roles</label>
                 <div class="user-role-stack">
                     @foreach (var role in _roles)
                     {
                         <label class="user-role-option @RoleOptionClass(_createUserRoles.Contains(role))">
-                            <input class="form-check-input"
+                            <input class="sk-checkbox__input"
                                    type="checkbox"
                                    checked="@_createUserRoles.Contains(role)"
                                    @onchange="args => ToggleCreateRole(role, args)" />
@@ -90,11 +83,11 @@ else
             </div>
 
             <div class="user-section-actions">
-                <button type="submit" class="btn btn-primary" disabled="@_isCreatingUser">
+                <button type="submit" class="sk-button sk-button--primary" disabled="@_isCreatingUser">
                     @(_isCreatingUser ? "Creating..." : "Create User")
                 </button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ResetCreateUserForm" disabled="@_isCreatingUser">Reset</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_isCreatingUser">Cancel</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetCreateUserForm" disabled="@_isCreatingUser">Reset</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="Cancel" disabled="@_isCreatingUser">Cancel</button>
             </div>
         </EditForm>
     </section>

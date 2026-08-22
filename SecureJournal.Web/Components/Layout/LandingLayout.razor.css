@@ -1,0 +1,55 @@
+/* Sekura's `auth` blueprint. Its classes are recipe-level rather than part of
+   the component stylesheet, so the recipe's own CSS lives here. */
+
+.sk-auth__main {
+    display: flex;
+    flex-direction: column;
+    /* Centred without absolute positioning, so it still scrolls on a short viewport. */
+    margin: auto;
+    padding: var(--sk-space-24) var(--sk-space-16);
+    inline-size: 100%;
+    max-inline-size: 24rem;
+    min-block-size: 100dvh;
+    justify-content: center;
+}
+
+::deep .sk-auth {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-24);
+}
+
+::deep .sk-auth__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sk-space-8);
+    color: var(--sk-color-text-brand);
+}
+
+::deep .sk-auth__logo {
+    inline-size: 4rem;
+    block-size: 4rem;
+}
+
+::deep .sk-auth__product {
+    margin: 0;
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-primary);
+}
+
+::deep .sk-auth__heading {
+    margin: 0;
+    font-size: var(--sk-font-size-heading-lg);
+    font-weight: var(--sk-font-weight-bold);
+}
+
+/* Below this width the card merges into the page, so its background has to
+   follow or it reads as a lighter block filling the screen for no reason. */
+@media (max-width: 30rem) {
+    ::deep .sk-auth__card {
+        border: none;
+        box-shadow: none;
+        background-color: var(--sk-color-surface-base);
+    }
+}

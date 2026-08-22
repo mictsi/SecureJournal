@@ -1,0 +1,41 @@
+@*
+    Sekura page header. Every page used to build its own, which is why the create
+    actions drifted apart; routing them all through here is what keeps them
+    identical. Exactly one <h1> per page, and it is this one.
+*@
+<header class="sk-page-header">
+    <div class="sk-page-header__main">
+        <div class="sk-page-header__titles">
+            <div class="sk-page-header__title-row">
+                <h1 class="sk-page-header__title">@Title</h1>
+                @TitleAdornment
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="sk-page-header__description">@Description</p>
+            }
+        </div>
+
+        @if (Actions is not null)
+        {
+            <div class="sk-page-header__actions">
+                @Actions
+            </div>
+        }
+    </div>
+</header>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    /// Badges or status indicators that belong beside the title.
+    [Parameter]
+    public RenderFragment? TitleAdornment { get; set; }
+
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+}

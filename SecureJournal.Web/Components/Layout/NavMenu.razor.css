@@ -1,288 +1,35 @@
-.sj-nav-shell {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 1rem 0.95rem;
-    color: #edf3fb;
-    background:
-        radial-gradient(circle at top left, rgba(114, 153, 215, 0.12), transparent 32%),
-        linear-gradient(180deg, #243247 0%, #1d293a 100%);
+/* The rail's own styling is entirely Sekura's. What the design system leaves
+   open is the narrow-viewport behaviour: below 64rem it makes the rail fixed
+   but does not define open and closed, because that is application state. */
+
+.sk-side-nav {
+    padding-block-end: var(--sk-space-24);
 }
 
-.sj-brand-panel {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.2rem 0.2rem 1.1rem;
-}
-
-.sj-brand-badge {
-    width: 2.75rem;
-    height: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.95rem;
-    background: linear-gradient(180deg, rgba(120, 151, 205, 0.82), rgba(74, 99, 140, 0.92));
-    overflow: hidden;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.sj-brand-logo {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-}
-
-.sj-brand-copy {
-    min-width: 0;
-    display: grid;
-    gap: 0.05rem;
-}
-
-.sj-brand-title {
-    color: #f7fbff;
-    font-size: 1.2rem;
-    font-weight: 700;
-    line-height: 1.1;
-}
-
-.sj-nav-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 0.1rem;
-}
-
-.sj-profile-kicker {
-    color: rgba(218, 229, 244, 0.68);
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.sj-nav {
-    display: grid;
-    gap: 0.3rem;
-}
-
-.sj-menu-section {
-    padding: 0.15rem 0;
-}
-
-.sj-menu-section.is-active {
-    color: #fff;
-}
-
-.sj-menu-section.is-open {
-    color: #fff;
-}
-
-.sj-menu-toggle {
-    width: 100%;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.7rem 0.2rem;
-    background: transparent;
-    border: 0;
-    color: inherit;
-    text-align: left;
-    border-radius: 0.8rem;
-}
-
-.sj-menu-toggle:hover {
-    background: rgba(255, 255, 255, 0.035);
-}
-
-.sj-menu-icon {
-    width: 1.55rem;
-    height: 1.55rem;
-    display: grid;
-    place-items: center;
-    color: rgba(234, 242, 252, 0.9);
-}
-
-.sj-menu-icon svg {
-    width: 0.95rem;
-    height: 0.95rem;
-}
-
-.sj-menu-copy {
-    min-width: 0;
-    display: grid;
-    gap: 0.16rem;
-}
-
-.sj-menu-title {
-    color: #f7fbff;
-    font-size: 0.98rem;
-    font-weight: 700;
-    line-height: 1.2;
-}
-
-.sj-menu-description {
-    color: rgba(222, 233, 246, 0.66);
-    font-size: 0.8rem;
-    line-height: 1.3;
-}
-
-.sj-menu-chevron {
-    width: 0.62rem;
-    height: 0.62rem;
-    border-right: 2px solid rgba(232, 241, 252, 0.78);
-    border-bottom: 2px solid rgba(232, 241, 252, 0.78);
-    transform: rotate(45deg) translateY(-1px);
-    transition: transform 140ms ease;
-}
-
-.sj-menu-chevron.is-open {
-    transform: rotate(225deg) translateY(-1px);
-}
-
-.sj-menu-links {
-    display: grid;
-    gap: 0.1rem;
-    margin: 0.1rem 0 0.35rem 2.4rem;
-    padding: 0.1rem 0 0.1rem 1rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sj-menu-links ::deep a.sj-menu-link {
-    display: block;
-    padding: 0.42rem 0;
-    border-radius: 0;
-    background: transparent;
-    border: 0;
-    color: rgba(224, 233, 245, 0.8);
-    font-weight: 500;
-    text-decoration: none;
-    transition: color 140ms ease, transform 140ms ease;
-}
-
-.sj-menu-links ::deep a.sj-menu-link:hover,
-.sj-menu-links ::deep a.sj-menu-link:focus-visible {
-    color: #fff;
-    outline: none;
-    transform: translateX(2px);
-}
-
-.sj-menu-links ::deep a.sj-menu-link.active {
-    color: #fff;
-    font-weight: 600;
-}
-
-.sj-profile-panel {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    display: grid;
-    gap: 0.75rem;
-}
-
-.sj-profile-card {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.9rem 0.95rem;
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.055);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.sj-profile-avatar {
-    width: 2.3rem;
-    height: 2.3rem;
-    display: grid;
-    place-items: center;
-    border-radius: 999px;
-    background: rgba(120, 151, 205, 0.32);
-    color: #f7fbff;
-    font-weight: 700;
-}
-
-.sj-profile-copy {
-    min-width: 0;
-    display: grid;
-    gap: 0.16rem;
-}
-
-.sj-profile-name {
-    color: #f7fbff;
-    font-weight: 700;
-    line-height: 1.2;
-}
-
-.sj-profile-meta {
-    color: rgba(222, 233, 246, 0.66);
-    font-size: 0.82rem;
-    line-height: 1.25;
-}
-
-.sj-footer-form {
-    margin: 0;
-}
-
-::deep a.sj-footer-link,
-.sj-footer-button {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    width: 100%;
-    padding: 0.82rem 0.95rem;
-    border-radius: 0.9rem;
-    background: rgba(255, 255, 255, 0.035);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #f7fbff;
-    font-weight: 600;
-    text-align: left;
-    text-decoration: none;
-    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.sj-footer-link-icon {
-    width: 1rem;
-    height: 1rem;
-    display: inline-grid;
-    flex: 0 0 1rem;
-    place-items: center;
-}
-
-.sj-footer-link-icon svg {
-    width: 1rem;
-    height: 1rem;
-}
-
-::deep a.sj-footer-link:hover,
-::deep a.sj-footer-link:focus-visible,
-.sj-footer-button:hover,
-.sj-footer-button:focus-visible {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    outline: none;
-}
-
-::deep a.sj-footer-link.active {
-    background: rgba(121, 160, 226, 0.18);
-    border-color: rgba(177, 205, 244, 0.24);
-    color: #fff;
-}
-
-.sj-footer-button {
-    appearance: none;
-    cursor: pointer;
-}
-
-@media (max-width: 980px) {
-    .sj-nav-shell {
-        height: auto;
+@media (max-width: 63.999rem) {
+    .sk-side-nav {
+        inset-block: 3.5rem 0;
+        inset-inline-start: 0;
+        inline-size: 16rem;
+        max-inline-size: 82vw;
+        box-shadow: var(--sk-elevation-3);
+        transform: translateX(-100%);
+        transition: transform var(--sk-duration-normal) var(--sk-easing-entrance);
     }
 
-    .sj-nav-scroll {
-        overflow: visible;
+    .sk-side-nav.is-open {
+        transform: translateX(0);
+    }
+
+    /* A rail translated off-screen is still in the tab order, so hide it from
+       assistive technology and keyboard focus while it is closed. */
+    .sk-side-nav:not(.is-open) {
+        visibility: hidden;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sk-side-nav {
+        transition: none;
     }
 }

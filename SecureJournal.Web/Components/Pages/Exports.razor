@@ -6,46 +6,34 @@
 
 <PageTitle>Exports</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">Exports</p>
-        <h2>CSV and JSON export generation</h2>
-        <p>Exports are generated server-side with role checks and audit logging. CSV exports include filter metadata as commented header lines.</p>
-    </div>
-</section>
+<PageHeader Title="Exports"
+            Description="Generate CSV and JSON exports of journal entries and audit events." />
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 <section class="panel-card">
         <div class="panel-card-header">
             <h3>Export Configuration</h3>
-            <span class="text-muted">@_currentUser?.Role</span>
+            <span class="sj-muted">@_currentUser?.Role</span>
         </div>
 
         @if (_currentUser is null)
         {
-            <p class="mb-0">Loading user context...</p>
+            <p>Loading user context...</p>
         }
         else
         {
             @if (!CanExportAnything)
             {
-                <p class="mb-0">The current role does not have export permissions. Project users cannot export data in this prototype.</p>
+                <p>The current role does not have export permissions. Project users cannot export data in this prototype.</p>
             }
             else
             {
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="datasetKind">Dataset</label>
-                        <select id="datasetKind" class="form-select" @bind="_selectedDataset">
+                <div class="sk-stack sk-stack--gap-16">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="datasetKind">Dataset</label>
+                        <div class="sk-select-wrapper">
+                            <select id="datasetKind" class="sk-select" @bind="_selectedDataset">
                             @if (CanExportJournal)
                             {
                                 <option value="@ExportDatasetKind.JournalEntries">Journal Entries</option>
@@ -55,27 +43,33 @@
                                 <option value="@ExportDatasetKind.AuditLogs">Audit Logs</option>
                             }
                         </select>
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label" for="formatKind">Format</label>
-                        <select id="formatKind" class="form-select" @bind="_selectedFormat">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="formatKind">Format</label>
+                        <div class="sk-select-wrapper">
+                            <select id="formatKind" class="sk-select" @bind="_selectedFormat">
                             <option value="@ExportFormat.Json">JSON</option>
                             <option value="@ExportFormat.Csv">CSV</option>
                         </select>
+                        </div>
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label" for="projectScope">Project Scope</label>
-                        <select id="projectScope" class="form-select" @bind="_projectExportScope" @bind:after="OnProjectScopeChanged">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="projectScope">Project Scope</label>
+                        <div class="sk-select-wrapper">
+                            <select id="projectScope" class="sk-select" @bind="_projectExportScope" @bind:after="OnProjectScopeChanged">
                             <option value="@ProjectExportScope.AllProjects">All Projects</option>
                             <option value="@ProjectExportScope.SpecificProject">Specific Project</option>
                         </select>
+                        </div>
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label" for="projectFilter">Project</label>
-                        <select id="projectFilter" class="form-select" @bind="_projectFilterValue" disabled="@(_projectExportScope != ProjectExportScope.SpecificProject)">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="projectFilter">Project</label>
+                        <div class="sk-select-wrapper">
+                            <select id="projectFilter" class="sk-select" @bind="_projectFilterValue" disabled="@(_projectExportScope != ProjectExportScope.SpecificProject)">
                             <option value="">
                                 @(_projectExportScope == ProjectExportScope.SpecificProject ? "Select a project" : "All projects selected")
                             </option>
@@ -84,75 +78,85 @@
                                 <option value="@project.ProjectId">@project.Code - @project.Name</option>
                             }
                         </select>
+                        </div>
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label" for="fromDate">From (UTC date)</label>
-                        <input id="fromDate" class="form-control" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="fromDate">From (UTC date)</label>
+                        <input id="fromDate" class="sk-input" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
                     </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label" for="toDate">To (UTC date)</label>
-                        <input id="toDate" class="form-control" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="toDate">To (UTC date)</label>
+                        <input id="toDate" class="sk-input" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
                     </div>
 
                     @if (_selectedDataset == ExportDatasetKind.JournalEntries)
                     {
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input id="includeSoftDeleted" class="form-check-input" type="checkbox" @bind="_includeSoftDeleted" />
-                                <label class="form-check-label" for="includeSoftDeleted">Include soft-deleted journal entries (admin only)</label>
-                            </div>
+                        <div>
+                            <label class="sk-checkbox">
+                                    <input id="includeSoftDeleted" class="sk-checkbox__input" type="checkbox" @bind="_includeSoftDeleted" />
+                                <span class="sk-checkbox__box" aria-hidden="true"></span>
+                                <span class="sk-checkbox__content">
+                                    <span class="sk-checkbox__label">Include soft-deleted journal entries (admin only)</span>
+                                </span>
+                            </label>
                         </div>
                     }
                     else if (_selectedDataset == ExportDatasetKind.AuditLogs)
                     {
-                        <div class="col-md-6">
-                            <label class="form-label" for="actorUsername">Actor username contains</label>
-                            <input id="actorUsername" class="form-control" @bind="_auditActorUsername" />
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="actorUsername">Actor username contains</label>
+                            <input id="actorUsername" class="sk-input" @bind="_auditActorUsername" />
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label" for="auditOutcome">Outcome</label>
-                            <select id="auditOutcome" class="form-select" @bind="_auditOutcomeValue">
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="auditOutcome">Outcome</label>
+                            <div class="sk-select-wrapper">
+                                <select id="auditOutcome" class="sk-select" @bind="_auditOutcomeValue">
                                 <option value="">Any</option>
                                 @foreach (var outcome in _auditOutcomes)
                                 {
                                     <option value="@outcome">@outcome</option>
                                 }
                             </select>
+                            </div>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label" for="auditAction">Action</label>
-                            <select id="auditAction" class="form-select" @bind="_auditActionValue">
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="auditAction">Action</label>
+                            <div class="sk-select-wrapper">
+                                <select id="auditAction" class="sk-select" @bind="_auditActionValue">
                                 <option value="">Any</option>
                                 @foreach (var action in _auditActions)
                                 {
                                     <option value="@action">@action</option>
                                 }
                             </select>
+                            </div>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label" for="auditEntity">Entity Type</label>
-                            <select id="auditEntity" class="form-select" @bind="_auditEntityValue">
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="auditEntity">Entity Type</label>
+                            <div class="sk-select-wrapper">
+                                <select id="auditEntity" class="sk-select" @bind="_auditEntityValue">
                                 <option value="">Any</option>
                                 @foreach (var entity in _auditEntities)
                                 {
                                     <option value="@entity">@entity</option>
                                 }
                             </select>
+                            </div>
                         </div>
                     }
                 </div>
 
-                <div class="mt-3 d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-primary" @onclick="GenerateExportAsync">Generate & Download</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ClearFilters">Clear Filters</button>
+                <div class="sk-cluster">
+                    <button type="button" class="sk-button sk-button--primary" @onclick="GenerateExportAsync">Generate & Download</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear Filters</button>
                     @if (_exportResult is not null)
                     {
-                        <button type="button" class="btn btn-outline-secondary" @onclick="DownloadExport">Download</button>
+                        <button type="button" class="sk-button sk-button--secondary" @onclick="DownloadExport">Download</button>
                     }
                 </div>
             }

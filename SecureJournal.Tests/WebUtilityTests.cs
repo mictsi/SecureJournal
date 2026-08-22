@@ -18,6 +18,84 @@ public sealed class SimpleMarkupPreviewTests
     }
 
     [Fact]
+    public void Render_KeepsTableStructureAuthoredInTheEditor()
+    {
+        var html = "<table><caption>Sample readings</caption><thead><tr>" +
+                   "<th scope=\"col\">Station</th><th scope=\"col\">Depth</th></tr></thead>" +
+                   "<tbody><tr><td>BS-114</td><td colspan=\"2\">42 m</td></tr></tbody></table>";
+
+        var result = SimpleMarkupPreview.Render(html).Value;
+
+        Assert.Contains("<table>", result, StringComparison.Ordinal);
+        Assert.Contains("<caption>Sample readings</caption>", result, StringComparison.Ordinal);
+        Assert.Contains("scope=\"col\"", result, StringComparison.Ordinal);
+        Assert.Contains("colspan=\"2\"", result, StringComparison.Ordinal);
+        Assert.Contains("<td>BS-114</td>", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_WrapsTablesInAKeyboardReachableScrollRegion()
+    {
+        var result = SimpleMarkupPreview.Render("<table><tr><td>one</td></tr></table>").Value;
+
+        // Without tabindex the container cannot be scrolled by keyboard at all.
+        Assert.Contains("class=\"sk-table\"", result, StringComparison.Ordinal);
+        Assert.Contains("role=\"region\"", result, StringComparison.Ordinal);
+        Assert.Contains("tabindex=\"0\"", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_NamesTheScrollRegionAfterTheCaptionWhenThereIsOne()
+    {
+        var withCaption = SimpleMarkupPreview.Render(
+            "<table><caption>Depth readings</caption><tr><td>1</td></tr></table>").Value;
+        var withoutCaption = SimpleMarkupPreview.Render("<table><tr><td>1</td></tr></table>").Value;
+
+        Assert.Contains("aria-label=\"Depth readings\"", withCaption, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Table\"", withoutCaption, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_StripsPresentationalAndDangerousTableAttributes()
+    {
+        var html = "<table style=\"width:900px\" border=\"1\" bgcolor=\"red\" onclick=\"alert(1)\">" +
+                   "<tr><td onmouseover=\"alert(2)\" style=\"color:red\">cell</td></tr></table>";
+
+        var result = SimpleMarkupPreview.Render(html).Value;
+
+        Assert.Contains("<td>cell</td>", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("style=", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("bgcolor", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("onclick", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("onmouseover", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_StillRejectsScriptInsideATable()
+    {
+        var result = SimpleMarkupPreview.Render(
+            "<table><tr><td><script>alert(1)</script>safe</td></tr></table>").Value;
+
+        // The sanitizer runs with KeepChildNodes, so a disallowed element is
+        // unwrapped rather than deleted: the <script> element goes and its former
+        // contents remain as inert text. Nothing executes, which is the property
+        // that matters here.
+        Assert.DoesNotContain("<script", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("safe", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_RejectsEventHandlersAndJavascriptUrisInTableContent()
+    {
+        var result = SimpleMarkupPreview.Render(
+            "<table><tr><td><a href=\"javascript:alert(1)\" onclick=\"alert(2)\">link</a></td></tr></table>").Value;
+
+        Assert.DoesNotContain("javascript:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("onclick", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("link", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Render_RendersMarkdownAndNormalizesLineEndings()
     {
         var result = SimpleMarkupPreview.Render("**Bold**\r\n\r\nNext line");

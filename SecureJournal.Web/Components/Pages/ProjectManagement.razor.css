@@ -1,438 +1,374 @@
-.project-management-head {
-    align-items: center;
-}
+/* Project management.
 
-.project-management-head-actions {
+   Rewritten onto semantic tokens and flex composition, matching the shape used
+   by the other directory-and-detail pages. The previous version hard-coded its
+   palette (so the page ignored the light themes entirely) and used
+   `grid-template-columns` with rigid minimums, which crushed content once the
+   detail column narrowed.
+
+   Responsive-layout foundation: flex first, wrap by default, width expressed as
+   flex-basis, and min-inline-size: 0 on every child that can hold text. */
+
+.project-management-shell {
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sk-space-24);
+    align-items: flex-start;
+    min-inline-size: 0;
 }
 
-.project-management-head,
-.project-management-shell {
-    --project-surface: rgba(37, 50, 73, 0.74);
-    --project-surface-muted: rgba(44, 59, 84, 0.82);
-    --project-border: rgba(166, 191, 231, 0.12);
-    --project-shadow: 0 14px 28px rgba(6, 12, 24, 0.16);
-    --project-ink: #edf4ff;
-    --project-subtle-ink: #aab9cd;
-}
-
-.project-directory-card,
-.project-detail-column > .panel-card {
-    background: var(--project-surface);
-    border-color: var(--project-border);
-    box-shadow: var(--project-shadow);
-    color: var(--project-ink);
-    backdrop-filter: blur(10px);
-}
-
-.project-management-shell {
-    display: grid;
-    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
-}
-
-.project-directory-card,
-.project-detail-column > .panel-card {
-    min-width: 0;
-}
-
+/* The rail is the page's index: it has to show a project's name and its
+   subtitle without cutting either. A 20rem basis truncated both, so the ideal
+   width is larger and the cap is looser. */
 .project-directory-card {
-    background: var(--project-surface-muted);
-    padding: 0;
-    overflow: hidden;
+    flex: 1 1 24rem;
+    min-inline-size: 0;
+    max-inline-size: 32rem;
 }
 
-.project-directory-card h3,
-.project-detail-column > .panel-card h3,
-.project-directory-card label,
-.project-detail-column > .panel-card label,
-.project-directory-card strong,
-.project-detail-column > .panel-card strong {
-    color: var(--project-ink);
+.project-detail-column {
+    /* Large grow, small basis: takes the slack, wraps when the basis will not fit. */
+    flex: 999 1 32rem;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-24);
 }
 
+.project-directory-card,
+.project-empty-card,
+.project-danger-card,
+.project-detail-column > .panel-card {
+    background-color: var(--sk-color-surface-raised);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-lg);
+    padding: var(--sk-space-16);
+    min-inline-size: 0;
+}
+
+/* --- Directory --- */
 .project-directory-header,
 .project-directory-toolbar,
-.project-directory-footer {
-    padding: 1rem 1rem 0;
+.project-directory-footer-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8) var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.project-directory-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.75rem;
+.project-directory-header > :first-child,
+.project-directory-footer-row > :first-child {
+    flex: 1 1 auto;
+    min-inline-size: 0;
 }
 
 .project-directory-copy,
-.project-section-copy {
-    margin: 0.25rem 0 0;
-    color: var(--project-subtle-ink);
+.project-directory-description {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
 .project-directory-total {
-    color: var(--project-subtle-ink);
-    font-size: 0.92rem;
-    white-space: nowrap;
-}
-
-.project-directory-toolbar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1rem;
-}
-
-.project-directory-sort {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.project-directory-empty {
-    padding: 0 1rem 1rem;
-    color: var(--project-subtle-ink);
+    flex: 0 0 auto;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
 .project-directory-list {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    padding: 0 1rem 1rem;
-    max-height: min(68vh, 54rem);
-    overflow: auto;
+    gap: var(--sk-space-8);
+    margin-block: var(--sk-space-12);
+    max-block-size: min(68vh, 54rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-inline-size: 0;
 }
 
 .project-directory-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.85rem;
-    width: 100%;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.035);
-    color: var(--project-ink);
-    padding: 0.9rem 0.95rem;
-    text-align: left;
-    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+    padding: var(--sk-space-12);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background-color: var(--sk-color-surface-base);
+    color: var(--sk-color-text-primary);
+    text-align: start;
+    cursor: pointer;
 }
 
 .project-directory-item:hover {
-    border-color: rgba(166, 191, 231, 0.22);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: none;
+    background-color: var(--sk-color-surface-hover);
+    border-color: var(--sk-color-border-default);
 }
 
-.project-directory-item.is-active {
-    border-color: rgba(166, 191, 231, 0.32);
-    box-shadow: 0 0 0 1px rgba(166, 191, 231, 0.08);
-    background: rgba(136, 165, 210, 0.14);
+.project-directory-item:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
-.project-avatar {
-    width: 2.35rem;
-    height: 2.35rem;
-    flex: 0 0 2.35rem;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 999px;
-    border: 1px solid rgba(166, 191, 231, 0.16);
-    background: rgba(136, 165, 210, 0.2);
-    color: #fff;
-    font-weight: 700;
+.project-directory-item.is-selected,
+.project-directory-item[aria-current="true"] {
+    background-color: var(--sk-color-surface-selected);
+    border-color: var(--sk-color-border-brand);
 }
 
-.project-avatar-large {
-    width: 3.4rem;
-    height: 3.4rem;
-    flex-basis: 3.4rem;
-    font-size: 1.25rem;
-}
-
-.project-directory-item-body,
-.project-profile-copy {
-    min-width: 0;
+.project-directory-item-body {
+    /* Name, subtitle and chips are stacked content, not a row. Laid out as a
+       row they competed for the rail's width and the name lost — a project code
+       was being clipped to 43px. */
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    align-items: flex-start;
+    gap: var(--sk-space-4);
+    min-inline-size: 0;
 }
 
 .project-directory-name,
-.project-profile-heading h3,
-.project-section-title {
-    font-weight: 700;
-    color: var(--project-ink);
+.project-directory-subtitle {
+    display: block;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
-.project-directory-subtitle,
-.project-profile-subtitle {
-    color: #dce8fa;
-    font-weight: 600;
+.project-directory-name {
+    font-weight: var(--sk-font-weight-medium);
+    color: var(--sk-color-text-primary);
 }
 
-.project-directory-description,
+.project-directory-subtitle {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
+}
+
+.project-directory-empty {
+    padding: var(--sk-space-16);
+    color: var(--sk-color-text-tertiary);
+    font-size: var(--sk-font-size-body-sm);
+}
+
+.project-directory-footer {
+    padding-block-start: var(--sk-space-12);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.project-directory-sort,
+.project-page-size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8);
+    min-inline-size: 0;
+}
+
+/* --- Identity --- */
+.project-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-surface-brand-subtle);
+    color: var(--sk-color-text-brand);
+    font-weight: var(--sk-font-weight-semibold);
+}
+
+.project-avatar-large {
+    inline-size: 3rem;
+    block-size: 3rem;
+    font-size: var(--sk-font-size-heading-xs);
+}
+
+.project-profile-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-16);
+    min-inline-size: 0;
+}
+
+.project-profile-copy {
+    flex: 1 1 14rem;
+    min-inline-size: 0;
+}
+
+.project-profile-heading {
+    font-size: var(--sk-font-size-overline);
+    font-weight: var(--sk-font-weight-semibold);
+    letter-spacing: var(--sk-letter-spacing-overline);
+    text-transform: uppercase;
+    color: var(--sk-color-text-tertiary);
+}
+
 .project-profile-description,
-.project-profile-meta,
-.project-profile-meta span,
-.project-empty-card,
-.project-danger-copy span,
-.project-group-browser-note,
-.project-field-label {
-    color: var(--project-subtle-ink);
+.project-profile-subtitle,
+.project-profile-meta {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
+/* --- Chips --- */
 .project-chip-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--sk-space-4);
+    margin: var(--sk-space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    min-inline-size: 0;
 }
 
 .project-chip,
 .project-status-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: 999px;
-    padding: 0.18rem 0.6rem;
-    font-size: 0.78rem;
-    line-height: 1.2;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-2) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-status-neutral-border);
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-status-neutral-surface);
+    color: var(--sk-color-status-neutral-text);
+    font-size: var(--sk-font-size-body-xs);
+    font-weight: var(--sk-font-weight-medium);
 }
 
-.project-chip {
-    background: rgba(255, 255, 255, 0.07);
-    color: #f4f7ff;
+.project-status-badge.is-disabled,
+.project-status-badge.is-deleted {
+    border-color: var(--sk-color-status-danger-border);
+    background-color: var(--sk-color-status-danger-surface);
+    color: var(--sk-color-status-danger-text);
 }
 
-.project-chip.is-empty {
-    color: var(--project-subtle-ink);
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.project-status-badge.is-active {
-    background: rgba(136, 165, 210, 0.16);
-    color: #e1ebfb;
-}
-
-.project-status-badge.is-disabled {
-    background: rgba(151, 74, 93, 0.18);
-    color: #ffd9e1;
-}
-
-.project-directory-footer {
-    padding-bottom: 1rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.project-directory-footer-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--project-subtle-ink);
-    font-size: 0.9rem;
-}
-
-.project-directory-footer-row + .project-directory-footer-row {
-    margin-top: 0.75rem;
-}
-
-.project-page-size {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.project-detail-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    min-width: 0;
-}
-
-.project-profile-summary {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-}
-
-.project-profile-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.project-profile-heading h3 {
-    margin: 0;
-}
-
-.project-profile-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.9rem;
-    font-size: 0.95rem;
-}
-
+/* --- Sections --- */
 .project-section-header {
-    margin-bottom: 1rem;
-    align-items: flex-start;
-}
-
-.project-section-kicker {
-    margin: 0;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #a9c1e8;
-}
-
-.project-danger-kicker {
-    color: #fb7185;
-}
-
-.project-metadata-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem 1rem;
-}
-
-.project-metadata-main {
-    grid-column: 1 / -1;
-}
-
-.project-metadata-readonly > div,
-.project-metadata-readonly .project-metadata-main {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.85rem 0.95rem;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.project-field-value {
-    color: var(--project-ink);
-    white-space: pre-wrap;
-}
-
-.project-group-browser {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.project-group-browser .table {
-    color: var(--project-ink);
-}
-
-.project-group-browser .table > :not(caption) > * > * {
-    background: transparent;
-    border-color: rgba(166, 191, 231, 0.1);
-}
-
-.project-section-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem;
-    margin-top: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sk-space-12);
+    margin-block-end: var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.project-management-shell .btn-outline-secondary,
-.project-management-head .btn-outline-secondary {
-    --bs-btn-color: var(--project-ink);
-    --bs-btn-border-color: rgba(166, 191, 231, 0.16);
-    --bs-btn-hover-bg: rgba(255, 255, 255, 0.06);
-    --bs-btn-hover-color: var(--project-ink);
-    --bs-btn-hover-border-color: rgba(166, 191, 231, 0.24);
+.project-section-copy {
+    flex: 1 1 16rem;
+    min-inline-size: 0;
 }
 
-.project-management-shell .btn-outline-primary,
-.project-management-head .btn-outline-primary {
-    --bs-btn-color: #dbe9ff;
-    --bs-btn-border-color: rgba(166, 191, 231, 0.22);
-    --bs-btn-hover-bg: rgba(136, 165, 210, 0.14);
-    --bs-btn-hover-color: #fff;
-    --bs-btn-hover-border-color: rgba(166, 191, 231, 0.3);
+.project-section-actions,
+.project-danger-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-8);
 }
 
-.project-management-shell .btn-link,
-.project-management-shell .table-sort {
-    color: var(--project-ink);
+.project-section-kicker,
+.project-danger-kicker {
+    font-size: var(--sk-font-size-overline);
+    font-weight: var(--sk-font-weight-semibold);
+    letter-spacing: var(--sk-letter-spacing-overline);
+    text-transform: uppercase;
+    color: var(--sk-color-text-tertiary);
 }
 
-.project-page-size-label {
-    font-size: 0.84rem;
-    color: var(--project-subtle-ink);
-}
+.project-danger-kicker { color: var(--sk-color-status-danger-text); }
 
-.project-page-size-select {
-    width: auto;
-    min-width: 5.25rem;
+.project-section-title {
+    font-size: var(--sk-font-size-heading-xs);
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-primary);
 }
 
 .project-danger-card {
-    border-color: rgba(207, 129, 147, 0.22);
-    background: rgba(88, 44, 56, 0.42);
-}
-
-.project-danger-card h3,
-.project-danger-card strong {
-    color: #ffe2e8;
-}
-
-.project-danger-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
+    border-color: var(--sk-color-status-danger-border);
 }
 
 .project-danger-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
 }
 
+/* --- Shared bits --- */
 .table-sort {
-    text-decoration: none;
-    font-size: 0.83rem;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-4) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-sm);
+    background: none;
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-label-sm);
+    cursor: pointer;
 }
 
-.table-sort:hover {
-    text-decoration: underline;
+.table-sort:hover { background-color: var(--sk-color-surface-hover); }
+
+.table-sort:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
-@media (max-width: 1100px) {
-    .project-management-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .project-directory-list {
-        max-height: none;
-    }
+.project-page-size-label {
+    font-size: var(--sk-font-size-label-sm);
+    color: var(--sk-color-text-secondary);
+    flex: 0 0 auto;
 }
 
-@media (max-width: 720px) {
-    .project-management-head {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+.project-page-size-select {
+    flex: 0 1 6rem;
+    min-inline-size: 0;
+}
 
-    .project-danger-actions,
-    .project-profile-summary,
-    .project-directory-footer-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+/* Metadata form: two ideal columns that collapse on their own. */
+.project-metadata-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-16);
+    min-inline-size: 0;
+}
 
-    .project-page-size,
-    .project-metadata-grid {
-        grid-template-columns: 1fr;
-    }
+.project-metadata-grid > * {
+    flex: 1 1 16rem;
+    min-inline-size: 0;
+}
+
+.project-metadata-main {
+    flex: 1 1 100%;
+}
+
+.project-metadata-readonly {
+    color: var(--sk-color-text-tertiary);
+}
+
+.project-field-label {
+    font-size: var(--sk-font-size-label-sm);
+    font-weight: var(--sk-font-weight-medium);
+    color: var(--sk-color-text-secondary);
+}
+
+.project-field-value {
+    color: var(--sk-color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.project-group-browser {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-12);
+    min-inline-size: 0;
+}
+
+.project-group-browser-note {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
 }

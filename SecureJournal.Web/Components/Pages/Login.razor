@@ -5,31 +5,15 @@
 
 <PageTitle>My Settings</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">My Settings</p>
-        <h2>My Settings</h2>
-        <p>
-            Review your account details and update the password for your current local account.
-        </p>
-    </div>
-</section>
+<PageHeader Title="My settings" Description="Review your account details and update the password for your current local account." />
 
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 <div class="settings-layout">
     <div class="settings-column settings-column-left">
         <section class="panel-card">
             <h3>My information</h3>
-            <dl class="meta-list mb-0">
+            <dl class="meta-list">
                 <dt>Display Name</dt>
                 <dd>@_currentUser?.DisplayName</dd>
                 <dt>Username</dt>
@@ -43,7 +27,7 @@
 
         <section class="panel-card">
             <h3>Change Password</h3>
-            <p class="text-muted">
+            <p class="sj-muted">
                 Changes the password for the current local account. Non-local accounts cannot use this form.
                 Minimum password length: @_passwordMinLength. Password complexity requires uppercase, lowercase, digit, and special character (configurable in appsettings).
             </p>
@@ -52,24 +36,24 @@
                 <DataAnnotationsValidator />
                 <ValidationSummary />
 
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="currentPassword">Current Password</label>
-                        <InputText id="currentPassword" class="form-control" type="password" @bind-Value="PasswordChangeModel.CurrentPassword" />
+                <div class="sk-stack sk-stack--gap-16">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="currentPassword">Current Password</label>
+                        <InputText id="currentPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.CurrentPassword" />
                     </div>
-                    <div class="col-12">
-                        <label class="form-label" for="newPassword">New Password</label>
-                        <InputText id="newPassword" class="form-control" type="password" @bind-Value="PasswordChangeModel.NewPassword" />
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="newPassword">New Password</label>
+                        <InputText id="newPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.NewPassword" />
                     </div>
-                    <div class="col-12">
-                        <label class="form-label" for="confirmPassword">Confirm New Password</label>
-                        <InputText id="confirmPassword" class="form-control" type="password" @bind-Value="PasswordChangeModel.ConfirmPassword" />
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="confirmPassword">Confirm New Password</label>
+                        <InputText id="confirmPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.ConfirmPassword" />
                     </div>
                 </div>
 
-                <div class="mt-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Change Password</button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetPasswordChange">Reset</button>
+                <div class="sk-cluster">
+                    <button type="submit" class="sk-button sk-button--primary">Change Password</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetPasswordChange">Reset</button>
                 </div>
             </EditForm>
         </section>

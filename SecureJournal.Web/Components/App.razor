@@ -1,20 +1,62 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-sk-density="comfortable">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    @* Sekura requires the theme to resolve before first paint. Inline, synchronous,
+       and ahead of every stylesheet: anything asynchronous paints the wrong theme
+       first. Keys and attribute match Sekura's own theme manager so the two agree. *@
+    <script>
+        (function () {
+            var STORAGE_KEY = 'sk-theme';
+            var CONTRAST_KEY = 'sk-contrast';
+            var root = document.documentElement;
+
+            function read(key) {
+                try { return localStorage.getItem(key) || 'system'; } catch (e) { return 'system'; }
+            }
+
+            function resolve() {
+                var pref = read(STORAGE_KEY);
+                var contrast = read(CONTRAST_KEY);
+                var base = pref === 'system'
+                    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : pref;
+                var hc = contrast === 'system'
+                    ? (window.matchMedia('(prefers-contrast: more)').matches ? 'more' : 'normal')
+                    : contrast;
+                return hc === 'more' ? 'hc-' + base : base;
+            }
+
+            function apply() { root.setAttribute('data-sk-theme', resolve()); }
+
+            apply();
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apply);
+            window.matchMedia('(prefers-contrast: more)').addEventListener('change', apply);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="/lib/sekura/sekura.css" />
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="/SecureJournal.Web.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
 </head>
 
-<body>
+<body class="sk-app-shell">
+    <SekuraIcons />
+
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
+
+    @* Must exist at load and be empty: creating the region and its content together
+       announces nothing. *@
+    <div class="sk-toast-region" role="status" aria-live="polite" aria-label="Notifications"></div>
+
+    <script src="/lib/sekura/sekura.iife.min.js"></script>
     <script src="/lib/tinymce/tinymce.min.js"></script>
     <script src="/js/site.js"></script>
     <script src="/_framework/blazor.web.js"></script>

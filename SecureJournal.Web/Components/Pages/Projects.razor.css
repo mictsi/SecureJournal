@@ -1,328 +1,414 @@
-.my-projects-head {
-    align-items: center;
-}
+/* My projects.
 
-.my-projects-head,
-.my-projects-shell {
-    --my-project-surface: rgba(37, 50, 73, 0.74);
-    --my-project-surface-muted: rgba(44, 59, 84, 0.82);
-    --my-project-border: rgba(166, 191, 231, 0.12);
-    --my-project-shadow: 0 14px 28px rgba(6, 12, 24, 0.16);
-    --my-project-ink: #edf4ff;
-    --my-project-subtle-ink: #aab9cd;
-}
+   Rewritten onto semantic tokens and flex composition, matching the shape used
+   by the other directory-and-detail pages. The previous version hard-coded its
+   palette (so the page ignored the light themes entirely) and used
+   `grid-template-columns` with rigid minimums, which crushed content once the
+   detail column narrowed.
 
-.my-project-directory-card,
-.my-project-detail-column > .panel-card {
-    background: var(--my-project-surface);
-    border-color: var(--my-project-border);
-    box-shadow: var(--my-project-shadow);
-    color: var(--my-project-ink);
-    backdrop-filter: blur(10px);
-}
+   Responsive-layout foundation: flex first, wrap by default, width expressed as
+   flex-basis, and min-inline-size: 0 on every child that can hold text. */
 
 .my-projects-shell {
-    display: grid;
-    grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-24);
+    align-items: flex-start;
+    min-inline-size: 0;
 }
 
-.my-project-directory-card,
-.my-project-detail-column > .panel-card {
-    min-width: 0;
-}
-
+/* The rail is the page's index: it has to show a project's name and its
+   subtitle without cutting either. A 20rem basis truncated both, so the ideal
+   width is larger and the cap is looser. */
 .my-project-directory-card {
-    background: var(--my-project-surface-muted);
-    padding: 0;
-    overflow: hidden;
+    flex: 1 1 24rem;
+    min-inline-size: 0;
+    max-inline-size: 32rem;
 }
 
-.my-project-directory-card h3,
-.my-project-detail-column > .panel-card h3,
-.my-project-directory-card label,
-.my-project-detail-column > .panel-card label,
-.my-project-directory-card strong,
-.my-project-detail-column > .panel-card strong {
-    color: var(--my-project-ink);
+.my-project-detail-column {
+    /* Large grow, small basis: takes the slack, wraps when the basis will not fit. */
+    flex: 999 1 32rem;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-24);
 }
 
+.my-project-directory-card,
+.my-project-empty-card,
+.my-project-journal-card,
+.my-project-detail-column > .panel-card {
+    background-color: var(--sk-color-surface-raised);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-lg);
+    padding: var(--sk-space-16);
+    min-inline-size: 0;
+}
+
+/* --- Directory --- */
 .my-project-directory-header,
 .my-project-directory-toolbar,
-.my-project-directory-footer {
-    padding: 1rem 1rem 0;
+.my-project-directory-footer-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8) var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.my-project-directory-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.75rem;
+.my-project-directory-header > :first-child,
+.my-project-directory-footer-row > :first-child {
+    flex: 1 1 auto;
+    min-inline-size: 0;
 }
 
 .my-project-directory-copy,
-.my-project-section-copy {
-    margin: 0.25rem 0 0;
-    color: var(--my-project-subtle-ink);
+.my-project-directory-description {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
 .my-project-directory-total {
-    color: var(--my-project-subtle-ink);
-    font-size: 0.92rem;
-    white-space: nowrap;
-}
-
-.my-project-directory-toolbar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1rem;
-}
-
-.my-project-directory-empty {
-    padding: 0 1rem 1rem;
-    color: var(--my-project-subtle-ink);
+    flex: 0 0 auto;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
 .my-project-directory-list {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    padding: 0 1rem 1rem;
-    max-height: min(68vh, 54rem);
-    overflow: auto;
+    gap: var(--sk-space-8);
+    margin-block: var(--sk-space-12);
+    max-block-size: min(68vh, 54rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-inline-size: 0;
 }
 
 .my-project-directory-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.85rem;
-    width: 100%;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.035);
-    color: var(--my-project-ink);
-    padding: 0.9rem 0.95rem;
-    text-align: left;
-    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+    padding: var(--sk-space-12);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background-color: var(--sk-color-surface-base);
+    color: var(--sk-color-text-primary);
+    text-align: start;
+    cursor: pointer;
 }
 
 .my-project-directory-item:hover {
-    border-color: rgba(166, 191, 231, 0.22);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: none;
+    background-color: var(--sk-color-surface-hover);
+    border-color: var(--sk-color-border-default);
 }
 
-.my-project-directory-item.is-active {
-    border-color: rgba(166, 191, 231, 0.32);
-    box-shadow: 0 0 0 1px rgba(166, 191, 231, 0.08);
-    background: rgba(136, 165, 210, 0.14);
+.my-project-directory-item:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
-.my-project-avatar {
-    width: 2.35rem;
-    height: 2.35rem;
-    flex: 0 0 2.35rem;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 999px;
-    border: 1px solid rgba(166, 191, 231, 0.16);
-    background: rgba(136, 165, 210, 0.2);
-    color: #fff;
-    font-weight: 700;
+.my-project-directory-item.is-selected,
+.my-project-directory-item[aria-current="true"] {
+    background-color: var(--sk-color-surface-selected);
+    border-color: var(--sk-color-border-brand);
 }
 
-.my-project-directory-item-body,
-.my-project-profile-copy {
-    min-width: 0;
+.my-project-directory-item-body {
+    /* Name, subtitle and chips are stacked content, not a row. Laid out as a
+       row they competed for the rail's width and the name lost — a project code
+       was being clipped to 43px. */
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    align-items: flex-start;
+    gap: var(--sk-space-4);
+    min-inline-size: 0;
 }
 
 .my-project-directory-name,
-.my-project-section-title {
-    font-weight: 700;
-    color: var(--my-project-ink);
+.my-project-directory-subtitle {
+    display: block;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.my-project-directory-name {
+    font-weight: var(--sk-font-weight-medium);
+    color: var(--sk-color-text-primary);
 }
 
 .my-project-directory-subtitle {
-    color: #dce8fa;
-    font-weight: 600;
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-tertiary);
 }
 
-.my-project-directory-description,
-.my-project-empty-card,
-.my-project-context-label,
-.my-project-danger-copy span {
-    color: var(--my-project-subtle-ink);
+.my-project-directory-empty {
+    padding: var(--sk-space-16);
+    color: var(--sk-color-text-tertiary);
+    font-size: var(--sk-font-size-body-sm);
 }
 
+.my-project-directory-footer {
+    padding-block-start: var(--sk-space-12);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.my-project-directory-sort,
+.my-project-page-size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8);
+    min-inline-size: 0;
+}
+
+/* --- Identity --- */
+.my-project-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-surface-brand-subtle);
+    color: var(--sk-color-text-brand);
+    font-weight: var(--sk-font-weight-semibold);
+}
+
+.my-project-avatar-large {
+    inline-size: 3rem;
+    block-size: 3rem;
+    font-size: var(--sk-font-size-heading-xs);
+}
+
+.my-project-profile-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-16);
+    min-inline-size: 0;
+}
+
+.my-project-profile-copy {
+    flex: 1 1 14rem;
+    min-inline-size: 0;
+}
+
+.my-project-profile-heading {
+    font-size: var(--sk-font-size-overline);
+    font-weight: var(--sk-font-weight-semibold);
+    letter-spacing: var(--sk-letter-spacing-overline);
+    text-transform: uppercase;
+    color: var(--sk-color-text-tertiary);
+}
+
+.my-project-profile-description,
+.my-project-profile-subtitle,
+.my-project-profile-meta {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+/* --- Chips --- */
 .my-project-chip-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--sk-space-4);
+    margin: var(--sk-space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    min-inline-size: 0;
 }
 
 .my-project-chip,
 .my-project-status-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: 999px;
-    padding: 0.18rem 0.6rem;
-    font-size: 0.78rem;
-    line-height: 1.2;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-2) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-status-neutral-border);
+    border-radius: var(--sk-radius-full);
+    background-color: var(--sk-color-status-neutral-surface);
+    color: var(--sk-color-status-neutral-text);
+    font-size: var(--sk-font-size-body-xs);
+    font-weight: var(--sk-font-weight-medium);
 }
 
-.my-project-chip {
-    background: rgba(255, 255, 255, 0.07);
-    color: #f4f7ff;
+.my-project-status-badge.is-disabled,
+.my-project-status-badge.is-deleted {
+    border-color: var(--sk-color-status-danger-border);
+    background-color: var(--sk-color-status-danger-surface);
+    color: var(--sk-color-status-danger-text);
 }
 
-.my-project-chip.is-empty {
-    color: var(--my-project-subtle-ink);
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.my-project-directory-footer {
-    padding-bottom: 1rem;
-    border-top: 1px solid rgba(166, 191, 231, 0.1);
-}
-
-.my-project-directory-footer-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    color: var(--my-project-subtle-ink);
-    font-size: 0.9rem;
-}
-
-.my-project-directory-footer-row + .my-project-directory-footer-row {
-    margin-top: 0.75rem;
-}
-
-.my-project-page-size {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.my-project-detail-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    min-width: 0;
-}
-
+/* --- Sections --- */
 .my-project-section-header {
-    margin-bottom: 1rem;
-    align-items: flex-start;
-}
-
-.my-project-section-kicker {
-    margin: 0;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #a9c1e8;
-}
-
-.my-project-context-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.8rem;
-}
-
-.my-project-context-item {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.85rem 0.95rem;
-    border: 1px solid rgba(166, 191, 231, 0.1);
-    border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.04);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sk-space-12);
+    margin-block-end: var(--sk-space-12);
+    min-inline-size: 0;
 }
 
-.my-project-context-value {
-    color: var(--my-project-ink);
-    overflow-wrap: anywhere;
+.my-project-section-copy {
+    flex: 1 1 16rem;
+    min-inline-size: 0;
 }
 
-.my-projects-shell .btn-outline-secondary,
-.my-projects-head .btn-outline-secondary {
-    --bs-btn-color: var(--my-project-ink);
-    --bs-btn-border-color: rgba(166, 191, 231, 0.16);
-    --bs-btn-hover-bg: rgba(255, 255, 255, 0.06);
-    --bs-btn-hover-color: var(--my-project-ink);
-    --bs-btn-hover-border-color: rgba(166, 191, 231, 0.24);
+.my-project-section-actions,
+.my-project-danger-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-8);
 }
 
-.my-projects-shell .btn-link,
-.my-projects-shell .table-sort {
-    color: var(--my-project-ink);
+.my-project-section-kicker,
+.my-project-danger-kicker {
+    font-size: var(--sk-font-size-overline);
+    font-weight: var(--sk-font-weight-semibold);
+    letter-spacing: var(--sk-letter-spacing-overline);
+    text-transform: uppercase;
+    color: var(--sk-color-text-tertiary);
 }
 
-.my-project-journal-card .entry-inline-header,
-.my-project-journal-card .entry-inline-row {
-    border-color: rgba(148, 163, 184, 0.14);
+.my-project-danger-kicker { color: var(--sk-color-status-danger-text); }
+
+.my-project-section-title {
+    font-size: var(--sk-font-size-heading-xs);
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-primary);
 }
 
-.my-project-journal-card .entry-inline-row {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 0.9rem;
-    padding: 0.15rem 0.35rem;
+.my-project-danger-card {
+    border-color: var(--sk-color-status-danger-border);
 }
 
-.my-project-journal-card .entry-inline-row + .entry-inline-row {
-    margin-top: 0.55rem;
+.my-project-danger-copy {
+    font-size: var(--sk-font-size-body-sm);
+    color: var(--sk-color-text-secondary);
 }
 
-.my-project-journal-card .entry-inline-link,
-.my-project-journal-card .entry-inline-text,
-.my-project-journal-card .entry-inline-colname {
-    color: var(--my-project-ink);
+/* --- Shared bits --- */
+.table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sk-space-4);
+    padding: var(--sk-space-4) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-sm);
+    background: none;
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-label-sm);
+    cursor: pointer;
 }
 
-.my-project-journal-card .entry-inline-row-soft-deleted {
-    background: rgba(151, 74, 93, 0.18);
+.table-sort:hover { background-color: var(--sk-color-surface-hover); }
+
+.table-sort:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
 .project-page-size-label {
-    font-size: 0.84rem;
-    color: var(--my-project-subtle-ink);
+    font-size: var(--sk-font-size-label-sm);
+    color: var(--sk-color-text-secondary);
+    flex: 0 0 auto;
 }
 
 .project-page-size-select {
-    width: auto;
-    min-width: 5.25rem;
+    flex: 0 1 6rem;
+    min-inline-size: 0;
 }
 
-@media (max-width: 1100px) {
-    .my-projects-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .my-project-directory-list {
-        max-height: none;
-    }
+/* Context pairs wrap instead of being forced into a fixed column count. */
+.my-project-context-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-12) var(--sk-space-24);
+    min-inline-size: 0;
 }
 
-@media (max-width: 720px) {
-    .my-projects-head {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+.my-project-context-item {
+    flex: 1 1 12rem;
+    min-inline-size: 0;
+}
 
-    .my-project-directory-footer-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+.my-project-context-label {
+    display: block;
+    font-size: var(--sk-font-size-label-sm);
+    color: var(--sk-color-text-tertiary);
+}
 
-    .my-project-context-grid {
-        grid-template-columns: 1fr;
-    }
+.my-project-context-value {
+    color: var(--sk-color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+/* --- Journal entries table ---
+   Restores styling for the entry list, which lost its rules when the old
+   stylesheet was retired. It is a real table now rather than divs pretending to
+   be one, so it only needs column sizing and the soft-deleted treatment. */
+
+/* The scroll container must also be a containing block. The visually-hidden
+   spans that give each action button a unique accessible name are absolutely
+   positioned, and without this they resolve against the viewport instead of the
+   container, escaping its clip and widening the page at narrow widths. */
+.entry-list {
+    position: relative;
+}
+
+.entry-list table {
+    table-layout: auto;
+    inline-size: 100%;
+}
+
+.entry-list th,
+.entry-list td {
+    vertical-align: top;
+}
+
+.entry-col-created { white-space: nowrap; }
+
+.entry-created-by {
+    display: block;
+    font-size: var(--sk-font-size-body-xs);
+    color: var(--sk-color-text-tertiary);
+}
+
+/* Subject absorbs the slack; the other three size to their content. */
+.entry-col-subject {
+    inline-size: 100%;
+    min-inline-size: 0;
+    font-weight: var(--sk-font-weight-regular);
+    overflow-wrap: anywhere;
+}
+
+.entry-col-status,
+.entry-col-actions { white-space: nowrap; }
+
+.entry-col-actions { text-align: end; }
+
+/* A cluster wraps by default, which is right almost everywhere but not for a
+   two-button action cell: the buttons belong on one line and the column already
+   sizes to them. */
+.entry-col-actions .sk-cluster {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+}
+
+/* A soft-deleted row is still readable — the badge carries the meaning, so this
+   is a supporting signal rather than the only one. */
+.entry-list tr.is-soft-deleted td,
+.entry-list tr.is-soft-deleted th {
+    background-color: var(--sk-color-surface-sunken);
+    color: var(--sk-color-text-secondary);
 }

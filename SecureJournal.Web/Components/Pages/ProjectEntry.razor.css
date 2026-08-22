@@ -1,0 +1,38 @@
+/* Journal entry detail.
+
+   These rules were lost when the old stylesheet was retired. Rebuilt on flex and
+   semantic tokens: two ideal columns that collapse on their own rather than at a
+   breakpoint, per the responsive-layout foundation. */
+
+.entry-view-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-24);
+    align-items: flex-start;
+    min-inline-size: 0;
+}
+
+.entry-view-block {
+    flex: 1 1 22rem;
+    min-inline-size: 0;
+}
+
+/* Full-width blocks take the whole row regardless of what preceded them. */
+.entry-view-block-full {
+    flex: 1 1 100%;
+}
+
+.entry-view-block > h4 {
+    margin-block: 0 var(--sk-space-8);
+    font-size: var(--sk-font-size-label-md);
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-secondary);
+}
+
+.entry-view-text {
+    padding: var(--sk-space-12) var(--sk-space-16);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background-color: var(--sk-color-surface-base);
+    min-inline-size: 0;
+}

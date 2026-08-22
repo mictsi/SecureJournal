@@ -5,28 +5,15 @@
 
 <PageTitle>Project Trash</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">Administration</p>
-        <h2>Project Trash</h2>
-        <p>Restore deleted projects before the scheduled permanent deletion date.</p>
-    </div>
-</section>
+<PageHeader Title="Project trash"
+            Description="Soft-deleted projects awaiting restore or permanent deletion." />
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 @if (_deletedProjects.Count == 0)
 {
     <section class="panel-card">
-        <p class="mb-0">No deleted projects.</p>
+        <p>No deleted projects.</p>
     </section>
 }
 else
@@ -34,41 +21,43 @@ else
     <section class="panel-card">
         <div class="panel-card-header">
             <h3>Deleted Projects</h3>
-            <span class="text-muted">@FilteredDeletedProjects.Count item(s)</span>
+            <span class="sj-muted">@FilteredDeletedProjects.Count item(s)</span>
         </div>
 
-        <div class="row g-2 mb-3">
-            <div class="col-md-6">
-                <label class="form-label" for="trashSearch">Search projects</label>
+        <div class="sk-stack sk-stack--gap-16">
+            <div class="sk-field">
+                <label class="sk-field__label" for="trashSearch">Search projects</label>
                 <input id="trashSearch"
-                       class="form-control"
+                       class="sk-input"
                        type="text"
                        value="@_searchText"
                        @oninput="OnSearchChanged"
                        placeholder="Search by code or name..." />
             </div>
-            <div class="col-md-3">
-                <label class="form-label" for="trashPageSize">Page size</label>
-                <select id="trashPageSize" class="form-select" @onchange="OnPageSizeChanged">
+            <div class="sk-field">
+                <label class="sk-field__label" for="trashPageSize">Page size</label>
+                <div class="sk-select-wrapper">
+                    <select id="trashPageSize" class="sk-select" @onchange="OnPageSizeChanged">
                     @foreach (var pageSize in _pageSizeOptions)
                     {
                         <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
                     }
                 </select>
+                </div>
             </div>
-            <div class="col-md-3 d-flex align-items-end justify-content-md-end">
-                <small class="text-muted">Page @_currentPage of @TotalPages</small>
+            <div class="sk-cluster">
+                <small class="sj-muted">Page @_currentPage of @TotalPages</small>
             </div>
         </div>
 
         @if (FilteredDeletedProjects.Count == 0)
         {
-            <p class="mb-0">No deleted projects match the current search text.</p>
+            <p>No deleted projects match the current search text.</p>
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-sm mb-0">
+            <div class="sk-table" role="region" aria-label="Deleted projects" tabindex="0">
+                <table>
                     <thead>
                         <tr>
                             <th>Code</th>
@@ -88,7 +77,7 @@ else
                                 <td>@project.ScheduledDeletionAtUtc.ToString("yyyy-MM-dd") UTC</td>
                                 <td>
                                     <button type="button"
-                                            class="btn btn-outline-primary btn-sm"
+                                            class="sk-button sk-button--secondary sk-button--sm"
                                             @onclick="() => RestoreProjectAsync(project)">
                                         Restore
                                     </button>
@@ -99,11 +88,11 @@ else
                 </table>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <small class="text-muted">Showing @PagedDeletedProjects.Count of @FilteredDeletedProjects.Count deleted project(s)</small>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage <= 1)" @onclick="GoToPreviousPage">Previous</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@(_currentPage >= TotalPages)" @onclick="GoToNextPage">Next</button>
+            <div class="sk-cluster">
+                <small class="sj-muted">Showing @PagedDeletedProjects.Count of @FilteredDeletedProjects.Count deleted project(s)</small>
+                <div class="sk-cluster">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="GoToPreviousPage">Previous</button>
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="GoToNextPage">Next</button>
                 </div>
             </div>
         }

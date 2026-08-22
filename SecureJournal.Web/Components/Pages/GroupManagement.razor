@@ -6,28 +6,20 @@
 
 <PageTitle>Group Management</PageTitle>
 
-<section class="page-head group-management-head">
-    <div>
-        <p class="eyebrow">Administration</p>
-        <h2>Group Management</h2>
-        <p>Create groups, manage members, and review project access from one page.</p>
-    </div>
-    <div class="group-management-head-actions">
-        <button type="button" class="btn btn-primary" @onclick="ToggleCreateGroupForm">
-            @(_showCreateGroupForm ? "Hide Create Group" : "Create Group")
+<PageHeader Title="Group management"
+            Description="Create groups, manage members and review project access from one page.">
+    <Actions>
+        <button type="button" class="sk-button sk-button--primary"
+                aria-expanded="@(_showCreateGroupForm ? "true" : "false")"
+                aria-controls="create-group-form"
+                @onclick="ToggleCreateGroupForm">
+            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>
+            Create group
         </button>
-    </div>
-</section>
+    </Actions>
+</PageHeader>
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 @if (_currentUser is null)
 {
@@ -35,8 +27,9 @@
 }
 else if (_currentUser.Role != AppRole.Administrator)
 {
-    <div class="alert alert-warning" role="alert">
-        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    <div class="sk-alert sk-alert--warning" role="alert">
+    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
+    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
     </div>
 }
 else
@@ -57,22 +50,22 @@ else
                 <DataAnnotationsValidator />
                 <ValidationSummary />
 
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label" for="groupName">Group Name</label>
-                        <InputText id="groupName" class="form-control" maxlength="100" @bind-Value="GroupDraft.Name" />
+                <div class="sk-stack sk-stack--gap-16">
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="groupName">Group Name</label>
+                        <InputText id="groupName" class="sk-input" maxlength="100" @bind-Value="GroupDraft.Name" />
                     </div>
-                    <div class="col-12">
-                        <label class="form-label" for="groupDescription">Description</label>
-                        <InputTextArea id="groupDescription" class="form-control" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" />
+                    <div class="sk-field">
+                        <label class="sk-field__label" for="groupDescription">Description</label>
+                        <InputTextArea id="groupDescription" class="sk-input" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" />
                     </div>
                 </div>
 
                 <div class="group-section-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@_isCreating">
+                    <button type="submit" class="sk-button sk-button--primary" disabled="@_isCreating">
                         @(_isCreating ? "Creating..." : "Create Group")
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupForm" disabled="@_isCreating">Reset</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupForm" disabled="@_isCreating">Reset</button>
                 </div>
             </EditForm>
         </section>
@@ -89,19 +82,19 @@ else
             </div>
 
             <div class="group-directory-toolbar">
-                <label class="visually-hidden" for="groupSearch">Search groups</label>
+                <label class="sk-visually-hidden" for="groupSearch">Search groups</label>
                 <input id="groupSearch"
-                       class="form-control"
+                       class="sk-input"
                        type="text"
                        value="@_groupQuery.FilterText"
                        @oninput="OnSearchChanged"
                        placeholder="Search groups..." />
 
                 <div class="group-directory-sort">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeSortAsync("name"))">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeSortAsync("name"))">
                         Name @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)
                     </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeSortAsync("description"))">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeSortAsync("description"))">
                         Description @SortGlyph("description", _groupQuery.SortField, _groupQuery.SortDirection)
                     </button>
                 </div>
@@ -110,7 +103,7 @@ else
             @if (_groupPage.TotalCount == 0)
             {
                 <div class="group-directory-empty">
-                    <p class="mb-0">No groups found for the current filter.</p>
+                    <p>No groups found for the current filter.</p>
                 </div>
             }
             else
@@ -141,23 +134,25 @@ else
                 <div class="group-directory-footer">
                     <div class="group-directory-footer-row">
                         <span>Page @_groupPage.Page of @_groupPage.TotalPages</span>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousPageAsync" disabled="@(_groupQuery.Page <= 1)">Previous</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextPageAsync" disabled="@(_groupQuery.Page >= _groupPage.TotalPages)">Next</button>
+                        <div class="sk-cluster">
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousPageAsync" disabled="@(_groupQuery.Page <= 1)">Previous</button>
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextPageAsync" disabled="@(_groupQuery.Page >= _groupPage.TotalPages)">Next</button>
                         </div>
                     </div>
                     <div class="group-directory-footer-row">
                         <span>@VisibleGroupRangeLabel()</span>
                         <div class="group-page-size">
                             <label class="project-page-size-label" for="groupPageSize">Page size</label>
-                            <select id="groupPageSize"
-                                    class="form-select form-select-sm project-page-size-select"
+                            <div class="sk-select-wrapper">
+                                <select id="groupPageSize"
+                                    class="sk-select sk-select--sm project-page-size-select"
                                     @onchange="OnPageSizeChanged">
                                 @foreach (var option in _pageSizeOptions)
                                 {
                                     <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
                                 }
                             </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -169,7 +164,7 @@ else
             {
                 <section class="panel-card group-empty-card">
                     <h3>Select a group</h3>
-                    <p class="mb-0">Choose a group from the directory to manage members, review project access, or delete the group.</p>
+                    <p>Choose a group from the directory to manage members, review project access, or delete the group.</p>
                 </section>
             }
             else
@@ -182,7 +177,7 @@ else
                                 <h3>@SelectedGroup.Name</h3>
                                 <span class="group-status-badge">Selected Group</span>
                             </div>
-                            <p class="group-profile-description mb-0">@GroupDescriptionOrFallback(SelectedGroup)</p>
+                            <p class="group-profile-description">@GroupDescriptionOrFallback(SelectedGroup)</p>
                             <div class="group-profile-meta">
                                 <span>@SelectedGroup.Members.Count member(s)</span>
                                 <span>@SelectedGroup.ProjectCodes.Count project(s)</span>
@@ -216,7 +211,7 @@ else
                             <p class="group-section-copy">Search users, review membership, and save access changes for this group.</p>
                         </div>
                         <div class="panel-card-header-actions">
-                            <button type="button" class="btn btn-outline-primary" @onclick="() => ToggleManageMembersAsync(SelectedGroup.GroupId, SelectedGroup.Name)">
+                            <button type="button" class="sk-button sk-button--secondary" @onclick="() => ToggleManageMembersAsync(SelectedGroup.GroupId, SelectedGroup.Name)">
                                 @(_showMemberBrowser ? "Close Member Browser" : "Manage Members")
                             </button>
                         </div>
@@ -239,48 +234,52 @@ else
                     @if (_showMemberBrowser)
                     {
                         <div class="group-member-browser">
-                            <div class="row g-2 mb-3">
-                                <div class="col-lg-5 col-md-12">
-                                    <label class="form-label" for="groupUserSearch">Search users</label>
+                            <div class="sk-stack sk-stack--gap-16">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="groupUserSearch">Search users</label>
                                     <input id="groupUserSearch"
-                                           class="form-control"
+                                           class="sk-input"
                                            type="text"
                                            value="@_groupUserQuery.FilterText"
                                            @oninput="OnGroupUserSearchChanged"
                                            placeholder="Filter by username or display name..." />
                                 </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <label class="form-label" for="groupUserAssigned">Assigned</label>
-                                    <select id="groupUserAssigned" class="form-select" @onchange="OnGroupUserAssignedFilterChanged">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="groupUserAssigned">Assigned</label>
+                                    <div class="sk-select-wrapper">
+                                        <select id="groupUserAssigned" class="sk-select" @onchange="OnGroupUserAssignedFilterChanged">
                                         <option value="all" selected="@(!_groupUserQuery.Assigned.HasValue)">All</option>
                                         <option value="assigned" selected="@(_groupUserQuery.Assigned == true)">Assigned</option>
                                         <option value="unassigned" selected="@(_groupUserQuery.Assigned == false)">Unassigned</option>
                                     </select>
+                                    </div>
                                 </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <label class="form-label" for="groupUserPageSize">Page size</label>
-                                    <select id="groupUserPageSize" class="form-select" @onchange="OnGroupUserPageSizeChanged">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="groupUserPageSize">Page size</label>
+                                    <div class="sk-select-wrapper">
+                                        <select id="groupUserPageSize" class="sk-select" @onchange="OnGroupUserPageSizeChanged">
                                         @foreach (var option in _pageSizeOptions)
                                         {
                                             <option value="@option" selected="@(option == _groupUserQuery.PageSize)">@option</option>
                                         }
                                     </select>
+                                    </div>
                                 </div>
                             </div>
 
                             @if (_groupUserPage.TotalCount == 0)
                             {
-                                <p class="mb-0 group-member-table-note">No users available for the current filter.</p>
+                                <p class="group-member-table-note">No users available for the current filter.</p>
                             }
                             else
                             {
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
+                                <div class="sk-table" role="region" aria-label="Group members" tabindex="0">
+                                    <table>
                                         <thead>
                                             <tr>
-                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("username"))">Username @SortGlyph("username", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
-                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
-                                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupUserSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                                <th><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupUserSortAsync("username"))">Username @SortGlyph("username", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                                <th><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupUserSortAsync("displayName"))">Display Name @SortGlyph("displayName", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
+                                                <th class="sj-text-end"><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupUserSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupUserQuery.SortField, _groupUserQuery.SortDirection)</button></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -289,8 +288,8 @@ else
                                                 <tr>
                                                     <td>@user.Username</td>
                                                     <td>@user.DisplayName</td>
-                                                    <td class="text-end">
-                                                        <input class="form-check-input"
+                                                    <td class="sj-text-end">
+                                                        <input class="sk-checkbox__input"
                                                                type="checkbox"
                                                                checked="@IsUserAssigned(user)"
                                                                @onchange="args => ToggleUserLocal(user, args)" />
@@ -302,19 +301,19 @@ else
                                 </div>
 
                                 <div class="pager-bar">
-                                    <span class="text-muted">Page @_groupUserPage.Page of @_groupUserPage.TotalPages</span>
-                                    <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupUserPageAsync" disabled="@(_groupUserPage.Page <= 1)">Previous</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupUserPageAsync" disabled="@(_groupUserPage.Page >= _groupUserPage.TotalPages)">Next</button>
+                                    <span class="sj-muted">Page @_groupUserPage.Page of @_groupUserPage.TotalPages</span>
+                                    <div class="sk-cluster">
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousGroupUserPageAsync" disabled="@(_groupUserPage.Page <= 1)">Previous</button>
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextGroupUserPageAsync" disabled="@(_groupUserPage.Page >= _groupUserPage.TotalPages)">Next</button>
                                     </div>
                                 </div>
                             }
 
                             <div class="group-section-actions">
-                                <button type="button" class="btn btn-primary" @onclick="SaveGroupMembersAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">
+                                <button type="button" class="sk-button sk-button--primary" @onclick="SaveGroupMembersAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">
                                     @(_isSavingMembers ? "Saving..." : "Save Members")
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupMemberEditsAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">Reset Members</button>
+                                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupMemberEditsAsync" disabled="@(!_memberAssignmentsDirty || _isSavingMembers)">Reset Members</button>
                             </div>
                         </div>
                     }
@@ -359,7 +358,7 @@ else
                             <span>Deleting a group removes its membership container and cannot be undone.</span>
                         </div>
                         <button type="button"
-                                class="btn btn-danger"
+                                class="sk-button sk-button--danger"
                                 @onclick="() => DeleteGroupAsync(SelectedGroup.GroupId, SelectedGroup.Name)"
                                 disabled="@(_isDeleting && _deletingGroupId == SelectedGroup.GroupId)">
                             @(_isDeleting && _deletingGroupId == SelectedGroup.GroupId ? "Deleting..." : "Delete Group")

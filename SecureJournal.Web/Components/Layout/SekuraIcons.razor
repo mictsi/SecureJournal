@@ -1,0 +1,172 @@
+@*
+    Sekura icon sprite.
+
+    The design system specifies <use href="#sk-icon-*"> references but publishes no
+    sprite file, so the set the application actually uses is defined here and rendered
+    once in App.razor. Sekura iconography: 24px grid, 1.5px strokes, currentColor.
+*@
+<svg xmlns="http://www.w3.org/2000/svg" class="sj-icon-sprite" aria-hidden="true" focusable="false">
+    @* Navigation *@
+    <symbol id="sk-icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+    </symbol>
+    <symbol id="sk-icon-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4.2l1.6 1.8h8.2A1.5 1.5 0 0 1 20.5 9.3v7.2A1.5 1.5 0 0 1 19 18H5a1.5 1.5 0 0 1-1.5-1.5z" />
+    </symbol>
+    <symbol id="sk-icon-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 4.5h9.5A2.5 2.5 0 0 1 17 7v12.5H7.5A2.5 2.5 0 0 1 5 17z" />
+        <path d="M5 17a2.5 2.5 0 0 1 2.5-2.5H17" />
+        <path d="M8.5 8.5h5M8.5 11.5h5" />
+    </symbol>
+    <symbol id="sk-icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 4.2 4.2" />
+    </symbol>
+    <symbol id="sk-icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M17.8 6.2l-1.4 1.4M7.6 16.4l-1.4 1.4" />
+    </symbol>
+    <symbol id="sk-icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+        <path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 13.6A5.5 5.5 0 0 1 20.5 19" />
+    </symbol>
+    <symbol id="sk-icon-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="3.2" />
+        <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
+    </symbol>
+    <symbol id="sk-icon-group" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="7" r="2.6" />
+        <circle cx="6" cy="16" r="2.6" />
+        <circle cx="18" cy="16" r="2.6" />
+        <path d="M12 9.6v2.6M12 12.2 7.9 14.6M12 12.2l4.1 2.4" />
+    </symbol>
+    <symbol id="sk-icon-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.5 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5h3.5" />
+        <path d="m16 16.5 4.5-4.5L16 7.5M20.5 12H9.5" />
+    </symbol>
+    <symbol id="sk-icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 6.5h15M9.5 6.5V5A1.5 1.5 0 0 1 11 3.5h2A1.5 1.5 0 0 1 14.5 5v1.5" />
+        <path d="M6.5 6.5 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12.5" />
+        <path d="M10.5 10v6.5M13.5 10v6.5" />
+    </symbol>
+
+    @* Actions *@
+    <symbol id="sk-icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14" />
+    </symbol>
+    <symbol id="sk-icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3.5v11M7.8 10.5 12 14.7l4.2-4.2" />
+        <path d="M4.5 16.5v2A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-2" />
+    </symbol>
+    <symbol id="sk-icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 19.5h3.2L18.4 8.8a2.3 2.3 0 0 0-3.2-3.2L4.5 16.3z" />
+        <path d="m14.2 6.6 3.2 3.2" />
+    </symbol>
+    <symbol id="sk-icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="11" height="11" rx="1.8" />
+        <path d="M15.5 6.2V5.3A1.8 1.8 0 0 0 13.7 3.5H5.8A1.8 1.8 0 0 0 4 5.3v7.9a1.8 1.8 0 0 0 1.8 1.8h.9" />
+    </symbol>
+    <symbol id="sk-icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+        <path d="M19.5 4.5V9H15" />
+    </symbol>
+    <symbol id="sk-icon-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 5.5h15l-5.8 7v6l-3.4-2v-4z" />
+    </symbol>
+    <symbol id="sk-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />
+    </symbol>
+    <symbol id="sk-icon-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="12" r="1.3" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+        <circle cx="18" cy="12" r="1.3" fill="currentColor" />
+    </symbol>
+    <symbol id="sk-icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
+        <circle cx="12" cy="12" r="2.8" />
+    </symbol>
+    <symbol id="sk-icon-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+        <path d="M4.5 4.5V9H9" />
+        <path d="M12 8.5V12l2.5 1.5" />
+    </symbol>
+
+    @* Direction *@
+    <symbol id="sk-icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m14.5 6.5-5 5.5 5 5.5" />
+    </symbol>
+    <symbol id="sk-icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9.5 6.5 5 5.5-5 5.5" />
+    </symbol>
+    <symbol id="sk-icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m6.5 9.5 5.5 5 5.5-5" />
+    </symbol>
+    <symbol id="sk-icon-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 12h15M14 6.5l5.5 5.5L14 17.5" />
+    </symbol>
+    <symbol id="sk-icon-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19.5v-15M6.5 10 12 4.5 17.5 10" />
+    </symbol>
+    <symbol id="sk-icon-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 4.5h5.5V10M19.5 4.5 11 13" />
+        <path d="M18 14v5.5H4.5V6H10" />
+    </symbol>
+    <symbol id="sk-icon-sort-asc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 18.5v-13M7 10.5 12 5.5l5 5" />
+    </symbol>
+    <symbol id="sk-icon-sort-desc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5.5v13M7 13.5l5 5 5-5" />
+    </symbol>
+    <symbol id="sk-icon-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 9.5 10.5 7 13 9.5M8 14.5 10.5 17 13 14.5" />
+    </symbol>
+
+    @* Status *@
+    <symbol id="sk-icon-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.7 4.2 2.9 17.5a1.5 1.5 0 0 0 1.3 2.3h15.6a1.5 1.5 0 0 0 1.3-2.3L13.3 4.2a1.5 1.5 0 0 0-2.6 0" />
+        <path d="M12 9.5v4M12 16.6h.01" />
+    </symbol>
+    <symbol id="sk-icon-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.8v4.6M12 15.9h.01" />
+    </symbol>
+    <symbol id="sk-icon-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8.2 12.2 2.6 2.6 5-5.4" />
+    </symbol>
+    <symbol id="sk-icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 11.2v5M12 8.1h.01" />
+    </symbol>
+    <symbol id="sk-icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3.5 5 6.2v5.1c0 4.2 2.9 7.6 7 9.2 4.1-1.6 7-5 7-9.2V6.2z" />
+        <path d="m9 12 2.2 2.2L15.2 10" />
+    </symbol>
+    <symbol id="sk-icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.2V12l3.2 1.9" />
+    </symbol>
+    <symbol id="sk-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" />
+    </symbol>
+    <symbol id="sk-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 14.2A8.5 8.5 0 0 1 9.8 4a8.5 8.5 0 1 0 10.2 10.2" />
+    </symbol>
+    <symbol id="sk-icon-contrast" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 3.5v17a8.5 8.5 0 0 0 0-17" fill="currentColor" stroke="none" />
+    </symbol>
+
+    @* Empty-state illustrations, drawn on the same grid at 48px *@
+    <symbol id="sk-illus-search" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="21" cy="21" r="12" opacity="0.55" />
+        <path d="m30 30 8.5 8.5" />
+        <path d="M15.5 21h11" opacity="0.55" />
+    </symbol>
+    <symbol id="sk-illus-empty" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 16.5 24 9l15 7.5v15L24 39 9 31.5z" opacity="0.55" />
+        <path d="M9 16.5 24 24l15-7.5M24 24v15" />
+    </symbol>
+</svg>

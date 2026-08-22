@@ -1,74 +1,81 @@
-.page-shell {
-    min-height: 100vh;
-    display: grid;
-    grid-template-columns: minmax(280px, 320px) 1fr;
-    gap: 1.35rem;
-    padding: 1rem;
-}
+/* Application-specific additions to the Sekura top bar. Everything structural
+   comes from sekura.css; only what the design system leaves to the product is
+   declared here, and only through semantic tokens. */
 
-.sidebar-panel {
-    position: sticky;
-    top: 1rem;
-    height: calc(100vh - 2rem);
-    border-radius: 1.35rem;
-    background:
-        radial-gradient(circle at top left, rgba(114, 153, 215, 0.1), transparent 34%),
-        linear-gradient(180deg, #243247 0%, #1d293a 100%);
-    border: 1px solid rgba(166, 191, 231, 0.14);
-    box-shadow: 0 22px 54px rgba(6, 12, 24, 0.34);
-    overflow: hidden;
-}
-
-.main-panel {
-    min-width: 0;
-    display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 1rem;
-}
-
-.app-header {
+.sk-top-bar__utilities {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.15rem;
-    border-radius: 1.1rem;
-    background: rgba(8, 14, 24, 0.48);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(16px);
+    gap: var(--sk-space-8);
+    margin-inline-start: auto;
+    min-inline-size: 0;
 }
 
-.app-header-label {
-    margin: 0 0 0.18rem;
-    font-size: 0.76rem;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: rgba(214, 225, 240, 0.72);
+.sj-theme-control {
+    flex: 0 0 auto;
 }
 
-.app-header-title {
+/* The account control carries a name and a role, so it needs more than the
+   avatar-only padding the design system assumes. */
+.sk-top-bar__account {
+    gap: var(--sk-space-8);
+    padding-inline: var(--sk-space-4) var(--sk-space-12);
+    color: inherit;
+    text-decoration: none;
+    min-inline-size: 0;
+}
+
+.sj-account-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-inline-size: 0;
+    line-height: var(--sk-line-height-body-xs);
+}
+
+.sj-account-name {
+    /* A flex item defaults to min-width: auto and refuses to shrink below its
+       content, so without this the ellipsis never appears. */
+    min-inline-size: 0;
+    font-size: var(--sk-font-size-body-sm);
+    font-weight: var(--sk-font-weight-medium);
+    color: var(--sk-color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-inline-size: 12rem;
+}
+
+.sj-account-role {
+    font-size: var(--sk-font-size-body-xs);
+    color: var(--sk-color-text-tertiary);
+}
+
+/* Below the point where the rail collapses there is no room for a name; the
+   avatar alone still identifies the account. */
+@media (max-width: 47.999rem) {
+    .sj-account-copy {
+        display: none;
+    }
+
+    .sk-top-bar__account {
+        padding-inline: var(--sk-space-4);
+    }
+}
+
+.sj-logout-form {
+    display: flex;
+    flex: 0 0 auto;
     margin: 0;
-    font-size: clamp(1.5rem, 2vw, 2rem);
-    color: #f7fbff;
 }
 
-.content-panel {
-    min-width: 0;
-    padding: 0;
-}
-
-@media (max-width: 980px) {
-    .page-shell {
-        grid-template-columns: 1fr;
-        padding: 0.75rem;
-    }
-
-    .sidebar-panel {
-        position: static;
-        height: auto;
-    }
-
-    .app-header {
-        padding: 0.95rem 1rem;
-    }
+/* Blazor's circuit error notice. Positioned as a page-level alert rather than
+   the framework default bar so it inherits the system's danger tokens. */
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset-block-end: var(--sk-space-16);
+    inset-inline: var(--sk-space-16) auto;
+    z-index: var(--sk-z-toast);
+    max-inline-size: 28rem;
+    box-shadow: var(--sk-elevation-3);
 }

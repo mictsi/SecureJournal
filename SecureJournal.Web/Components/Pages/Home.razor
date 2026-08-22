@@ -8,83 +8,88 @@
 
 <PageTitle>Secure Journal</PageTitle>
 
-<section class="landing-login">
-    <div class="landing-login-card">
-        <div class="landing-brand">
-            <div class="landing-logo" aria-hidden="true">
-                <img src="/images/logo_125_by_125.png" alt="" />
-            </div>
-            <h1>Secure Journal</h1>
+<section class="sk-auth">
+    <div class="sk-auth__brand">
+        <img class="sk-auth__logo" src="/images/logo_125_by_125.png" alt="" width="64" height="64" />
+        <p class="sk-auth__product">Secure Journal</p>
+    </div>
+
+    <div class="sk-card sk-auth__card">
+        <div class="sk-card__body sk-stack sk-stack--gap-16">
+            <h1 class="sk-auth__heading">Sign in</h1>
+
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <div class="sk-alert sk-alert--success" role="status">
+                    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-success" /></svg>
+                    <div class="sk-alert__content">
+                        <p class="sk-alert__body">@_message</p>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="sk-alert sk-alert--danger" role="alert">
+                    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-error" /></svg>
+                    <div class="sk-alert__content">
+                        <p class="sk-alert__body">@_error</p>
+                    </div>
+                </div>
+            }
+
+            @if (_enableLocalLogin)
+            {
+                @if (_enableAspNetIdentity)
+                {
+                    <form method="post" action="/auth/local-login" class="sk-stack sk-stack--gap-16" data-enhance="false">
+                        <AntiforgeryToken />
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="landingUsername">Username</label>
+                            <input id="landingUsername" class="sk-input" name="username" autocomplete="username" required />
+                        </div>
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="landingPassword">Password</label>
+                            <input id="landingPassword" class="sk-input" type="password" name="password" autocomplete="current-password" required />
+                        </div>
+                        <input type="hidden" name="returnUrl" value="/projects" />
+                        <input type="hidden" name="failurePath" value="/" />
+                        <button type="submit" class="sk-button sk-button--primary sk-button--lg sk-button--full-width">Sign in</button>
+                    </form>
+                }
+                else
+                {
+                    <EditForm Model="LoginModel" OnValidSubmit="LoginAsync" FormName="landing-login-form" class="sk-stack sk-stack--gap-16">
+                        <AntiforgeryToken />
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="landingUsername">Username</label>
+                            <InputText id="landingUsername" class="sk-input" @bind-Value="LoginModel.Username" autocomplete="username" />
+                        </div>
+                        <div class="sk-field">
+                            <label class="sk-field__label" for="landingPassword">Password</label>
+                            <InputText id="landingPassword" class="sk-input" type="password" @bind-Value="LoginModel.Password" autocomplete="current-password" />
+                        </div>
+
+                        <button type="submit" class="sk-button sk-button--primary sk-button--lg sk-button--full-width">Sign in</button>
+                    </EditForm>
+                }
+            }
+
+            @if (_enableOidc)
+            {
+                <div class="sk-stack sk-stack--gap-12">
+                    <div class="sk-divider sk-divider--labelled" role="separator" aria-label="or"></div>
+                    <a class="sk-button sk-button--secondary sk-button--lg sk-button--full-width"
+                       href="/auth/oidc-login?returnUrl=%2Fprojects"
+                       data-enhance-nav="false">
+                        Sign in with OpenID
+                    </a>
+                </div>
+            }
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(_message))
-        {
-            <div class="alert alert-success" role="alert">@_message</div>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <div class="alert alert-danger" role="alert">@_error</div>
-        }
-
-        @if (_enableLocalLogin)
-        {
-            @if (_enableAspNetIdentity)
-            {
-                <form method="post" action="/auth/local-login" data-enhance="false">
-                    <AntiforgeryToken />
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label" for="landingUsername">Username</label>
-                            <input id="landingUsername" class="form-control" name="username" autocomplete="username" required />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="landingPassword">Password</label>
-                            <input id="landingPassword" class="form-control" type="password" name="password" autocomplete="current-password" required />
-                        </div>
-                    </div>
-                    <input type="hidden" name="returnUrl" value="/projects" />
-                    <input type="hidden" name="failurePath" value="/" />
-                    <div class="mt-3 d-grid">
-                        <button type="submit" class="btn btn-primary">Login</button>
-                    </div>
-                </form>
-            }
-            else
-            {
-                <EditForm Model="LoginModel" OnValidSubmit="LoginAsync" FormName="landing-login-form">
-                    <AntiforgeryToken />
-                    <DataAnnotationsValidator />
-                    <ValidationSummary />
-
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label" for="landingUsername">Username</label>
-                            <InputText id="landingUsername" class="form-control" @bind-Value="LoginModel.Username" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="landingPassword">Password</label>
-                            <InputText id="landingPassword" class="form-control" type="password" @bind-Value="LoginModel.Password" />
-                        </div>
-                    </div>
-
-                    <div class="mt-3 d-grid">
-                        <button type="submit" class="btn btn-primary">Login</button>
-                    </div>
-                </EditForm>
-            }
-        }
-
-        @if (_enableOidc)
-        {
-            <div class="landing-oidc-wrap">
-                <a class="btn btn-oidc landing-oidc-btn"
-                   href="/auth/oidc-login?returnUrl=%2Fprojects"
-                   data-enhance-nav="false">
-                    Login with OpenID
-                </a>
-            </div>
-        }
     </div>
 </section>
 

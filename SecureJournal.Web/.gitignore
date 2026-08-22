@@ -1,1 +1,7 @@
 securejournal.dev.db
+securejournal.identity.dev.db
+
+# SQLite write-ahead log and shared-memory sidecars, created at runtime alongside
+# the databases above.
+*.db-shm
+*.db-wal

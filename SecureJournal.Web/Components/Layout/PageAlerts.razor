@@ -1,0 +1,32 @@
+@*
+    The success/failure pair every page renders after an action. Both were
+    duplicated on eleven pages with slightly different markup and no live region
+    on the failure case.
+*@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="sk-alert sk-alert--success" role="status">
+        <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-success" /></svg>
+        <div class="sk-alert__content">
+            <p class="sk-alert__body">@Message</p>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <div class="sk-alert sk-alert--danger" role="alert">
+        <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-error" /></svg>
+        <div class="sk-alert__content">
+            <p class="sk-alert__body">@Error</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public string? Error { get; set; }
+}

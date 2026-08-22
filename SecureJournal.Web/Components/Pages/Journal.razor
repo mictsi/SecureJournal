@@ -7,37 +7,24 @@
 
 <PageTitle>New Journal Entry</PageTitle>
 
-<section class="page-head">
-    <div>
-        <p class="eyebrow">New Journal Entry</p>
-        <h2>Create append-only project event records</h2>
-        <p>Use <a href="/projects">My Projects</a> to browse and search journal entries per project.</p>
-    </div>
-</section>
+<PageHeader Title="New journal entry"
+            Description="Create append-only project event records." />
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 <section class="panel-card">
     <div class="panel-card-header">
         <h3>Create journal entry</h3>
-        <span class="text-muted">@(_currentUser?.Role.ToString() ?? "Unknown role")</span>
+        <span class="sj-muted">@(_currentUser?.Role.ToString() ?? "Unknown role")</span>
     </div>
 
     @if (_projects.Count == 0)
     {
-        <p class="mb-0">No accessible projects are available for the current user.</p>
+        <p>No accessible projects are available for the current user.</p>
     }
     else if (_currentUser?.Role == AppRole.Auditor)
     {
-        <p class="mb-0">Auditors can access audit logs only and cannot create or read journal entries.</p>
+        <p>Auditors can access audit logs only and cannot create or read journal entries.</p>
     }
     else
     {
@@ -46,50 +33,58 @@
             <DataAnnotationsValidator />
             <ValidationSummary />
 
-            <div class="row g-3">
-                <div class="col-12">
-                    <label class="form-label" for="projectSelect">Project</label>
-                    <InputSelect id="projectSelect" class="form-select" TValue="Guid" @bind-Value="DraftModel.ProjectId">
-                        @foreach (var project in _projects)
-                        {
-                            <option value="@project.ProjectId">@project.Code - @project.Name</option>
-                        }
-                    </InputSelect>
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label" for="subjectInput">Subject (one line, max @FieldLimits.SubjectMax chars)</label>
-                    <InputText id="subjectInput" class="form-control" maxlength="@FieldLimits.SubjectMax" @bind-Value="DraftModel.Subject" />
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label" for="descriptionInput">Description</label>
-                    <div class="journal-editor-shell">
-                        <InputTextArea id="descriptionInput"
-                                       class="form-control journal-rich-editor-source"
-                                       maxlength="@FieldLimits.DescriptionMax"
-                                       rows="8"
-                                       @bind-Value="DraftModel.Description" />
-                        <p class="journal-editor-hint">Use the built-in editor toolbar for headings, lists, links, and emphasis.</p>
+            <div class="sk-stack sk-stack--gap-24">
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectSelect">Project</label>
+                    <div class="sk-select-wrapper">
+                        <InputSelect id="projectSelect" class="sk-select" TValue="Guid" @bind-Value="DraftModel.ProjectId">
+                            @foreach (var project in _projects)
+                            {
+                                <option value="@project.ProjectId">@project.Code - @project.Name</option>
+                            }
+                        </InputSelect>
                     </div>
                 </div>
 
-                <div class="col-12">
-                    <label class="form-label" for="notesInput">Notes</label>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="subjectInput">Subject</label>
+                    <p class="sk-field__hint" id="subjectInput-hint">One line, up to @FieldLimits.SubjectMax characters.</p>
+                    <InputText id="subjectInput" class="sk-input" maxlength="@FieldLimits.SubjectMax" aria-describedby="subjectInput-hint" @bind-Value="DraftModel.Subject" />
+                </div>
+
+                <div class="sk-field">
+                    <label class="sk-field__label" for="descriptionInput">Description</label>
+                    <p class="sk-field__hint" id="descriptionInput-hint">Use the editor toolbar for headings, lists, tables, links and emphasis.</p>
+                    <div class="journal-editor-shell">
+                        <InputTextArea id="descriptionInput"
+                                       class="sk-input journal-rich-editor-source"
+                                       maxlength="@FieldLimits.DescriptionMax"
+                                       rows="8"
+                                       aria-describedby="descriptionInput-hint"
+                                       @bind-Value="DraftModel.Description" />
+                    </div>
+                </div>
+
+                <div class="sk-field">
+                    <label class="sk-field__label" for="notesInput">
+                        Notes
+                        <span class="sk-field__optional">Optional</span>
+                    </label>
+                    <p class="sk-field__hint" id="notesInput-hint">Supports the same rich formatting as the description.</p>
                     <div class="journal-editor-shell">
                         <InputTextArea id="notesInput"
-                                       class="form-control journal-rich-editor-source"
+                                       class="sk-input journal-rich-editor-source"
                                        maxlength="@FieldLimits.NotesMax"
                                        rows="10"
+                                       aria-describedby="notesInput-hint"
                                        @bind-Value="DraftModel.Notes" />
-                        <p class="journal-editor-hint">Notes are optional and support the same rich formatting.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Create Entry</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ResetDraft">Reset Form</button>
+            <div class="sk-cluster sk-cluster--gap-8 sj-form-actions">
+                <button type="submit" class="sk-button sk-button--primary">Create entry</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetDraft">Reset form</button>
             </div>
         </EditForm>
     }
@@ -104,6 +99,12 @@
     private List<ProjectOverview> _projects = new();
     private string? _message;
     private string? _error;
+    // JavaScript interop is only legal once the component has rendered
+    // interactively. A form POST re-renders the page statically, and the editor
+    // calls made during that pass threw "JavaScript interop calls cannot be issued
+    // at this time", which surfaced as an unhandled error on every submit.
+    private bool _jsReady;
+
     private readonly string[] _editorIds = ["descriptionInput", "notesInput"];
 
     private bool CanUseRichEditor
@@ -122,6 +123,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _jsReady = true;
+
         if (!CanUseRichEditor)
         {
             await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
@@ -162,7 +165,11 @@
 
         try
         {
-            await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
+            if (_jsReady)
+            {
+                await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
+            }
+
             var selectedProject = DraftModel.ProjectId;
             JournalApp.CreateJournalEntry(DraftModel);
             Navigation.NavigateTo($"/projects?projectId={selectedProject:D}");
@@ -187,13 +194,22 @@
 
     public async ValueTask DisposeAsync()
     {
+        if (!_jsReady)
+        {
+            return;
+        }
+
         try
         {
             await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
         }
         catch (JSDisconnectedException)
         {
-            // The page is already tearing down.
+            // The circuit is already gone.
+        }
+        catch (InvalidOperationException)
+        {
+            // Teardown during a static render; there is no interop to make.
         }
     }
 }

@@ -1,39 +1,83 @@
-.audit-results-table th,
-.audit-results-table td {
+/* Audit results.
+
+   History of this file: it began with `table-layout: fixed` plus pixel widths on
+   four of eight columns, which crushed the rest. Replacing that with per-column
+   minimums fixed the crushing but forced a horizontal scroll to reach the last
+   column, which is worse for the common case.
+
+   The table now sizes to its content with no fixed or minimum column widths at
+   all. The two cells that cannot size themselves — a 64-character checksum and a
+   GUID, neither of which has a break opportunity — are constrained individually
+   rather than by constraining the table. .sk-table still provides the scroll
+   container for the genuinely narrow viewports, per the responsive-tables
+   pattern: the table scrolls, the page never does, and no column is dropped. */
+
+.sj-audit-table table {
+    table-layout: auto;
+    inline-size: 100%;
+}
+
+.sj-audit-table th,
+.sj-audit-table td {
     vertical-align: top;
 }
 
-.audit-results-table {
-    table-layout: fixed;
+/* Single-token values that must not be broken mid-word. */
+.sj-col-timestamp,
+.sj-col-action,
+.sj-col-user,
+.sj-col-project,
+.sj-col-outcome {
+    white-space: nowrap;
 }
 
-.audit-timestamp-column {
-    width: 8rem;
+/* Details is the column that should absorb the slack. */
+.sj-col-details {
+    inline-size: 100%;
+    min-inline-size: 0;
 }
 
-.audit-action-column {
-    width: 8.5rem;
+.sj-cell-secondary {
+    display: block;
+    font-size: var(--sk-font-size-body-xs);
+    color: var(--sk-color-text-tertiary);
+    font-variant-numeric: tabular-nums;
 }
 
-.audit-outcome-column {
-    width: 7.5rem;
+/* A GUID has no break opportunity, so left alone it dictates the column width.
+   Clamp it and keep the full value in the title attribute. */
+.sj-cell-id {
+    display: block;
+    min-inline-size: 0;
+    max-inline-size: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--sk-font-family-mono);
+    font-size: var(--sk-font-size-body-xs);
+    color: var(--sk-color-text-tertiary);
 }
 
-.audit-details-column {
-    width: 28rem;
+/* Same problem, 64 characters of it. Two clamped lines of monospace, full value
+   on hover and in the title. */
+.sj-checksum {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-all;
+    max-inline-size: 11ch;
+    font-size: var(--sk-font-size-code-sm);
 }
 
-.audit-results-table .badge {
-    display: inline-flex;
-    align-items: center;
+.sj-journal-preview {
+    margin-block-start: var(--sk-space-8);
 }
 
-@media (max-width: 1200px) {
-    .audit-results-table {
-        table-layout: auto;
-    }
+.sj-journal-preview .sk-dl__term {
+    color: var(--sk-color-text-tertiary);
+}
 
-    .audit-details-column {
-        width: auto;
-    }
+.sj-table-toolbar {
+    margin-block-end: var(--sk-space-12);
 }

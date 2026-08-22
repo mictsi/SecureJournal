@@ -1,46 +1,113 @@
 @inherits LayoutComponentBase
+@using SecureJournal.Core.Domain
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 
 @if (!_authChecked)
 {
-    <div class="p-4">Loading...</div>
+    <div class="sk-loading" role="status">
+        <span class="sk-spinner" aria-hidden="true"></span>
+        <p class="sk-loading__label">Loading your workspace…</p>
+    </div>
 }
 else if (!_isAuthenticated)
 {
-    <div class="p-4">Redirecting to login...</div>
+    <div class="sk-loading" role="status">
+        <span class="sk-spinner" aria-hidden="true"></span>
+        <p class="sk-loading__label">Redirecting to sign in…</p>
+    </div>
 }
 else
 {
-    <div class="page-shell">
-        <aside class="sidebar-panel">
-            <NavMenu />
-        </aside>
+    <a class="sk-skip-link" href="#main">Skip to main content</a>
 
-        <main class="main-panel">
-            <header class="app-header">
-                <div>
-                    <p class="app-header-label">Workspace</p>
-                    <h1 class="app-header-title">Secure Journal</h1>
-                </div>
-            </header>
+    <header class="sk-top-bar sk-top-bar--sticky sk-app-shell__header">
+        <button type="button"
+                class="sk-icon-button sk-top-bar__nav-trigger"
+                aria-expanded="@(_navOpen ? "true" : "false")"
+                aria-controls="primary-nav"
+                @onclick="() => _navOpen = !_navOpen">
+            <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-menu" /></svg>
+            <span class="sk-visually-hidden">@(_navOpen ? "Close navigation" : "Open navigation")</span>
+        </button>
 
-            <article class="content-panel">
+        <a class="sk-top-bar__identity" href="/projects">
+            <img class="sk-top-bar__logo" src="/images/logo_125_by_125.png" alt="" width="24" height="24" />
+            <span class="sk-top-bar__product">Secure Journal</span>
+        </a>
+
+        <div class="sk-top-bar__utilities">
+            <div class="sk-segmented sk-segmented--sm sk-segmented--icon sj-theme-control"
+                 role="radiogroup"
+                 aria-label="Colour theme"
+                 data-sk-theme-control>
+                <button type="button" class="sk-segmented__option" role="radio" aria-checked="false" data-sk-theme-option="system">
+                    <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-contrast" /></svg>
+                    <span class="sk-visually-hidden">Match system theme</span>
+                </button>
+                <button type="button" class="sk-segmented__option" role="radio" aria-checked="false" data-sk-theme-option="light">
+                    <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-sun" /></svg>
+                    <span class="sk-visually-hidden">Light theme</span>
+                </button>
+                <button type="button" class="sk-segmented__option" role="radio" aria-checked="false" data-sk-theme-option="dark">
+                    <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-moon" /></svg>
+                    <span class="sk-visually-hidden">Dark theme</span>
+                </button>
+            </div>
+
+            @if (_currentUser is not null)
+            {
+                <a class="sk-top-bar__account" href="login">
+                    <span class="sk-avatar sk-avatar--sm" aria-hidden="true">@CurrentUserInitial</span>
+                    <span class="sj-account-copy">
+                        <span class="sj-account-name">@CurrentDisplayName</span>
+                        <span class="sj-account-role">@CurrentRoleLabel</span>
+                    </span>
+                    <span class="sk-visually-hidden">Account settings for @CurrentDisplayName</span>
+                </a>
+
+                <form method="post" action="/auth/logout" class="sj-logout-form">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="returnUrl" value="/" />
+                    <button type="submit" class="sk-icon-button sk-icon-button--ghost" data-sk-tooltip="Sign out">
+                        <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-logout" /></svg>
+                        <span class="sk-visually-hidden">Sign out</span>
+                    </button>
+                </form>
+            }
+        </div>
+    </header>
+
+    <div class="sk-app-shell__body">
+        <NavMenu IsOpen="_navOpen" OnNavigate="() => _navOpen = false" />
+
+        <main class="sk-app-shell__main" id="main" tabindex="-1">
+            <div class="sk-app-shell__content">
                 @Body
-            </article>
+            </div>
         </main>
     </div>
 }
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">x</span>
+<div id="blazor-error-ui" class="sk-alert sk-alert--danger" data-nosnippet role="alert">
+    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-error" /></svg>
+    <div class="sk-alert__content">
+        <p class="sk-alert__body">An unhandled error has occurred.</p>
+        <div class="sk-alert__actions">
+            <a class="sk-link reload" href=".">Reload the page</a>
+        </div>
+    </div>
+    <button type="button" class="sk-icon-button sk-icon-button--sm sk-alert__dismiss dismiss">
+        <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-close" /></svg>
+        <span class="sk-visually-hidden">Dismiss error message</span>
+    </button>
 </div>
 
 @code {
     private bool _authChecked;
     private bool _isAuthenticated;
+    private bool _navOpen;
+    private UserContext? _currentUser;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -49,7 +116,27 @@ else
 
         if (!_isAuthenticated)
         {
+            _currentUser = null;
             Navigation.NavigateTo("/", forceLoad: false);
+            return;
         }
+
+        _currentUser = await JournalApp.GetCurrentUserAsync();
     }
+
+    private string CurrentDisplayName => string.IsNullOrWhiteSpace(_currentUser?.DisplayName)
+        ? _currentUser?.Username ?? "User"
+        : _currentUser.DisplayName;
+
+    private string CurrentUserInitial => string.IsNullOrWhiteSpace(CurrentDisplayName)
+        ? "U"
+        : CurrentDisplayName[..1].ToUpperInvariant();
+
+    private string CurrentRoleLabel => _currentUser?.Role switch
+    {
+        AppRole.Administrator => "Administrator",
+        AppRole.Auditor => "Auditor",
+        AppRole.ProjectUser => "Project User",
+        _ => "User"
+    };
 }

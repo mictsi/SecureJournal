@@ -8,28 +8,17 @@
 
 <PageTitle>User Management</PageTitle>
 
-<section class="page-head user-management-head">
-    <div>
-        <p class="eyebrow">Administration</p>
-        <h2>User Management</h2>
-        <p>Manage members, permissions, security, and group access from one page.</p>
-    </div>
-    <div class="user-management-head-actions">
-        <button type="button" class="btn btn-primary" @onclick="NavigateToCreateUser">
-            Create User
+<PageHeader Title="User management"
+            Description="Manage members, permissions, security and group access from one page.">
+    <Actions>
+        <button type="button" class="sk-button sk-button--primary" @onclick="NavigateToCreateUser">
+            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>
+            Create user
         </button>
-    </div>
-</section>
+    </Actions>
+</PageHeader>
 
-@if (!string.IsNullOrWhiteSpace(_error))
-{
-    <div class="alert alert-danger" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrWhiteSpace(_message))
-{
-    <div class="alert alert-success" role="alert">@_message</div>
-}
+<PageAlerts Message="@_message" Error="@_error" />
 
 @if (_currentUser is null)
 {
@@ -37,8 +26,9 @@
 }
 else if (_currentUser.Role != AppRole.Administrator)
 {
-    <div class="alert alert-warning" role="alert">
-        Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).
+    <div class="sk-alert sk-alert--warning" role="alert">
+    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
+    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
     </div>
 }
 else
@@ -54,19 +44,19 @@ else
             </div>
 
             <div class="user-directory-toolbar">
-                <label class="visually-hidden" for="userSearch">Search users</label>
+                <label class="sk-visually-hidden" for="userSearch">Search users</label>
                 <input id="userSearch"
-                       class="form-control"
+                       class="sk-input"
                        type="text"
                        value="@_userQuery.FilterText"
                        @oninput="OnUserSearchChanged"
                        placeholder="Search users..." />
 
                 <div class="user-directory-sort">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeUserSortAsync("displayName"))">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeUserSortAsync("displayName"))">
                         Name @SortGlyph("displayName", _userQuery.SortField, _userQuery.SortDirection)
                     </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="@(() => ChangeUserSortAsync("username"))">
+                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeUserSortAsync("username"))">
                         Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)
                     </button>
                 </div>
@@ -75,7 +65,7 @@ else
             @if (_userPage.TotalCount == 0)
             {
                 <div class="user-directory-empty">
-                    <p class="mb-0">No users found for the current filter.</p>
+                    <p>No users found for the current filter.</p>
                 </div>
             }
             else
@@ -108,23 +98,25 @@ else
                 <div class="user-directory-footer">
                     <div class="user-directory-footer-row">
                         <span>Page @_userPage.Page of @_userPage.TotalPages</span>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
+                        <div class="sk-cluster">
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
                         </div>
                     </div>
                     <div class="user-directory-footer-row">
                         <span>@VisibleUserRangeLabel()</span>
                         <div class="user-page-size">
                             <label class="project-page-size-label" for="userPageSize">Page size</label>
-                            <select id="userPageSize"
-                                    class="form-select form-select-sm project-page-size-select"
+                            <div class="sk-select-wrapper">
+                                <select id="userPageSize"
+                                    class="sk-select sk-select--sm project-page-size-select"
                                     @onchange="OnUserPageSizeChanged">
                                 @foreach (var option in _pageSizeOptions)
                                 {
                                     <option value="@option" selected="@(option == _userQuery.PageSize)">@option</option>
                                 }
                             </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -136,7 +128,7 @@ else
             {
                 <section class="panel-card user-empty-card">
                     <h3>Select a user</h3>
-                    <p class="mb-0">Choose a user from the directory to manage roles, passwords, groups, and account state.</p>
+                    <p>Choose a user from the directory to manage roles, passwords, groups, and account state.</p>
                 </section>
             }
             else
@@ -155,24 +147,29 @@ else
                                             </div>
                                         </div>
 
-                                        <div class="user-panel-stat-grid">
-                                            <span class="user-panel-stat-pill user-panel-status-pill @(SelectedUser.IsDisabled ? "is-disabled" : "is-active")">
-                                                <span>Status</span>
-                                                <strong>@(SelectedUser.IsDisabled ? "Disabled" : "Active")</strong>
-                                            </span>
-                                            <span class="user-panel-stat-pill">
-                                                <span>Access</span>
-                                                <strong>@(SelectedUser.IsLocalAccount ? "Local" : "External")</strong>
-                                            </span>
-                                            <span class="user-panel-stat-pill">
-                                                <span>Roles</span>
-                                                <strong>@UserRoles(SelectedUser).Count</strong>
-                                            </span>
-                                            <span class="user-panel-stat-pill">
-                                                <span>Groups</span>
-                                                <strong>@SelectedUser.Groups.Count</strong>
-                                            </span>
-                                        </div>
+                                        <dl class="sk-dl sk-dl--columns user-panel-stat-grid">
+                                            <div class="sk-dl__group">
+                                                <dt class="sk-dl__term">Status</dt>
+                                                <dd class="sk-dl__detail">
+                                                    <span class="sk-status @(SelectedUser.IsDisabled ? "sk-status--danger" : "sk-status--success")">
+                                                        <span class="sk-status__dot" aria-hidden="true"></span>
+                                                        <span class="sk-status__label">@(SelectedUser.IsDisabled ? "Disabled" : "Active")</span>
+                                                    </span>
+                                                </dd>
+                                            </div>
+                                            <div class="sk-dl__group">
+                                                <dt class="sk-dl__term">Access</dt>
+                                                <dd class="sk-dl__detail">@(SelectedUser.IsLocalAccount ? "Local" : "External")</dd>
+                                            </div>
+                                            <div class="sk-dl__group">
+                                                <dt class="sk-dl__term">Roles</dt>
+                                                <dd class="sk-dl__detail">@UserRoles(SelectedUser).Count</dd>
+                                            </div>
+                                            <div class="sk-dl__group">
+                                                <dt class="sk-dl__term">Groups</dt>
+                                                <dd class="sk-dl__detail">@SelectedUser.Groups.Count</dd>
+                                            </div>
+                                        </dl>
                                     </div>
                                 </div>
 
@@ -187,7 +184,7 @@ else
 
                                     @if (!SelectedUser.IsLocalAccount)
                                     {
-                                        <p class="mb-0">Password reset is available for local accounts only.</p>
+                                        <p>Password reset is available for local accounts only.</p>
                                     }
                                     else
                                     {
@@ -195,29 +192,29 @@ else
                                             <DataAnnotationsValidator />
                                             <ValidationSummary />
 
-                                            <div class="row g-3">
-                                                <div class="col-md-6">
-                                                    <label class="form-label" for="manageResetPassword">New Password</label>
+                                            <div class="sk-stack sk-stack--gap-16">
+                                                <div class="sk-field">
+                                                    <label class="sk-field__label" for="manageResetPassword">New Password</label>
                                                     <InputText id="manageResetPassword"
                                                                type="password"
-                                                               class="form-control"
+                                                               class="sk-input"
                                                                @bind-Value="_resetPasswordRequest.NewPassword" />
                                                 </div>
-                                                <div class="col-md-6">
-                                                    <label class="form-label" for="manageResetPasswordConfirm">Confirm New Password</label>
+                                                <div class="sk-field">
+                                                    <label class="sk-field__label" for="manageResetPasswordConfirm">Confirm New Password</label>
                                                     <InputText id="manageResetPasswordConfirm"
                                                                type="password"
-                                                               class="form-control"
+                                                               class="sk-input"
                                                                @bind-Value="_confirmResetPassword" />
                                                 </div>
                                             </div>
 
-                                            <div class="form-text mt-2">Minimum length @_localPasswordMinLength. Local accounts only.</div>
+                                            <div class="sk-field__hint">Minimum length @_localPasswordMinLength. Local accounts only.</div>
 
                                             <div class="user-section-actions">
-                                                <button type="button" class="btn btn-outline-secondary" @onclick="GenerateSuggestedPassword" disabled="@_isSaving">Generate Password</button>
-                                                <button type="submit" class="btn btn-primary" disabled="@_isSaving">Update Password</button>
-                                                <button type="button" class="btn btn-outline-secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
+                                                <button type="button" class="sk-button sk-button--secondary" @onclick="GenerateSuggestedPassword" disabled="@_isSaving">Generate Password</button>
+                                                <button type="submit" class="sk-button sk-button--primary" disabled="@_isSaving">Update Password</button>
+                                                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetLocalPasswordForm" disabled="@_isSaving">Clear</button>
                                             </div>
                                         </EditForm>
                                     }
@@ -241,14 +238,14 @@ else
                                                     : "Once deleted, this user account cannot be recovered.")
                                             </span>
                                         </div>
-                                        <div class="d-flex flex-wrap gap-2">
+                                        <div class="sk-cluster">
                                             <button type="button"
-                                                    class="btn @(SelectedUser.IsDisabled ? "btn-success" : "btn-outline-secondary")"
+                                                    class="sk-button @(SelectedUser.IsDisabled ? "sk-button--success" : "sk-button--secondary")"
                                                     @onclick="ToggleSelectedUserEnabledAsync"
                                                     disabled="@(_isSaving || IsSelectedCurrentUser)">
                                                 @(SelectedUser.IsDisabled ? "Enable User" : "Disable User")
                                             </button>
-                                            <button type="button" class="btn btn-danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete User</button>
+                                            <button type="button" class="sk-button sk-button--danger" @onclick="DeleteSelectedUserAsync" disabled="@(_isSaving || IsSelectedCurrentUser)">Delete User</button>
                                         </div>
                                     </div>
                                 </div>
@@ -267,7 +264,7 @@ else
                                     @foreach (var role in _roles)
                                     {
                                         <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
-                                            <input class="form-check-input"
+                                            <input class="sk-checkbox__input"
                                                    type="checkbox"
                                                    checked="@_editedRoles.Contains(role)"
                                                    @onchange="args => ToggleRoleLocal(role, args)" />
@@ -280,8 +277,8 @@ else
                                 </div>
 
                                 <div class="user-section-actions">
-                                    <button type="button" class="btn btn-primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
+                                    <button type="button" class="sk-button sk-button--primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
+                                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
                                 </div>
                             </section>
                         </div>
@@ -295,7 +292,7 @@ else
                             <p class="user-section-copy">User has (@SelectedUser.Groups.Count) group memberships.</p>
                         </div>
                         <div class="panel-card-header-actions">
-                            <button type="button" class="btn btn-outline-secondary" @onclick="ToggleGroupBrowser">
+                            <button type="button" class="sk-button sk-button--secondary" @onclick="ToggleGroupBrowser">
                                 @(_showGroupBrowser ? "Close Group Browser" : "Add to Group")
                             </button>
                         </div>
@@ -320,48 +317,52 @@ else
                     @if (_showGroupBrowser)
                     {
                         <div class="user-group-browser">
-                            <div class="row g-2 mb-3">
-                                <div class="col-lg-5 col-md-12">
-                                    <label class="form-label" for="manageUserGroupSearch">Search groups</label>
+                            <div class="sk-stack sk-stack--gap-16">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="manageUserGroupSearch">Search groups</label>
                                     <input id="manageUserGroupSearch"
-                                           class="form-control"
+                                           class="sk-input"
                                            type="text"
                                            value="@_groupQuery.FilterText"
                                            @oninput="OnGroupSearchChanged"
                                            placeholder="Filter by group name..." />
                                 </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <label class="form-label" for="manageUserGroupAssigned">Assigned</label>
-                                    <select id="manageUserGroupAssigned" class="form-select" @onchange="OnGroupAssignedFilterChanged">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="manageUserGroupAssigned">Assigned</label>
+                                    <div class="sk-select-wrapper">
+                                        <select id="manageUserGroupAssigned" class="sk-select" @onchange="OnGroupAssignedFilterChanged">
                                         <option value="all" selected="@(!_groupQuery.Assigned.HasValue)">All</option>
                                         <option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option>
                                         <option value="unassigned" selected="@(_groupQuery.Assigned == false)">Unassigned</option>
                                     </select>
+                                    </div>
                                 </div>
-                                <div class="col-lg-3 col-md-6">
-                                    <label class="form-label" for="manageUserGroupPageSize">Page size</label>
-                                    <select id="manageUserGroupPageSize" class="form-select" @onchange="OnGroupPageSizeChanged">
+                                <div class="sk-field">
+                                    <label class="sk-field__label" for="manageUserGroupPageSize">Page size</label>
+                                    <div class="sk-select-wrapper">
+                                        <select id="manageUserGroupPageSize" class="sk-select" @onchange="OnGroupPageSizeChanged">
                                         @foreach (var option in _pageSizeOptions)
                                         {
                                             <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
                                         }
                                     </select>
+                                    </div>
                                 </div>
                             </div>
 
                             @if (_groupPage.TotalCount == 0)
                             {
-                                <p class="mb-0">No groups available for the current filter.</p>
+                                <p>No groups available for the current filter.</p>
                             }
                             else
                             {
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
+                                <div class="sk-table" role="region" aria-label="Group memberships" tabindex="0">
+                                    <table>
                                         <thead>
                                             <tr>
-                                                <th><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                                <th><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
                                                 <th>Description</th>
-                                                <th class="text-end"><button type="button" class="btn btn-link p-0 table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
+                                                <th class="sj-text-end"><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -370,8 +371,8 @@ else
                                                 <tr>
                                                     <td>@group.Name</td>
                                                     <td>@RenderValueOrDash(group.Description)</td>
-                                                    <td class="text-end">
-                                                        <input class="form-check-input"
+                                                    <td class="sj-text-end">
+                                                        <input class="sk-checkbox__input"
                                                                type="checkbox"
                                                                checked="@IsGroupAssigned(group)"
                                                                @onchange="args => ToggleGroupLocal(group, args)" />
@@ -383,10 +384,10 @@ else
                                 </div>
 
                                 <div class="pager-bar">
-                                    <span class="text-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
-                                    <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
+                                    <span class="sj-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
+                                    <div class="sk-cluster">
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
                                     </div>
                                 </div>
                             }
@@ -396,8 +397,8 @@ else
                     @if (_groupsDirty || _showGroupBrowser)
                     {
                         <div class="user-section-actions">
-                            <button type="button" class="btn btn-primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save Groups</button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset Groups</button>
+                            <button type="button" class="sk-button sk-button--primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save Groups</button>
+                            <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset Groups</button>
                         </div>
                     }
                 </section>

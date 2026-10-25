@@ -4,322 +4,230 @@
 @inject NavigationManager Navigation
 @using SecureJournal.Web.Utilities
 
-<PageTitle>Audit Search</PageTitle>
+<PageTitle>Audit search</PageTitle>
 
-<PageHeader Title="Audit search"
-            Description="Find activity, review linked journal entries, and check record integrity." />
+<div class="sj-directory">
+    <PageHeader Title="Audit search" Description="Find activity, review the evidence, and check record integrity." />
+    <PageAlerts Error="@_error" />
 
-<PageAlerts Error="@_error" />
-
-<form class="sk-card sj-panel" @onsubmit="ApplyFilters" @onsubmit:preventDefault>
-    <div class="sk-card__header">
-        <h2 class="sk-card__title">Find activity</h2>
-        <div class="sk-cluster sk-cluster--gap-8">
-            <button type="submit" class="sk-button sk-button--primary sk-button--sm">Search</button>
-            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="ClearFilters">Clear filters</button>
-        </div>
-    </div>
-
-    <div class="sk-card__body">
-        <div class="sk-grid sk-grid--cols-4 sk-grid--gap-16">
+    <form class="panel-card audit-search" role="search" aria-label="Search audit activity" @onsubmit="ApplyFilters" @onsubmit:preventDefault>
+        <div class="sk-field-row sj-directory-toolbar">
             <div class="sk-field">
-                <label class="sk-field__label" for="fromDate">From (UTC date)</label>
-                <input id="fromDate" class="sk-input" type="date" max="@_toDateText" value="@_fromDateText" @onchange="OnFromDateChanged" />
+                <label class="sk-field__label" for="textContains">Search activity</label>
+                <div class="sk-field__control"><input id="textContains" class="sk-input" type="search" placeholder="@($"Words in {GetTextSearchFieldLabel(_textSearchField).ToLowerInvariant()}")" @bind="_textSearchValue" @bind:event="oninput" /></div>
             </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="toDate">To (UTC date)</label>
-                <input id="toDate" class="sk-input" type="date" min="@_fromDateText" value="@_toDateText" @onchange="OnToDateChanged" />
-            </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="actorText">User</label>
-                <input id="actorText" class="sk-input" type="text" placeholder="Username" @bind="_actorUsername" @bind:event="oninput" />
-            </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="projectFilter">Project</label>
-                <div class="sk-select-wrapper">
-                    <select id="projectFilter" class="sk-select" @bind="_projectFilterValue">
-                        <option value="">Any</option>
-                        @foreach (var project in _projects)
-                        {
-                            <option value="@project.ProjectId">@project.Code - @project.Name</option>
-                        }
-                    </select>
+            <div class="sk-field-row__actions">
+                <div class="sk-field-row__action-group">
+                    <button type="submit" class="sk-button sk-button--primary">Search</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Show all activity</button>
                 </div>
             </div>
         </div>
-        <details class="sj-advanced-filters">
-            <summary>More filters <span class="sj-muted">· action, outcome, and text</span></summary>
-            <div class="sk-grid sk-grid--cols-4 sk-grid--gap-16">
-            <div class="sk-field">
-                <label class="sk-field__label" for="actionFilter">Action</label>
-                <div class="sk-select-wrapper">
-                    <select id="actionFilter" class="sk-select" @bind="_actionFilterValue">
-                        <option value="">Any</option>
-                        @foreach (var action in _auditActions)
-                        {
-                            <option value="@action">@action</option>
-                        }
-                    </select>
+        <details class="audit-filter-panel" open="@HasQueryFilters">
+            <summary>Filter by date, project, user, or action</summary>
+            <div class="sk-field-row audit-filter-fields">
+                <div class="sk-field">
+                    <label class="sk-field__label" for="fromDate">From date (UTC)</label>
+                    <div class="sk-field__control"><input id="fromDate" class="sk-input" type="date" max="@_toDateText" value="@_fromDateText" @onchange="args => _fromDateText = args.Value?.ToString()" /></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="toDate">To date (UTC)</label>
+                    <div class="sk-field__control"><input id="toDate" class="sk-input" type="date" min="@_fromDateText" value="@_toDateText" @onchange="args => _toDateText = args.Value?.ToString()" /></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectFilter">Project</label>
+                    <div class="sk-field__control sk-select-wrapper"><select id="projectFilter" class="sk-select" @bind="_projectFilterValue">
+                        <option value="">Any project</option>
+                        @foreach (var project in _projects) { <option value="@project.ProjectId">@project.Code · @project.Name</option> }
+                    </select></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="actorText">User</label>
+                    <div class="sk-field__control"><input id="actorText" class="sk-input" type="text" placeholder="Username" @bind="_actorUsername" @bind:event="oninput" /></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="actionFilter">Action</label>
+                    <div class="sk-field__control sk-select-wrapper"><select id="actionFilter" class="sk-select" @bind="_actionFilterValue">
+                        <option value="">Any action</option>
+                        @foreach (var action in _auditActions) { <option value="@action">@Humanize(action.ToString())</option> }
+                    </select></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="entityFilter">Record type</label>
+                    <div class="sk-field__control sk-select-wrapper"><select id="entityFilter" class="sk-select" @bind="_entityFilterValue">
+                        <option value="">Any type</option>
+                        @foreach (var entity in _auditEntities) { <option value="@entity">@Humanize(entity.ToString())</option> }
+                    </select></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="outcomeFilter">Outcome</label>
+                    <div class="sk-field__control sk-select-wrapper"><select id="outcomeFilter" class="sk-select" @bind="_outcomeFilterValue">
+                        <option value="">Any outcome</option>
+                        @foreach (var outcome in _auditOutcomes) { <option value="@outcome">@outcome</option> }
+                    </select></div>
+                </div>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="textFieldFilter">Search text in</label>
+                    <div class="sk-field__control sk-select-wrapper"><select id="textFieldFilter" class="sk-select" @bind="_textSearchField">
+                        @foreach (var field in _textSearchFields) { <option value="@field">@GetTextSearchFieldLabel(field)</option> }
+                    </select></div>
                 </div>
             </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="entityFilter">Entity</label>
-                <div class="sk-select-wrapper">
-                    <select id="entityFilter" class="sk-select" @bind="_entityFilterValue">
-                        <option value="">Any</option>
-                        @foreach (var entity in _auditEntities)
-                        {
-                            <option value="@entity">@entity</option>
-                        }
-                    </select>
-                </div>
+            <div class="sj-result-card__actions audit-filter-actions">
+                <button type="submit" class="sk-button sk-button--primary">Apply filters</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear filters</button>
             </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="outcomeFilter">Outcome</label>
-                <div class="sk-select-wrapper">
-                    <select id="outcomeFilter" class="sk-select" @bind="_outcomeFilterValue">
-                        <option value="">Any</option>
-                        @foreach (var outcome in _auditOutcomes)
-                        {
-                            <option value="@outcome">@outcome</option>
-                        }
-                    </select>
-                </div>
-            </div>
-            <div class="sk-field">
-                <label class="sk-field__label" for="textFieldFilter">Text field</label>
-                <div class="sk-select-wrapper">
-                    <select id="textFieldFilter" class="sk-select" @bind="_textSearchField">
-                        @foreach (var field in _textSearchFields)
-                        {
-                            <option value="@field">@GetTextSearchFieldLabel(field)</option>
-                        }
-                    </select>
-                </div>
-            </div>
-            <div class="sk-field sk-grid__span-full">
-                <label class="sk-field__label" for="textContains">Contains (case-insensitive)</label>
-                <input id="textContains" class="sk-input" type="text" placeholder="Search within the selected field…" @bind="_textSearchValue" @bind:event="oninput" />
-            </div>
-        </div>
         </details>
-    </div>
-</form>
+    </form>
 
-<section class="sk-card sj-panel">
-    <div class="sk-card__header">
-        <h2 class="sk-card__title">Results</h2>
-        <span class="sk-badge sk-badge--neutral">@_rows.Count event(s)</span>
-    </div>
-
-    <div class="sk-card__body">
-        @if (_rows.Count == 0)
-        {
-            <div class="sk-empty-state">
-                <svg class="sk-empty-state__icon" aria-hidden="true" focusable="false" width="48" height="48"><use href="#sk-illus-search" /></svg>
-                <h3 class="sk-empty-state__heading">No audit events match these filters</h3>
-                <p class="sk-empty-state__body">
-                    Try a wider date range or clear the filters to see all activity.
-                </p>
-                <div class="sk-empty-state__actions">
-                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear filters</button>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="sk-cluster sk-cluster--between sk-cluster--gap-16 sj-table-toolbar">
-                <div class="sk-field sk-field--inline">
-                    <label class="sk-field__label" for="auditPageSize">Page size</label>
-                    <div class="sk-select-wrapper">
-                        <select id="auditPageSize" class="sk-select sk-select--sm" @onchange="OnPageSizeChanged">
-                            @foreach (var pageSize in _pageSizeOptions)
-                            {
-                                <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
-                            }
-                        </select>
-                    </div>
-                </div>
-                <p class="sk-pagination__status" role="status">Page @_currentPage of @TotalPages</p>
-            </div>
-
-            @* Sekura's responsive-tables pattern: scroll the table, never drop a
-               column. The region is focusable so the scroll is keyboard-reachable. *@
-            <div class="sk-table sj-audit-table" role="region" aria-labelledby="audit-caption" tabindex="0">
-                <table>
-                    <caption id="audit-caption" class="sk-visually-hidden">
-                        Audit events
-                        <span class="sk-table__caption-detail">@_rows.Count events, newest first</span>
-                    </caption>
-                    <thead>
-                        <tr>
-                            <th scope="col" class="sj-col-timestamp">Timestamp (UTC)</th>
-                            <th scope="col" class="sj-col-user">User</th>
-                            <th scope="col" class="sj-col-action">Action</th>
-                            <th scope="col" class="sj-col-entity">Entity</th>
-                            <th scope="col" class="sj-col-project">Project</th>
-                            <th scope="col" class="sj-col-outcome">Outcome</th>
-                            <th scope="col" class="sj-col-details">Details</th>
-                            <th scope="col" class="sj-col-integrity">Integrity</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var row in PagedRows)
-                        {
-                            <tr>
-                                <td class="sj-col-timestamp">
-                                    <time datetime="@row.TimestampUtc.ToString("o")">@row.TimestampUtc.ToString("yyyy-MM-dd")</time>
-                                    <span class="sj-cell-secondary">@row.TimestampUtc.ToString("HH:mm:ss")</span>
-                                </td>
-                                <td class="sj-col-user">@row.ActorUsername</td>
-                                <td class="sj-col-action">@row.Action</td>
-                                <td class="sj-col-entity">
-                                    <div>@row.EntityType</div>
-                                    @if (!string.IsNullOrWhiteSpace(row.EntityId))
-                                    {
-                                        <span class="sj-cell-id sk-truncate" title="@row.EntityId">@row.EntityId</span>
-                                    }
-                                </td>
-                                <td class="sj-col-project">@(row.ProjectCode ?? "—")</td>
-                                <td class="sj-col-outcome">
-                                    <span class="sk-status @OutcomeStatusClass(row.Outcome)">
-                                        <span class="sk-status__dot" aria-hidden="true"></span>
-                                        <span class="sk-status__label">@row.Outcome</span>
-                                    </span>
-                                </td>
-                                <td class="sj-col-details">
-                                    <div>@row.Details</div>
-                                    @if (row.RelatedJournalEntry is not null)
-                                    {
-                                        @* The preview is what used to crush every other column, so it
-                                           is collapsed by default and opens in place. *@
-                                        <div class="sk-disclosure sj-journal-preview" data-sk-disclosure>
-                                            <button type="button" class="sk-disclosure__trigger"
-                                                    id="@($"journal-trigger-{row.AuditId}")"
-                                                    aria-expanded="false"
-                                                    aria-controls="@($"journal-panel-{row.AuditId}")">
-                                                <svg class="sk-disclosure__marker" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-right" /></svg>
-                                                <span class="sk-disclosure__label">
-                                                    Journal entry @row.RelatedJournalEntry.RecordId
-                                                </span>
-                                                @if (row.RelatedJournalEntry.IsSoftDeleted)
-                                                {
-                                                    <span class="sk-badge sk-badge--warning">Soft-deleted</span>
-                                                }
-                                            </button>
-                                            <div class="sk-disclosure__panel sk-stack sk-stack--gap-8"
-                                                 id="@($"journal-panel-{row.AuditId}")"
-                                                 aria-labelledby="@($"journal-trigger-{row.AuditId}")"
-                                                 hidden>
-                                                <dl class="sk-dl">
-                                                    <div class="sk-dl__group">
-                                                        <dt class="sk-dl__term">Project</dt>
-                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.ProjectCode</dd>
-                                                    </div>
-                                                    <div class="sk-dl__group">
-                                                        <dt class="sk-dl__term">Created</dt>
-                                                        <dd class="sk-dl__detail">
-                                                            <time datetime="@row.RelatedJournalEntry.CreatedAtUtc.ToString("o")">@row.RelatedJournalEntry.CreatedAtUtc.ToString("yyyy-MM-dd")</time> UTC
-                                                        </dd>
-                                                    </div>
-                                                    <div class="sk-dl__group">
-                                                        <dt class="sk-dl__term">Created by</dt>
-                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.CreatedBy</dd>
-                                                    </div>
-                                                    <div class="sk-dl__group">
-                                                        <dt class="sk-dl__term">Subject</dt>
-                                                        <dd class="sk-dl__detail">@row.RelatedJournalEntry.Subject</dd>
-                                                    </div>
-                                                </dl>
-                                                <div>
-                                                    <p class="sk-field__label">Description</p>
-                                                    <div class="sk-prose rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Description)</div>
-                                                </div>
-                                                @if (!string.IsNullOrWhiteSpace(row.RelatedJournalEntry.Notes))
-                                                {
-                                                    <div>
-                                                        <p class="sk-field__label">Notes</p>
-                                                        <div class="sk-prose rich-content">@SimpleMarkupPreview.Render(row.RelatedJournalEntry.Notes)</div>
-                                                    </div>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </td>
-                                <td class="sj-col-integrity">
-                                    <div class="sk-stack sk-stack--gap-4">
-                                        <code class="sk-code sj-checksum" title="@row.DetailsChecksum">@row.DetailsChecksum</code>
-                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => ValidateChecksum(row.AuditId)">
-                                            Validate
-                                        </button>
-                                        @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
-                                        {
-                                            @if (validation.IsValid)
-                                            {
-                                                <span class="sk-status sk-status--success">
-                                                    <span class="sk-status__dot" aria-hidden="true"></span>
-                                                    <span class="sk-status__label">Valid</span>
-                                                </span>
-                                            }
-                                            else
-                                            {
-                                                <span class="sk-status sk-status--danger" title="@($"Computed: {validation.ComputedChecksum}")">
-                                                    <span class="sk-status__dot" aria-hidden="true"></span>
-                                                    <span class="sk-status__label">Invalid</span>
-                                                </span>
-                                            }
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <nav class="sk-pagination" aria-label="Pagination">
-                <p class="sk-pagination__status" role="status">Showing @PagedRows.Count() of @_rows.Count results</p>
-                <div class="sk-cluster sk-cluster--gap-8">
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
-                </div>
-            </nav>
-        }
-    </div>
-</section>
-
-@code {
-    private enum AuditTextSearchField
+    @if (_activeFilters.Count > 0)
     {
-        Details,
-        ActorUsername,
-        EntityId,
-        ProjectCode,
-        Action,
-        EntityType,
-        Outcome
+        <div class="sj-filter-chips" aria-label="Active audit filters">
+            @foreach (var filter in _activeFilters)
+            {
+                <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => RemoveFilter(filter.Key)" aria-label="@($"Remove {filter.Label} filter")">@filter.Label <span aria-hidden="true">×</span></button>
+            }
+            @if (_activeFilters.Count > 1) { <button type="button" class="sk-button sk-button--ghost sk-button--sm" @onclick="ClearFilters">Clear all</button> }
+        </div>
     }
 
-    private static string OutcomeStatusClass(AuditOutcome outcome) => outcome switch
+    @if (!_hasSearched)
     {
-        AuditOutcome.Success => "sk-status--success",
-        AuditOutcome.Denied => "sk-status--danger",
-        _ => "sk-status--warning"
-    };
+        <p class="sj-muted">Search for specific activity, add filters, or show all activity to browse the audit history.</p>
+    }
+    else
+    {
+        <section class="audit-results" aria-labelledby="audit-results-heading">
+            <div class="sj-results-summary">
+                <h2 id="audit-results-heading" class="sj-subheading">Activity · newest first</h2>
+                <p class="sj-muted" role="status">@ResultRangeLabel</p>
+            </div>
+            @if (_searchFailed)
+            {
+                <div class="panel-card sk-empty-state">
+                    <h3 class="sk-empty-state__heading">Activity could not be loaded</h3>
+                    <p class="sk-empty-state__body">Review the message above, adjust your filters, and search again.</p>
+                </div>
+            }
+            else if (_rows.Count == 0)
+            {
+                <div class="panel-card sk-empty-state">
+                    <h3 class="sk-empty-state__heading">No activity matches these filters</h3>
+                    <p class="sk-empty-state__body">Try a wider date range or clear your filters.</p>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Show all activity</button>
+                </div>
+            }
+            else
+            {
+                <ul class="sj-directory-results" aria-label="Audit events">
+                    @foreach (var row in PagedRows)
+                    {
+                        <li @key="row.AuditId">
+                            <details class="audit-event">
+                                <summary class="audit-event-summary">
+                                    <span class="audit-event-summary-body">
+                                        <span class="audit-event-heading">
+                                            <span class="audit-event-title">@Humanize(row.Action.ToString()) · @Humanize(row.EntityType.ToString())</span>
+                                            <span class="sk-status @OutcomeStatusClass(row.Outcome)"><span class="sk-status__dot" aria-hidden="true"></span><span class="sk-status__label">@row.Outcome</span></span>
+                                        </span>
+                                        <span class="sj-result-card__meta">
+                                            <time datetime="@row.TimestampUtc.ToString("o")">@row.TimestampUtc.ToString("dd MMM yyyy · HH:mm:ss") UTC</time>
+                                            <span>by @row.ActorUsername</span>
+                                            @if (!string.IsNullOrWhiteSpace(row.ProjectCode)) { <span>Project: @row.ProjectCode</span> }
+                                        </span>
+                                        <span class="audit-event-description">@row.Details</span>
+                                    </span>
+                                    <span class="audit-event-toggle"><span class="audit-event-open-label">View details</span><span class="audit-event-close-label">Close details</span><svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-down" /></svg></span>
+                                </summary>
+                                <div class="audit-event-content">
+                                    <dl class="audit-identifiers">
+                                        <div><dt>Event ID</dt><dd>@row.AuditId</dd></div>
+                                        @if (!string.IsNullOrWhiteSpace(row.EntityId)) { <div><dt>@Humanize(row.EntityType.ToString()) ID</dt><dd>@row.EntityId</dd></div> }
+                                    </dl>
+                                    <section class="audit-integrity" aria-label="Record integrity">
+                                        <div class="sj-workspace-header">
+                                            <div><h3 class="sj-subheading">Record integrity</h3><p class="sj-muted">Compare this event with its stored checksum.</p></div>
+                                            <button type="button" class="sk-button sk-button--secondary" @onclick="() => ValidateChecksum(row.AuditId)">Check integrity</button>
+                                        </div>
+                                        <div class="audit-checksum"><span class="sk-field__label">Stored checksum</span><code>@row.DetailsChecksum</code></div>
+                                        @if (_checksumValidationResults.TryGetValue(row.AuditId, out var validation))
+                                        {
+                                            <div class="audit-integrity-result" role="status">
+                                                <span class="sk-status @(validation.IsValid ? "sk-status--success" : "sk-status--danger")"><span class="sk-status__dot" aria-hidden="true"></span><span class="sk-status__label">@(validation.IsValid ? "Integrity verified" : "Integrity check failed")</span></span>
+                                                <p>@validation.Message</p>
+                                                @if (!validation.IsValid) { <div class="audit-checksum"><span class="sk-field__label">Computed checksum</span><code>@validation.ComputedChecksum</code></div> }
+                                            </div>
+                                        }
+                                    </section>
+                                    @if (row.RelatedJournalEntry is { } entry)
+                                    {
+                                        <section class="audit-journal-preview" aria-label="Related journal entry">
+                                            <div class="sj-workspace-header"><h3 class="sj-subheading">Related journal entry</h3>@if (entry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }</div>
+                                            <h4 class="audit-journal-title">@entry.Subject</h4>
+                                            <div class="sj-result-card__meta"><span>Project: @entry.ProjectCode</span><time datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy · HH:mm") UTC</time><span>by @entry.CreatedBy</span></div>
+                                            <dl class="audit-identifiers"><div><dt>Entry ID</dt><dd>@entry.RecordId</dd></div></dl>
+                                            <div class="audit-journal-text"><h5 class="sk-field__label">Description</h5><div class="sk-prose rich-content">@SimpleMarkupPreview.Render(entry.Description)</div></div>
+                                            @if (!string.IsNullOrWhiteSpace(entry.Notes)) { <div class="audit-journal-text"><h5 class="sk-field__label">Notes</h5><div class="sk-prose rich-content">@SimpleMarkupPreview.Render(entry.Notes)</div></div> }
+                                        </section>
+                                    }
+                                </div>
+                            </details>
+                        </li>
+                    }
+                </ul>
+                @if (TotalPages > 1 || _rows.Count > _pageSizeOptions[0])
+                {
+                    <nav class="pager-bar" aria-label="Audit event pages">
+                        @if (TotalPages > 1)
+                        {
+                            <p class="sj-muted">Page @_currentPage of @TotalPages</p>
+                            <div class="sj-result-card__actions">
+                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                            </div>
+                        }
+                        <div class="audit-page-size"><label for="auditPageSize">Per page</label><div class="sk-select-wrapper"><select id="auditPageSize" class="sk-select sk-select--sm" value="@_pageSize" @onchange="OnPageSizeChanged">@foreach (var size in _pageSizeOptions) { <option value="@size">@size</option> }</select></div></div>
+                    </nav>
+                }
+            }
+        </section>
+    }
+</div>
 
+@code {
+    [SupplyParameterFromQuery(Name = "browse")] public string? BrowseQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+    [SupplyParameterFromQuery(Name = "to")] public string? To { get; set; }
+    [SupplyParameterFromQuery(Name = "user")] public string? Actor { get; set; }
+    [SupplyParameterFromQuery(Name = "project")] public string? Project { get; set; }
+    [SupplyParameterFromQuery(Name = "action")] public string? Action { get; set; }
+    [SupplyParameterFromQuery(Name = "entity")] public string? Entity { get; set; }
+    [SupplyParameterFromQuery(Name = "outcome")] public string? Outcome { get; set; }
+    [SupplyParameterFromQuery(Name = "field")] public string? Field { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public string? PageQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "size")] public string? SizeQuery { get; set; }
+
+    private bool Browse => bool.TryParse(BrowseQuery, out var value) && value;
+    private int? Page => int.TryParse(PageQuery, out var value) ? value : null;
+    private int? Size => int.TryParse(SizeQuery, out var value) ? value : null;
+
+    private enum AuditTextSearchField { Details, ActorUsername, EntityId, ProjectCode, Action, EntityType, Outcome }
     private readonly AuditActionType[] _auditActions = Enum.GetValues<AuditActionType>();
     private readonly AuditEntityType[] _auditEntities = Enum.GetValues<AuditEntityType>();
     private readonly AuditOutcome[] _auditOutcomes = Enum.GetValues<AuditOutcome>();
-    private readonly int[] _pageSizeOptions = [10, 20, 50, 100];
     private readonly AuditTextSearchField[] _textSearchFields = Enum.GetValues<AuditTextSearchField>();
-
+    private readonly int[] _pageSizeOptions = [10, 20, 50, 100];
     private List<ProjectOverview> _projects = new();
     private List<AuditLogView> _rows = new();
-    private Dictionary<Guid, AuditChecksumValidationResult> _checksumValidationResults = new();
+    private readonly Dictionary<Guid, AuditChecksumValidationResult> _checksumValidationResults = new();
+    private readonly List<(string Key, string Label)> _activeFilters = new();
+    private bool _ready;
+    private bool _hasSearched;
+    private bool _searchFailed;
     private string? _error;
     private int _pageSize = 20;
     private int _currentPage = 1;
-
     private string? _fromDateText;
     private string? _toDateText;
     private string? _actorUsername;
@@ -327,182 +235,144 @@
     private string? _actionFilterValue;
     private string? _entityFilterValue;
     private string? _outcomeFilterValue;
-    private AuditTextSearchField _textSearchField = AuditTextSearchField.Details;
+    private AuditTextSearchField _textSearchField;
     private string? _textSearchValue;
-
-    private IEnumerable<AuditLogView> PagedRows
-        => _rows.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
-
-    private int TotalPages
-        => Math.Max(1, (int)Math.Ceiling(_rows.Count / (double)_pageSize));
+    private bool HasQueryFilters => new[] { From, To, Actor, Project, Action, Entity, Outcome, Field }.Any(value => !string.IsNullOrWhiteSpace(value));
+    private IEnumerable<AuditLogView> PagedRows => _rows.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(_rows.Count / (double)_pageSize));
+    private string ResultRangeLabel => _rows.Count <= _pageSize ? $"{_rows.Count} {(_rows.Count == 1 ? "event" : "events")}" : $"{(_currentPage - 1) * _pageSize + 1}–{Math.Min(_currentPage * _pageSize, _rows.Count)} of {_rows.Count} events";
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await JournalApp.HasCurrentUserAsync())
-        {
-            Navigation.NavigateTo("/", forceLoad: false);
-            return;
-        }
-
+        if (!await JournalApp.HasCurrentUserAsync()) { Navigation.NavigateTo("/"); return; }
         _projects = JournalApp.GetProjects().ToList();
-        ApplyFilters();
+        _ready = true;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!_ready) return;
+        _fromDateText = From; _toDateText = To; _actorUsername = Actor; _projectFilterValue = Project;
+        _actionFilterValue = Action; _entityFilterValue = Entity; _outcomeFilterValue = Outcome;
+        _textSearchValue = Query;
+        _textSearchField = Enum.TryParse<AuditTextSearchField>(Field, out var field) && Enum.IsDefined(field) ? field : AuditTextSearchField.Details;
+        _hasSearched = Browse || HasQueryFilters || !string.IsNullOrWhiteSpace(Query);
+        _pageSize = Size is { } size && _pageSizeOptions.Contains(size) ? size : 20;
+        _currentPage = Math.Max(1, Page ?? 1);
+        _activeFilters.Clear();
+        AddFilter("q", string.IsNullOrWhiteSpace(Query) ? null : $"{GetTextSearchFieldLabel(_textSearchField)}: {Query}");
+        AddFilter("from", string.IsNullOrWhiteSpace(From) ? null : $"From: {From}");
+        AddFilter("to", string.IsNullOrWhiteSpace(To) ? null : $"To: {To}");
+        AddFilter("user", string.IsNullOrWhiteSpace(Actor) ? null : $"User: {Actor}");
+        AddFilter("project", string.IsNullOrWhiteSpace(Project) ? null : $"Project: {_projects.FirstOrDefault(p => p.ProjectId.ToString() == Project)?.Name ?? Project}");
+        AddFilter("action", string.IsNullOrWhiteSpace(Action) ? null : $"Action: {Humanize(Action)}");
+        AddFilter("entity", string.IsNullOrWhiteSpace(Entity) ? null : $"Type: {Humanize(Entity)}");
+        AddFilter("outcome", string.IsNullOrWhiteSpace(Outcome) ? null : $"Outcome: {Outcome}");
+        _error = null;
+        _checksumValidationResults.Clear();
+        _searchFailed = false;
+        if (!_hasSearched) { _rows.Clear(); return; }
+        SearchActivity();
+        _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+    }
+
+    private void AddFilter(string key, string? label) { if (label is not null) _activeFilters.Add((key, label)); }
+
+    private bool DatesAreValid()
+    {
+        if ((!string.IsNullOrWhiteSpace(_fromDateText) && ParseFromDate(_fromDateText) is null) || (!string.IsNullOrWhiteSpace(_toDateText) && ParseFromDate(_toDateText) is null))
+        { _error = "Choose valid start and end dates."; return false; }
+        if (ParseFromDate(_fromDateText) is { } from && ParseToDate(_toDateText) is { } to && from > to)
+        { _error = "Choose an end date on or after the start date."; return false; }
+        return true;
+    }
+
+    private bool FiltersAreValid(bool validateFieldQuery = false)
+    {
+        string? invalid = null;
+        if (!string.IsNullOrWhiteSpace(_projectFilterValue) && !Guid.TryParse(_projectFilterValue, out _)) invalid = "project";
+        else if (!ValidEnumFilter<AuditActionType>(_actionFilterValue)) invalid = "action";
+        else if (!ValidEnumFilter<AuditEntityType>(_entityFilterValue)) invalid = "record type";
+        else if (!ValidEnumFilter<AuditOutcome>(_outcomeFilterValue)) invalid = "outcome";
+        else if (validateFieldQuery && !ValidEnumFilter<AuditTextSearchField>(Field)) invalid = "text field";
+        if (invalid is null) return true;
+        _error = $"Choose a valid {invalid} filter, or clear the filters to start again.";
+        return false;
+    }
+
+    private static bool ValidEnumFilter<T>(string? value) where T : struct, Enum
+        => string.IsNullOrWhiteSpace(value) || (Enum.TryParse<T>(value, out var parsed) && Enum.IsDefined(parsed));
+
+    private void SearchActivity()
+    {
+        if (!DatesAreValid() || !FiltersAreValid(validateFieldQuery: true)) { _rows.Clear(); _searchFailed = true; return; }
+        try
+        {
+            var filter = new AuditSearchFilter
+            {
+                FromUtc = ParseFromDate(_fromDateText), ToUtc = ParseToDate(_toDateText), ActorUsername = _actorUsername,
+                ProjectId = Guid.TryParse(_projectFilterValue, out var projectId) ? projectId : null,
+                Action = Enum.TryParse<AuditActionType>(_actionFilterValue, out var action) && Enum.IsDefined(action) ? action : null,
+                EntityType = Enum.TryParse<AuditEntityType>(_entityFilterValue, out var entity) && Enum.IsDefined(entity) ? entity : null,
+                Outcome = Enum.TryParse<AuditOutcome>(_outcomeFilterValue, out var outcome) && Enum.IsDefined(outcome) ? outcome : null
+            };
+            _rows = JournalApp.SearchAuditLogs(filter).Where(MatchesSelectedTextSearch).ToList();
+        }
+        catch (Exception ex) { _rows.Clear(); _searchFailed = true; _error = ex.Message; }
     }
 
     private void ApplyFilters()
     {
         _error = null;
-
-        try
+        if (!DatesAreValid() || !FiltersAreValid()) return;
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
         {
-            if (ParseFromDate(_fromDateText) is { } from && ParseToDate(_toDateText) is { } to && from > to)
-            {
-                _error = "Choose an end date on or after the start date. Results below are from your previous search.";
-                return;
-            }
-
-            var filter = new AuditSearchFilter
-            {
-                FromUtc = ParseFromDate(_fromDateText),
-                ToUtc = ParseToDate(_toDateText),
-                ActorUsername = _actorUsername,
-                ProjectId = Guid.TryParse(_projectFilterValue, out var projectId) ? projectId : null,
-                Action = Enum.TryParse<AuditActionType>(_actionFilterValue, out var action) ? action : null,
-                EntityType = Enum.TryParse<AuditEntityType>(_entityFilterValue, out var entityType) ? entityType : null,
-                Outcome = Enum.TryParse<AuditOutcome>(_outcomeFilterValue, out var outcome) ? outcome : null
-            };
-
-            _rows = JournalApp.SearchAuditLogs(filter)
-                .Where(MatchesSelectedTextSearch)
-                .ToList();
-            _checksumValidationResults.Clear();
-            _currentPage = 1;
-        }
-        catch (Exception ex)
-        {
-            _rows = new List<AuditLogView>();
-            _checksumValidationResults.Clear();
-            _error = ex.Message;
-            _currentPage = 1;
-        }
+            ["browse"] = true, ["q"] = EmptyToNull(_textSearchValue), ["from"] = EmptyToNull(_fromDateText), ["to"] = EmptyToNull(_toDateText),
+            ["user"] = EmptyToNull(_actorUsername), ["project"] = EmptyToNull(_projectFilterValue), ["action"] = EmptyToNull(_actionFilterValue),
+            ["entity"] = EmptyToNull(_entityFilterValue), ["outcome"] = EmptyToNull(_outcomeFilterValue),
+            ["field"] = _textSearchField == AuditTextSearchField.Details ? null : _textSearchField.ToString(), ["page"] = null
+        }));
     }
 
-    private void ClearFilters()
-    {
-        _fromDateText = null;
-        _toDateText = null;
-        _actorUsername = null;
-        _projectFilterValue = null;
-        _actionFilterValue = null;
-        _entityFilterValue = null;
-        _outcomeFilterValue = null;
-        _textSearchField = AuditTextSearchField.Details;
-        _textSearchValue = null;
-        _currentPage = 1;
-        ApplyFilters();
-    }
-
-    private static DateTime? ParseFromDate(string? value)
-    {
-        if (!DateTime.TryParse(value, out var parsed))
-        {
-            return null;
-        }
-
-        return DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
-    }
-
-    private static DateTime? ParseToDate(string? value)
-    {
-        if (!DateTime.TryParse(value, out var parsed))
-        {
-            return null;
-        }
-
-        var endOfDay = parsed.Date == DateTime.MaxValue.Date
-            ? DateTime.MaxValue
-            : parsed.Date.AddDays(1).AddTicks(-1);
-        return DateTime.SpecifyKind(endOfDay, DateTimeKind.Utc);
-    }
-
-    private void OnFromDateChanged(ChangeEventArgs args)
-    {
-        _fromDateText = args.Value?.ToString();
-    }
-
-    private void OnToDateChanged(ChangeEventArgs args)
-    {
-        _toDateText = args.Value?.ToString();
-    }
-
+    private void ClearFilters() => Navigation.NavigateTo("/audit?browse=true");
+    private void RemoveFilter(string key) => Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { [key] = null, ["page"] = null, ["browse"] = true }));
+    private void PreviousPage() { if (_currentPage > 1) NavigatePage(_currentPage - 1); }
+    private void NextPage() { if (_currentPage < TotalPages) NavigatePage(_currentPage + 1); }
+    private void NavigatePage(int page) => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("page", page == 1 ? (int?)null : page));
     private void OnPageSizeChanged(ChangeEventArgs args)
     {
-        if (int.TryParse(args.Value?.ToString(), out var next) && _pageSizeOptions.Contains(next))
-        {
-            _pageSize = next;
-            _currentPage = 1;
-        }
-    }
-
-    private void PreviousPage()
-    {
-        if (_currentPage > 1)
-        {
-            _currentPage--;
-        }
-    }
-
-    private void NextPage()
-    {
-        if (_currentPage < TotalPages)
-        {
-            _currentPage++;
-        }
+        if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size))
+            Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["size"] = size == 20 ? null : size, ["page"] = null }));
     }
 
     private void ValidateChecksum(Guid auditId)
     {
         _error = null;
-
-        try
-        {
-            _checksumValidationResults[auditId] = JournalApp.ValidateAuditLogChecksum(auditId);
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
+        try { _checksumValidationResults[auditId] = JournalApp.ValidateAuditLogChecksum(auditId); }
+        catch (Exception ex) { _error = ex.Message; }
     }
 
     private bool MatchesSelectedTextSearch(AuditLogView row)
     {
         var needle = _textSearchValue?.Trim();
-        if (string.IsNullOrWhiteSpace(needle))
-        {
-            return true;
-        }
-
+        if (string.IsNullOrWhiteSpace(needle)) return true;
         var haystack = _textSearchField switch
         {
-            AuditTextSearchField.Details => row.Details,
-            AuditTextSearchField.ActorUsername => row.ActorUsername,
-            AuditTextSearchField.EntityId => row.EntityId ?? string.Empty,
-            AuditTextSearchField.ProjectCode => row.ProjectCode ?? string.Empty,
-            AuditTextSearchField.Action => row.Action.ToString(),
-            AuditTextSearchField.EntityType => row.EntityType.ToString(),
-            AuditTextSearchField.Outcome => row.Outcome.ToString(),
-            _ => row.Details
+            AuditTextSearchField.ActorUsername => row.ActorUsername, AuditTextSearchField.EntityId => row.EntityId ?? string.Empty,
+            AuditTextSearchField.ProjectCode => row.ProjectCode ?? string.Empty, AuditTextSearchField.Action => row.Action.ToString(),
+            AuditTextSearchField.EntityType => row.EntityType.ToString(), AuditTextSearchField.Outcome => row.Outcome.ToString(), _ => row.Details
         };
-
         return haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetTextSearchFieldLabel(AuditTextSearchField field)
-        => field switch
-        {
-            AuditTextSearchField.ActorUsername => "Actor Username",
-            AuditTextSearchField.EntityId => "Entity Id",
-            AuditTextSearchField.ProjectCode => "Project Code",
-            AuditTextSearchField.EntityType => "Entity Type",
-            _ => field.ToString()
-        };
+    private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static DateTime? ParseFromDate(string? value) => DateTime.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date) ? DateTime.SpecifyKind(date.Date, DateTimeKind.Utc) : null;
+    private static DateTime? ParseToDate(string? value)
+    {
+        if (ParseFromDate(value) is not { } date) return null;
+        return date.Date == DateTime.MaxValue.Date ? DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc) : date.AddDays(1).AddTicks(-1);
+    }
+    private static string GetTextSearchFieldLabel(AuditTextSearchField field) => field switch { AuditTextSearchField.ActorUsername => "Username", AuditTextSearchField.EntityId => "Record ID", AuditTextSearchField.ProjectCode => "Project code", AuditTextSearchField.EntityType => "Record type", _ => field.ToString() };
+    private static string Humanize(string value) => System.Text.RegularExpressions.Regex.Replace(value, "(?<=[a-z])([A-Z])", " $1");
+    private static string OutcomeStatusClass(AuditOutcome outcome) => outcome switch { AuditOutcome.Success => "sk-status--success", AuditOutcome.Denied => "sk-status--danger", _ => "sk-status--warning" };
 }

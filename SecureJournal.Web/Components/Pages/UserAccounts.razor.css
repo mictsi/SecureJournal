@@ -71,6 +71,7 @@
 }
 
 .user-section-actions {
+    margin-block-start: var(--sk-space-24);
     display: flex;
     flex-wrap: wrap;
     gap: var(--sk-space-8);

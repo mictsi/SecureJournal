@@ -1,4 +1,5 @@
 @page "/exports"
+@implements IDisposable
 @attribute [Authorize(Roles = "Administrator,Auditor")]
 @inject ISecureJournalAppService JournalApp
 @inject IJSRuntime JS
@@ -6,12 +7,12 @@
 
 <PageTitle>Exports</PageTitle>
 
+<div class="export-page">
 <PageHeader Title="Exports"
-            Description="Choose the records you need, review the scope, then download a copy." />
+            Description="Choose your records and files, review the scope, then download a copy." />
 
 <PageAlerts Message="@_message" Error="@_error" />
 
-<div class="export-layout">
 <section class="panel-card export-main" aria-busy="@(_isGenerating ? "true" : "false")">
         <div class="panel-card-header">
             <div>
@@ -34,13 +35,14 @@
             {
                 <dl class="export-summary">
                     <dt>Records</dt><dd>@DatasetLabel</dd>
-                    <dt>File format</dt><dd>@_selectedFormat</dd>
+                    <dt>Download format</dt><dd>@DownloadFormatLabel</dd>
                     <dt>Project scope</dt><dd>@ProjectScopeLabel</dd>
                     <dt>From (UTC)</dt><dd>@(_fromDateText ?? "Beginning of records")</dd>
                     <dt>To (UTC)</dt><dd>@(_toDateText ?? "Latest record")</dd>
                     @if (_selectedDataset == ExportDatasetKind.JournalEntries)
                     {
                         <dt>Deleted entries</dt><dd>@(_includeSoftDeleted ? "Included" : "Excluded")</dd>
+                        <dt>Attached files</dt><dd>@(_includeAttachments ? "Included, organized by entry in a ZIP archive" : "Not included")</dd>
                     }
                     else
                     {
@@ -51,7 +53,7 @@
                     }
                 </dl>
                 <div class="export-notice">
-                    <strong>This download contains readable, unencrypted records.</strong>
+                    <strong>This download contains readable, unencrypted records@(_selectedDataset == ExportDatasetKind.JournalEntries && _includeAttachments ? " and files" : "").</strong>
                     <p>Keep it in an approved location and share it only with people authorized to view these records. Access controls in Secure Journal do not protect downloaded files.</p>
                 </div>
                 <div class="sk-cluster sj-form-actions">
@@ -127,6 +129,17 @@
 
                     @if (_selectedDataset == ExportDatasetKind.JournalEntries)
                     {
+                        <div class="export-full-width export-file-choice">
+                            <label class="sk-checkbox">
+                                <input id="includeAttachments" class="sk-checkbox__input" type="checkbox" @bind="_includeAttachments" />
+                                <span class="sk-checkbox__box" aria-hidden="true"></span>
+                                <span class="sk-checkbox__content">
+                                    <span class="sk-checkbox__label">Include attached files</span>
+                                    <span class="sk-checkbox__description">Download a ZIP with the @(_selectedFormat == ExportFormat.Csv ? "CSV" : "JSON") records, each entry's files, and a file manifest.</span>
+                                </span>
+                            </label>
+                            <p class="sk-field__hint">Only files belonging to the selected records are included. For larger collections, export one project or date range at a time.</p>
+                        </div>
                         <div class="export-full-width">
                             <label class="sk-checkbox">
                                     <input id="includeSoftDeleted" class="sk-checkbox__input" type="checkbox" @bind="_includeSoftDeleted" />
@@ -196,21 +209,18 @@
             }
         }
 </section>
-<aside class="panel-card export-guide" aria-label="Export guidance">
-    <h2>Before you export</h2>
+<details class="export-guide">
+    <summary>Help choosing an export</summary>
     <ol>
         <li><strong>Keep the scope focused.</strong><span>Select a project and date range for the records you need.</span></li>
-        <li><strong>Choose a useful format.</strong><span>CSV works with spreadsheets. JSON preserves the record structure for other tools.</span></li>
+        <li><strong>Choose a useful format.</strong><span>CSV works with spreadsheets. JSON preserves the record structure. Including files packages everything into a ZIP, with a manifest linking files to entries.</span></li>
         <li><strong>Check before downloading.</strong><span>Review the scope and how you will store the file.</span></li>
     </ol>
-    @if (_exportResult is not null)
-    {
-        <div class="export-last-file" role="status">
-            <strong>Last prepared file</strong>
-            <p>@_exportResult.FileName</p>
-        </div>
-    }
-</aside>
+</details>
+@if (_exportResult is not null)
+{
+    <div class="export-last-file" role="status"><strong>Last prepared file</strong><p>@_exportResult.FileName</p></div>
+}
 </div>
 
 @code {
@@ -241,6 +251,7 @@
     private string? _fromDateText;
     private string? _toDateText;
     private bool _includeSoftDeleted;
+    private bool _includeAttachments = true;
 
     private string? _auditActorUsername;
     private string? _auditActionValue;
@@ -248,12 +259,15 @@
     private string? _auditOutcomeValue;
 
     private ExportFileResult? _exportResult;
+    private ExportDatasetKind? _exportDataset;
     private string? _error;
     private string? _message;
     private bool _isReviewing;
     private bool _isGenerating;
 
     private string DatasetLabel => _selectedDataset == ExportDatasetKind.JournalEntries ? "Journal entries" : "Audit events";
+    private string DownloadFormatLabel => _selectedDataset == ExportDatasetKind.JournalEntries && _includeAttachments
+        ? $"ZIP archive with {_selectedFormat} records and files" : _selectedFormat.ToString();
     private string ProjectScopeLabel => _projectExportScope == ProjectExportScope.AllProjects
         ? "All projects"
         : _projects.FirstOrDefault(candidate => candidate.ProjectId == SelectedProjectIdForExport()) is { } project
@@ -295,7 +309,7 @@
             return;
         }
 
-        _exportResult = null;
+        ClearPreparedExport();
         _isReviewing = true;
     }
 
@@ -332,11 +346,13 @@
 
         try
         {
+            _exportDataset = _selectedDataset;
             _exportResult = _selectedDataset switch
             {
                 ExportDatasetKind.JournalEntries => JournalApp.ExportJournalEntries(new JournalExportRequest
                 {
                     Format = _selectedFormat,
+                    IncludeAttachments = _includeAttachments,
                     Filter = new JournalExportFilter
                     {
                         ProjectId = SelectedProjectIdForExport(),
@@ -368,7 +384,7 @@
         }
         catch (Exception ex)
         {
-            _exportResult = null;
+            ClearPreparedExport();
             _error = ex.Message;
         }
         finally
@@ -387,6 +403,10 @@
             await DownloadExport();
             _message = "Download started. Check your browser's downloads.";
         }
+        catch (UnauthorizedAccessException)
+        {
+            _error = "Your export access has changed. Sign in with an authorized account to prepare a new export.";
+        }
         catch (Exception)
         {
             _error = "The download could not start. Try downloading the file again.";
@@ -404,11 +424,33 @@
             return;
         }
 
-        await JS.InvokeVoidAsync(
-            "secureJournalDownloads.downloadText",
-            _exportResult.FileName,
-            _exportResult.ContentType,
-            _exportResult.ContentText);
+        try
+        {
+            _currentUser = await JournalApp.GetCurrentUserAsync();
+            var allowed = _exportDataset switch
+            {
+                ExportDatasetKind.JournalEntries => CanExportJournal,
+                ExportDatasetKind.AuditLogs => CanExportAudit,
+                _ => false
+            };
+            if (!allowed) throw new UnauthorizedAccessException("You no longer have access to this export.");
+        }
+        catch
+        {
+            ClearPreparedExport();
+            throw;
+        }
+
+        if (_exportResult.ContentBytes is { } bytes)
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            using var reference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("secureJournalDownloads.downloadStream", _exportResult.FileName, _exportResult.ContentType, reference);
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("secureJournalDownloads.downloadText", _exportResult.FileName, _exportResult.ContentType, _exportResult.ContentText);
+        }
     }
 
     private void ClearFilters()
@@ -419,15 +461,26 @@
         _fromDateText = null;
         _toDateText = null;
         _includeSoftDeleted = false;
+        _includeAttachments = true;
         _auditActorUsername = null;
         _auditActionValue = null;
         _auditEntityValue = null;
         _auditOutcomeValue = null;
         _error = null;
         _message = null;
-        _exportResult = null;
+        ClearPreparedExport();
         _isReviewing = false;
     }
+
+    private void ClearPreparedExport()
+    {
+        if (_exportResult?.ContentBytes is { } bytes)
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(bytes);
+        _exportResult = null;
+        _exportDataset = null;
+    }
+
+    public void Dispose() => ClearPreparedExport();
 
     private void OnFromDateChanged(ChangeEventArgs args) => _fromDateText = EmptyToNull(args.Value?.ToString());
 

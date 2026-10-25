@@ -5,6 +5,8 @@ namespace SecureJournal.Core.Application;
 
 public sealed class CreateJournalEntryRequest
 {
+    public IReadOnlyList<JournalAttachmentUpload> Attachments { get; set; } = Array.Empty<JournalAttachmentUpload>();
+
     public Guid ProjectId { get; set; }
 
     [Required]

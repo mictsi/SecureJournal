@@ -1,0 +1,11 @@
+.attachment-picker { min-inline-size: 0; }
+.attachment-picker:focus-within .sk-upload__zone { outline: 2px solid var(--sk-color-border-brand); outline-offset: 3px; }
+.attachment-files { margin: 0; padding: 0; list-style: none; }
+.attachment-file { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-12); }
+.attachment-file-copy { flex: 1 1 15rem; min-inline-size: 0; display: flex; flex-direction: column; gap: var(--sk-space-4); overflow-wrap: anywhere; }
+.attachment-file-copy span, .attachment-status { color: var(--sk-color-text-secondary); font-size: var(--sk-font-size-body-sm); }
+.attachment-file-actions { display: flex; flex-wrap: wrap; gap: var(--sk-space-8); }
+.attachment-file .sk-button { flex: 0 0 auto; }
+.attachment-file progress { inline-size: 100%; accent-color: var(--sk-color-border-brand); }
+.attachment-error, .attachment-file-copy .attachment-error { color: var(--sk-color-status-danger-text); }
+.attachment-status { margin: 0; }

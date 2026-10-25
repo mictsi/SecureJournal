@@ -8,7 +8,7 @@
 <PageTitle>Project Management</PageTitle>
 
 <PageHeader Title="Project management"
-            Description="Manage project metadata, group access and project status from one workspace.">
+            Description="Find a project, then manage its details, access, or availability.">
     <Actions>
         <NavLink class="sk-button sk-button--primary" href="/admin/projects/create">
             <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>
@@ -20,171 +20,92 @@
 <PageAlerts Message="@_message" Error="@_error" />
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
 
-@if (_currentUser is null)
+@if (_currentUser is null){<p role="status">Loading project management…</p>}
+else if (_currentUser.Role != AppRole.Administrator){<p role="alert">Administrator access is required.</p>}
+else if (!HasRequestedRecord)
 {
-    <p>Loading current user...</p>
-}
-else if (_currentUser.Role != AppRole.Administrator)
-{
-    <div class="sk-alert sk-alert--warning" role="alert">
-    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
-    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
-    </div>
+<section class="sj-directory management-directory" aria-label="Find projects">
+    <form class="panel-card management-search" role="search" @onsubmit="SearchDirectory" @onsubmit:preventDefault>
+        <div class="sk-field-row sj-directory-toolbar">
+            <div class="sk-field management-search-field">
+                <label class="sk-field__label" for="projectSearch">Search projects</label>
+                <div class="sk-field__control"><input id="projectSearch" class="sk-input" type="search" @bind="_searchDraft" @bind:event="oninput" placeholder="Project name, code, or owner" /></div>
+            </div>
+            <div class="sk-field-row__actions"><div class="sk-field-row__action-group">
+                <button type="submit" class="sk-button sk-button--primary">Search</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ShowAllDirectory">Show all projects</button>
+            </div></div>
+        </div>
+    </form>
+    @if (!_showResults)
+    {
+        <div class="management-start">
+            <h2>Find a project to get started</h2>
+            <p>Search for a specific project, or choose <strong>Show all projects</strong> to browse. Open a result to manage its details.</p>
+        </div>
+    }
+    else
+    {
+        <div class="management-results-toolbar">
+            <p role="status" aria-live="polite">@_projectPage.TotalCount @(_projectPage.TotalCount == 1 ? "project" : "projects") found</p>
+            <div class="management-sort">
+                <label for="projectSort">Sort by</label>
+                <div class="sk-select-wrapper"><select id="projectSort" class="sk-select" @onchange="OnDirectorySortChanged"><option value="name" selected="@(_projectQuery.SortField == "name")">Name</option>
+<option value="code" selected="@(_projectQuery.SortField == "code")">Code</option>
+<option value="projectOwner" selected="@(_projectQuery.SortField == "projectOwner")">Owner</option></select></div>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ToggleDirectorySortDirection" aria-label="@(_projectQuery.SortDirection == SortDirection.Asc ? "Sort descending" : "Sort ascending")">@(_projectQuery.SortDirection == SortDirection.Asc ? "A–Z" : "Z–A")</button>
+            </div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_projectQuery.FilterText))
+        {
+            <div class="management-active-filter"><span>Search: <strong>@_projectQuery.FilterText</strong></span><button type="button" class="sk-button sk-button--ghost" @onclick="ShowAllDirectory" aria-label="Clear search filter">Clear search</button></div>
+        }
+        @if (_projectPage.TotalCount == 0)
+        {
+            <section class="panel-card management-empty"><h2>No projects found</h2><p>@(string.IsNullOrWhiteSpace(_projectQuery.FilterText) ? "Create a project to start building your directory." : $"Nothing matched ‘{_projectQuery.FilterText}’. Try another search or clear the filter.")</p></section>
+        }
+        else
+        {
+            <div class="sj-directory-results" aria-label="Projects results">
+                @foreach (var project in _projectPage.Items)
+                {
+                    <a class="sj-result-card project-directory-item" href="@DirectoryUrl(project.ProjectId)">
+                        <span class="management-result-copy"><span class="management-result-kicker">@project.Code</span><strong>@project.Name</strong><span>Owner: @RenderValueOrDash(project.ProjectOwner)</span></span><span class="management-result-meta"><span>@project.AssignedGroups.Count @(project.AssignedGroups.Count == 1 ? "group" : "groups")</span><span class="sk-badge @(project.IsDisabled ? "sk-badge--warning" : "sk-badge--success")">@(project.IsDisabled ? "Disabled" : "Enabled")</span></span>
+                        <span class="management-open">Open project<span aria-hidden="true"> →</span></span>
+                    </a>
+                }
+            </div>
+            <nav class="management-pagination" aria-label="Projects pages">
+                <p>Page @_projectPage.Page of @_projectPage.TotalPages · @VisibleProjectRangeLabel()</p>
+                <div class="management-pagination-actions">
+                    <div class="management-page-size"><label for="projectPageSize">Per page</label><div class="sk-select-wrapper"><select id="projectPageSize" class="sk-select" @onchange="OnDirectoryPageSizeChanged">@foreach (var size in _pageSizeOptions){<option value="@size" selected="@(size == _projectQuery.PageSize)">@size</option>}</select></div></div>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="PreviousDirectoryPage" disabled="@(_projectPage.Page <= 1)">Previous</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="NextDirectoryPage" disabled="@(_projectPage.Page >= _projectPage.TotalPages)">Next</button>
+                </div>
+            </nav>
+        }
+    }
+</section>
 }
 else
 {
-    <div class="project-management-shell">
-        <aside class="panel-card project-directory-card">
-            <div class="project-directory-header">
-                <div>
-                    <h3>Projects</h3>
-                    <p class="project-directory-copy">Manage project details and access rules</p>
-                </div>
-                <span class="project-directory-total">@_projectPage.TotalCount total</span>
-            </div>
-
-            <div class="project-directory-toolbar">
-                <label class="sk-visually-hidden" for="projectSearch">Search projects</label>
-                <input id="projectSearch"
-                       class="sk-input"
-                       type="text"
-                       value="@_projectQuery.FilterText"
-                       @oninput="OnProjectSearchChanged"
-                       placeholder="Search projects..." />
-
-                <div class="project-directory-sort">
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeProjectSortAsync("code"))">
-                        Code @SortGlyph("code", _projectQuery.SortField, _projectQuery.SortDirection)
-                    </button>
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeProjectSortAsync("name"))">
-                        Name @SortGlyph("name", _projectQuery.SortField, _projectQuery.SortDirection)
-                    </button>
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeProjectSortAsync("projectOwner"))">
-                        Owner @SortGlyph("projectOwner", _projectQuery.SortField, _projectQuery.SortDirection)
-                    </button>
-                </div>
-            </div>
-
-            @if (_projectPage.TotalCount == 0)
-            {
-                <div class="project-directory-empty">
-                    <p>@(string.IsNullOrWhiteSpace(_projectQuery.FilterText) ? "No projects created yet." : "No projects match this search. Try a different name or code.")</p>
-                </div>
-            }
-            else
-            {
-                <div class="project-directory-list">
-                    @foreach (var project in _projectPage.Items)
-                    {
-                        <button type="button"
-                                class="project-directory-item @(project.ProjectId == _selectedProjectId ? "is-active" : string.Empty)"
-                                aria-pressed="@(project.ProjectId == _selectedProjectId ? "true" : "false")"
-                                @onclick="() => SelectProjectAsync(project.ProjectId)">
-                            <span class="project-avatar" aria-hidden="true">@ProjectInitial(project)</span>
-                            <span class="project-directory-item-body">
-                                <span class="project-directory-name">@project.Code</span>
-                                <span class="project-directory-subtitle">@project.Name</span>
-                                <span class="project-chip-list">
-                                    <span class="project-chip">@project.AssignedGroups.Count group(s)</span>
-                                    <span class="project-status-badge @(project.IsDisabled ? "is-disabled" : "is-active")">
-                                        @(project.IsDisabled ? "Disabled" : "Enabled")
-                                    </span>
-                                </span>
-                            </span>
-                        </button>
-                    }
-                </div>
-
-                <div class="project-directory-footer">
-                    <div class="project-directory-footer-row">
-                        <span>Page @_projectPage.Page of @_projectPage.TotalPages</span>
-                        <div class="sk-cluster">
-                            <button type="button"
-                                    class="sk-button sk-button--secondary sk-button--sm"
-                                    @onclick="GoToPreviousProjectPageAsync"
-                                    disabled="@(_projectPage.Page <= 1)">
-                                Previous
-                            </button>
-                            <button type="button"
-                                    class="sk-button sk-button--secondary sk-button--sm"
-                                    @onclick="GoToNextProjectPageAsync"
-                                    disabled="@(_projectPage.Page >= _projectPage.TotalPages)">
-                                Next
-                            </button>
-                        </div>
-                    </div>
-                    <div class="project-directory-footer-row">
-                        <span>@VisibleProjectRangeLabel()</span>
-                        <div class="project-page-size">
-                            <label class="project-page-size-label" for="projectPageSize">Page size</label>
-                            <div class="sk-select-wrapper">
-                                <select id="projectPageSize"
-                                    class="sk-select sk-select--sm project-page-size-select"
-                                    @onchange="OnProjectPageSizeChanged">
-                                @foreach (var option in _pageSizeOptions)
-                                {
-                                    <option value="@option" selected="@(option == _projectQuery.PageSize)">@option</option>
-                                }
-                            </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        </aside>
-
-        <div class="project-detail-column">
-            @if (SelectedProject is null)
-            {
-                <section class="panel-card project-empty-card">
-                    <h3>Select a project</h3>
-                    <p>Choose a project from the directory to review metadata, edit details, manage group access, or update status.</p>
-                </section>
-            }
-            else
-            {
-                <section class="panel-card project-profile-card">
-                    <div class="project-profile-summary">
-                        <span class="project-avatar project-avatar-large" aria-hidden="true">@ProjectInitial(SelectedProject)</span>
-                        <div class="project-profile-copy">
-                            <div class="project-profile-heading">
-                                <h3>@SelectedProject.Code</h3>
-                                <span class="project-status-badge @(SelectedProject.IsDisabled ? "is-disabled" : "is-active")">
-                                    @(SelectedProject.IsDisabled ? "Disabled" : "Enabled")
-                                </span>
-                            </div>
-                            <p class="project-profile-subtitle">@SelectedProject.Name</p>
-                            <p class="project-profile-description">@ProjectDescriptionOrFallback(SelectedProject)</p>
-                            <div class="project-profile-meta">
-                                <span>Owner: @RenderValueOrDash(SelectedProject.ProjectOwner)</span>
-                                <span>Department: @RenderValueOrDash(SelectedProject.Department)</span>
-                                <span>@SelectedProject.AssignedGroups.Count group(s)</span>
-                            </div>
-                            <div class="project-chip-list">
-                                @if (SelectedProject.AssignedGroups.Count == 0)
-                                {
-                                    <span class="project-chip is-empty">No groups assigned</span>
-                                }
-                                else
-                                {
-                                    @foreach (var groupName in SelectedProject.AssignedGroups.Take(6))
-                                    {
-                                        <span class="project-chip">@groupName</span>
-                                    }
-                                    @if (SelectedProject.AssignedGroups.Count > 6)
-                                    {
-                                        <span class="project-chip">+@(SelectedProject.AssignedGroups.Count - 6) more</span>
-                                    }
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="panel-card project-metadata-card">
+ <div class="sj-workspace project-workspace">
+  <nav class="sj-workspace-nav" aria-label="Project navigation"><a class="sk-link sj-workspace-back" href="@DirectoryUrl()">← Back to project results</a></nav>
+  @if (SelectedProject is null){<section class="panel-card management-empty"><h2>Project unavailable</h2><p>This project may have been removed or moved to trash. Return to your results to choose another project.</p></section>}
+  else
+  {
+   <section class="panel-card sj-workspace-header management-identity"><div><p class="management-result-kicker">@SelectedProject.Code</p><h2>@SelectedProject.Name</h2><p>Owner: @RenderValueOrDash(SelectedProject.ProjectOwner) · @SelectedProject.AssignedGroups.Count @(SelectedProject.AssignedGroups.Count == 1 ? "group" : "groups")</p></div><div class="management-identity-actions"><span class="sk-badge @(SelectedProject.IsDisabled ? "sk-badge--warning" : "sk-badge--success")">@(SelectedProject.IsDisabled ? "Disabled" : "Enabled")</span><a class="sk-button sk-button--secondary" href="@($"/projects?projectId={SelectedProject.ProjectId:D}")">Open journal</a></div></section>
+   <nav class="management-sections" aria-label="Project settings">
+    <button type="button" class="sk-button @(_activeSection == "details" ? "sk-button--primary" : "sk-button--secondary")" @onclick='() => _activeSection = "details"' aria-pressed="@(_activeSection == "details")">Details @if (MetadataDirty){<span aria-label="Unsaved details">•</span>}</button>
+    <button type="button" class="sk-button @(_activeSection == "access" ? "sk-button--primary" : "sk-button--secondary")" @onclick='() => _activeSection = "access"' aria-pressed="@(_activeSection == "access")">Group access @if (_isDirty){<span aria-label="Unsaved access">•</span>}</button>
+    <button type="button" class="sk-button @(_activeSection == "availability" ? "sk-button--primary" : "sk-button--secondary")" @onclick='() => _activeSection = "availability"' aria-pressed="@(_activeSection == "availability")">Availability</button>
+   </nav>
+   @if (_activeSection == "details")
+   {
+<section class="panel-card project-metadata-card">
                     <div class="panel-card-header project-section-header">
                         <div>
-                            <p class="project-section-kicker">Metadata</p>
+                            <p class="project-section-kicker">Project information</p>
                             <h3>Project details</h3>
                             <p class="project-section-copy">Update descriptive metadata and owner information for this project.</p>
                         </div>
@@ -192,7 +113,7 @@ else
                         {
                             <div class="panel-card-header-actions">
                                 <button type="button" class="sk-button sk-button--secondary" @onclick="() => StartEditProject(SelectedProject.ProjectId)">
-                                    Edit Metadata
+                                    Edit details
                                 </button>
                             </div>
                         }
@@ -235,7 +156,7 @@ else
 
                             <div class="project-section-actions">
                                 <button type="submit" class="sk-button sk-button--primary" disabled="@_isSavingMetadata">
-                                    @(_isSavingMetadata ? "Saving..." : "Save Metadata")
+                                    @(_isSavingMetadata ? "Saving..." : "Save details")
                                 </button>
                                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelProjectEditAsync" disabled="@_isSavingMetadata">Cancel</button>
                             </div>
@@ -250,7 +171,7 @@ else
                             </div>
                             <div class="project-metadata-main">
                                 <span class="project-field-label">Description</span>
-                                <span class="project-field-value">@ProjectDescriptionOrFallback(SelectedProject)</span>
+                                <div class="rich-content project-field-value">@SimpleMarkupPreview.Render(ProjectDescriptionOrFallback(SelectedProject))</div>
                             </div>
                             <div>
                                 <span class="project-field-label">Project Owner</span>
@@ -271,123 +192,28 @@ else
                         </div>
                     }
                 </section>
-
-                <section class="panel-card project-groups-card">
-                    <div class="panel-card-header project-section-header">
-                        <div>
-                            <p class="project-section-kicker">Groups</p>
-                            <h3>Project group access</h3>
-                            <p class="project-section-copy">Review assigned groups and manage project access for each group.</p>
-                        </div>
-                        <div class="panel-card-header-actions">
-                            <button type="button" class="sk-button sk-button--secondary" @onclick="ToggleGroupAccessBrowser">
-                                @(_showGroupAccessBrowser ? "Close Group Browser" : "Manage Group Access")
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="project-chip-list">
-                        @if (SelectedProject.AssignedGroups.Count == 0)
-                        {
-                            <span class="project-chip is-empty">No groups assigned</span>
-                        }
-                        else
-                        {
-                            @foreach (var groupName in SelectedProject.AssignedGroups)
-                            {
-                                <span class="project-chip">@groupName</span>
-                            }
-                        }
-                    </div>
-
-                    @if (_showGroupAccessBrowser)
-                    {
-                        <div class="project-group-browser">
-                            <div class="sk-stack sk-stack--gap-16">
-                                <div class="sk-field">
-                                    <label class="sk-field__label" for="groupSearch">Filter groups</label>
-                                    <input id="groupSearch"
-                                           class="sk-input"
-                                           type="text"
-                                           value="@_groupAccessQuery.FilterText"
-                                           @oninput="OnGroupSearchChanged"
-                                           placeholder="Search by group name..." />
-                                </div>
-                                <div class="sk-field">
-                                    <label class="sk-field__label" for="groupPageSize">Page size</label>
-                                    <div class="sk-select-wrapper">
-                                        <select id="groupPageSize" class="sk-select" @onchange="OnGroupPageSizeChanged">
-                                        @foreach (var option in _pageSizeOptions)
-                                        {
-                                            <option value="@option" selected="@(option == _groupAccessQuery.PageSize)">@option</option>
-                                        }
-                                    </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @if (_groupAccessPage.TotalCount == 0)
-                            {
-                                <p class="project-group-browser-note">No groups available for the current filter.</p>
-                            }
-                            else
-                            {
-                                <div class="sk-table" role="region" aria-label="Group access" tabindex="0">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
-                                                <th class="sj-text-end"><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupAccessQuery.SortField, _groupAccessQuery.SortDirection)</button></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var group in _groupAccessPage.Items)
-                                            {
-                                                <tr>
-                                                    <td>@group.Name</td>
-                                                    <td class="sj-text-end">
-                                                        <input class="sk-checkbox__input"
-                                                               type="checkbox"
-                                                               aria-label="@($"Give {group.Name} access to {SelectedProject.Name}")"
-                                                               checked="@IsGroupAssigned(group)"
-                                                               @onchange="args => ToggleGroupLocal(group, args)" />
-                                                    </td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="pager-bar">
-                                    <span class="sj-muted">Page @_groupAccessPage.Page of @_groupAccessPage.TotalPages</span>
-                                    <div class="sk-cluster">
-                                        <button type="button"
-                                                class="sk-button sk-button--secondary sk-button--sm"
-                                                @onclick="GoToPreviousGroupPageAsync"
-                                                disabled="@(_groupAccessPage.Page <= 1)">
-                                            Previous
-                                        </button>
-                                        <button type="button"
-                                                class="sk-button sk-button--secondary sk-button--sm"
-                                                @onclick="GoToNextGroupPageAsync"
-                                                disabled="@(_groupAccessPage.Page >= _groupAccessPage.TotalPages)">
-                                            Next
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-
-                            <div class="project-section-actions">
-                                <button type="button" class="sk-button sk-button--primary" @onclick="SaveProjectGroupsAsync" disabled="@(!_isDirty || _isSaving)">
-                                    @(_isSaving ? "Saving..." : "Save Group Access")
-                                </button>
-                                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetProjectGroupEdits" disabled="@(!_isDirty || _isSaving)">Reset</button>
-                            </div>
-                        </div>
-                    }
-                </section>
-
-                <section class="panel-card project-danger-card">
+   }
+   else if (_activeSection == "access")
+   {
+<section class="panel-card management-membership">
+ <div class="management-panel-heading"><div><h2>Group access</h2><p>@SelectedProject.AssignedGroups.Count @(SelectedProject.AssignedGroups.Count == 1 ? "group" : "groups") currently assigned</p></div><button type="button" class="sk-button sk-button--secondary" @onclick="ToggleGroupAccessBrowser" aria-expanded="@_showGroupAccessBrowser" aria-controls="projectGroupBrowser">@(_showGroupAccessBrowser ? "Close access editor" : "Edit group access")</button></div>
+ <div class="management-pills">@if (SelectedProject.AssignedGroups.Count == 0){<span class="sj-muted">None assigned yet.</span>}else{@foreach(var name in SelectedProject.AssignedGroups){<span class="sk-badge sk-badge--neutral">@name</span>}}</div>
+ @if (_showGroupAccessBrowser)
+ {
+  <div id="projectGroupBrowser" class="management-membership-browser">
+   <form class="sk-field-row management-filter-row" role="search" @onsubmit="ApplyMembershipFilterAsync" @onsubmit:preventDefault><div class="sk-field"><label class="sk-field__label" for="projectGroupSearch">Filter groups</label><div class="sk-field__control"><input id="projectGroupSearch" class="sk-input" @bind="_membershipSearchDraft" @bind:event="oninput" placeholder="Filter by name" /></div></div><div class="sk-field"><label class="sk-field__label" for="projectGroupPageSize">Per page</label><div class="sk-field__control sk-select-wrapper"><select id="projectGroupPageSize" class="sk-select" @onchange="OnGroupPageSizeChanged">@foreach(var option in _pageSizeOptions){<option value="@option" selected="@(option == _groupAccessQuery.PageSize)">@option</option>}</select></div></div><div class="sk-field-row__actions"><div class="sk-field-row__action-group"><button type="submit" class="sk-button sk-button--secondary">Apply filter</button><button type="button" class="sk-button sk-button--ghost" @onclick="ClearMembershipFilterAsync">Clear filter</button></div></div></form>
+   <p role="status" aria-live="polite">@_groupAccessPage.TotalCount available @(_groupAccessPage.TotalCount == 1 ? "choice" : "choices"). Select changes, then save.</p>
+   @if (_groupAccessPage.TotalCount == 0){<p>No matches. Try another name or remove the filter.</p>}
+   <div class="management-membership-list">@foreach(var group in _groupAccessPage.Items){<label class="management-membership-choice"><input type="checkbox" aria-label="@($"Give {group.Name} access to {SelectedProject.Name}")" checked="@IsGroupAssigned(group)" @onchange="args => ToggleGroupLocal(group, args)" disabled="@_isSaving" /><span><strong>@group.Name</strong><span>@PlainDescription(group.Description)</span></span><span class="management-choice-state">@(IsGroupAssigned(group) ? "Assigned" : "Not assigned")</span></label>}</div>
+   <nav class="management-pagination" aria-label="Group access pages"><span>Page @_groupAccessPage.Page of @_groupAccessPage.TotalPages</span><div class="management-pagination-actions"><button type="button" class="sk-button sk-button--secondary" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupAccessPage.Page <= 1)">Previous</button><button type="button" class="sk-button sk-button--secondary" @onclick="GoToNextGroupPageAsync" disabled="@(_groupAccessPage.Page >= _groupAccessPage.TotalPages)">Next</button></div></nav>
+  </div>
+ }
+ @if (_showGroupAccessBrowser || _isDirty){<div class="management-savebar"><span role="status">@(_isDirty ? "Unsaved access changes" : "No pending changes")</span><div class="sk-cluster"><button type="button" class="sk-button sk-button--secondary" @onclick="ResetProjectGroupEdits" disabled="@(!_isDirty || _isSaving)">Discard changes</button><button type="button" class="sk-button sk-button--primary" @onclick="SaveProjectGroupsAsync" disabled="@(!_isDirty || _isSaving)">@(_isSaving ? "Saving…" : "Save group access")</button></div></div>}
+</section>
+   }
+   else
+   {
+<section class="panel-card project-danger-card">
                     <div class="panel-card-header project-section-header">
                         <div>
                             <p class="project-section-kicker project-danger-kicker">Danger Zone</p>
@@ -417,19 +243,38 @@ else
                         </div>
                     </div>
                 </section>
-            }
-        </div>
-    </div>
+   }
+  }
+ </div>
 }
 
 @code {
-    private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
+    [SupplyParameterFromQuery(Name = "projectId")] public string? RequestedId { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? SearchQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "all")] public string? BrowseAllQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public string? RequestedPageQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "size")] public string? RequestedPageSizeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? RequestedSort { get; set; }
+    [SupplyParameterFromQuery(Name = "desc")] public string? SortDescendingQuery { get; set; }
+    private bool BrowseAll => bool.TryParse(BrowseAllQuery, out var value) && value;
+    private bool SortDescending => bool.TryParse(SortDescendingQuery, out var value) && value;
+    private int? RequestedPage => int.TryParse(RequestedPageQuery, out var value) ? value : null;
+    private int? RequestedPageSize => int.TryParse(RequestedPageSizeQuery, out var value) ? value : null;
+    private string _searchDraft = string.Empty;
+    private string _membershipSearchDraft = string.Empty;
+    private bool _showResults;
+    private bool _allowNavigation;
+    private string? _appliedRoute;
+    private string _activeSection = "details";
+    private bool HasRequestedRecord => !string.IsNullOrWhiteSpace(RequestedId);
+
+    private readonly int[] _pageSizeOptions = [10, 20, 50];
     private readonly UpdateProjectRequest _projectEditDraft = new();
     private UserContext? _currentUser;
-    private PagedResult<ProjectOverview> _projectPage = new(Array.Empty<ProjectOverview>(), 0, 1, 20, 1);
-    private PagedResult<GroupAccessRow> _groupAccessPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 20, 1);
-    private ProjectListQuery _projectQuery = new() { PageSize = 20, SortField = "code", IncludeDescriptionInFilter = false };
-    private ProjectGroupAccessQuery _groupAccessQuery = new() { PageSize = 20, SortField = "name" };
+    private PagedResult<ProjectOverview> _projectPage = new(Array.Empty<ProjectOverview>(), 0, 1, 10, 1);
+    private PagedResult<GroupAccessRow> _groupAccessPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 10, 1);
+    private ProjectListQuery _projectQuery = new() { PageSize = 10, SortField = "code", IncludeDescriptionInFilter = false };
+    private ProjectGroupAccessQuery _groupAccessQuery = new() { PageSize = 10, SortField = "name" };
     private Guid? _selectedProjectId;
     private ProjectOverview? _selectedProject;
     private Guid? _editingProjectId;
@@ -465,30 +310,14 @@ else
         }
 
         _currentUser = await JournalApp.GetCurrentUserAsync();
-        await LoadProjectsAsync();
+
     }
 
     private Task LoadProjectsAsync()
     {
-        _projectPage = JournalApp.GetProjects(_projectQuery);
-
-        if (_selectedProjectId is { } selectedId)
-        {
-            _selectedProject = _projectPage.Items.FirstOrDefault(project => project.ProjectId == selectedId) ?? _selectedProject;
-        }
-
-        if (_selectedProject is null)
-        {
-            _selectedProject = _projectPage.Items.FirstOrDefault();
-            _selectedProjectId = _selectedProject?.ProjectId;
-            _pendingGroupAssignments.Clear();
-        }
-
-        if (_editingProjectId.HasValue && _editingProjectId != _selectedProjectId)
-        {
-            CancelProjectEdit();
-        }
-
+        _projectPage = _showResults ? JournalApp.GetProjects(_projectQuery) : new PagedResult<ProjectOverview>(Array.Empty<ProjectOverview>(), 0, 1, _projectQuery.PageSize, 1);
+        _projectQuery.Page = _projectPage.Page;
+        if (_selectedProjectId is { } id) _selectedProject = _projectPage.Items.FirstOrDefault(project => project.ProjectId == id) ?? _selectedProject;
         return LoadGroupAccessAsync();
     }
 
@@ -612,6 +441,8 @@ else
             _pendingGroupAssignments.Clear();
             CancelProjectEdit();
             await LoadProjectsAsync();
+            _allowNavigation = true;
+            Navigation.NavigateTo(DirectoryUrl(), replace: true);
         }
         catch (Exception ex)
         {
@@ -682,39 +513,13 @@ else
         }
     }
 
-    private async Task SelectProjectAsync(Guid projectId)
-    {
-        if (_selectedProjectId == projectId)
-        {
-            return;
-        }
-
-        if (_isSaving || _isSavingMetadata || _isUpdatingStatus || !await ConfirmDiscardAsync())
-        {
-            return;
-        }
-
-        _selectedProjectId = projectId;
-        _selectedProject = _projectPage.Items.FirstOrDefault(project => project.ProjectId == projectId);
-        _pendingGroupAssignments.Clear();
-        _groupAccessQuery.Page = 1;
-        _message = null;
-        _error = null;
-
-        if (_editingProjectId.HasValue && _editingProjectId != projectId)
-        {
-            CancelProjectEdit();
-        }
-
-        await LoadGroupAccessAsync();
-    }
-
     private async Task<bool> ConfirmDiscardAsync()
         => !HasUnsavedChanges || await JS.InvokeAsync<bool>("confirm",
             $"Discard unsaved changes for '{SelectedProject?.Name}'? Project details and group access changes have not been saved.");
 
     private async Task ConfirmLeaveAsync(LocationChangingContext context)
     {
+        if (_allowNavigation) return;
         if (_isSaving || _isSavingMetadata || _isUpdatingStatus || !await ConfirmDiscardAsync())
         {
             context.PreventNavigation();
@@ -755,57 +560,6 @@ else
         return LoadGroupAccessAsync();
     }
 
-    private async Task OnProjectSearchChanged(ChangeEventArgs args)
-    {
-        _projectQuery.FilterText = args.Value?.ToString() ?? string.Empty;
-        _projectQuery.Page = 1;
-        await LoadProjectsAsync();
-    }
-
-    private async Task OnProjectPageSizeChanged(ChangeEventArgs args)
-    {
-        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
-        {
-            _projectQuery.PageSize = pageSize;
-            _projectQuery.Page = 1;
-            await LoadProjectsAsync();
-        }
-    }
-
-    private async Task GoToPreviousProjectPageAsync()
-    {
-        if (_projectQuery.Page > 1)
-        {
-            _projectQuery.Page--;
-            await LoadProjectsAsync();
-        }
-    }
-
-    private async Task GoToNextProjectPageAsync()
-    {
-        if (_projectQuery.Page < _projectPage.TotalPages)
-        {
-            _projectQuery.Page++;
-            await LoadProjectsAsync();
-        }
-    }
-
-    private async Task ChangeProjectSortAsync(string field)
-    {
-        if (string.Equals(_projectQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
-        {
-            _projectQuery.SortDirection = _projectQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
-        }
-        else
-        {
-            _projectQuery.SortField = field;
-            _projectQuery.SortDirection = SortDirection.Asc;
-        }
-
-        _projectQuery.Page = 1;
-        await LoadProjectsAsync();
-    }
-
     private async Task OnGroupSearchChanged(ChangeEventArgs args)
     {
         _groupAccessQuery.FilterText = args.Value?.ToString() ?? string.Empty;
@@ -841,27 +595,6 @@ else
         }
     }
 
-    private async Task ChangeGroupSortAsync(string field)
-    {
-        if (string.Equals(_groupAccessQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
-        {
-            _groupAccessQuery.SortDirection = _groupAccessQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
-        }
-        else
-        {
-            _groupAccessQuery.SortField = field;
-            _groupAccessQuery.SortDirection = SortDirection.Asc;
-        }
-
-        _groupAccessQuery.Page = 1;
-        await LoadGroupAccessAsync();
-    }
-
-    private static string SortGlyph(string field, string currentField, SortDirection currentDirection)
-        => string.Equals(currentField, field, StringComparison.OrdinalIgnoreCase)
-            ? currentDirection == SortDirection.Asc ? "\u2191" : "\u2193"
-            : string.Empty;
-
     private static string RenderValueOrDash(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
 
@@ -873,12 +606,6 @@ else
         }
 
         return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
-    }
-
-    private static string ProjectInitial(ProjectOverview project)
-    {
-        var source = string.IsNullOrWhiteSpace(project.Code) ? project.Name : project.Code;
-        return string.IsNullOrWhiteSpace(source) ? "P" : source.Trim()[0].ToString().ToUpperInvariant();
     }
 
     private static string ProjectDescriptionOrFallback(ProjectOverview project)
@@ -912,5 +639,125 @@ else
         _projectEditDraft.ProjectPhone = string.Empty;
         _projectEditDraft.ProjectOwner = string.Empty;
         _projectEditDraft.Department = string.Empty;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_currentUser?.Role != AppRole.Administrator || _appliedRoute == Navigation.Uri) return;
+        _appliedRoute = Navigation.Uri;
+        _allowNavigation = false;
+        _showResults = BrowseAll || !string.IsNullOrWhiteSpace(SearchQuery) || HasRequestedRecord;
+        _projectQuery.FilterText = SearchQuery?.Trim() ?? string.Empty;
+        _searchDraft = _projectQuery.FilterText;
+        _projectQuery.Page = Math.Max(1, RequestedPage ?? 1);
+        _projectQuery.PageSize = _pageSizeOptions.Contains(RequestedPageSize ?? 10) ? RequestedPageSize ?? 10 : 10;
+        _projectQuery.SortField = RequestedSort is "code" or "name" or "projectOwner" ? RequestedSort : "name";
+        _projectQuery.SortDirection = SortDescending ? SortDirection.Desc : SortDirection.Asc;
+        var nextId = Guid.TryParse(RequestedId, out var id) ? id : (Guid?)null;
+        if (nextId != _selectedProjectId || (HasRequestedRecord && _selectedProject is null))
+        {
+            _selectedProjectId = nextId;
+            _selectedProject = nextId is { } recordId ? JournalApp.GetProjects().FirstOrDefault(item => item.ProjectId == recordId) : null;
+            _pendingGroupAssignments.Clear();
+            _showGroupAccessBrowser = false;
+            _groupAccessQuery = new ProjectGroupAccessQuery { PageSize = _groupAccessQuery.PageSize, SortField = "name" };
+            _membershipSearchDraft = string.Empty;
+            CancelProjectEdit();
+            _activeSection = "details";
+            await LoadGroupAccessAsync();
+        }
+        await LoadProjectsAsync();
+    }
+
+    private string DirectoryUrl(Guid? recordId = null)
+    {
+        var parts = new List<string>();
+        if (_showResults || recordId.HasValue) parts.Add("all=true");
+        if (!string.IsNullOrWhiteSpace(_projectQuery.FilterText)) parts.Add("q=" + Uri.EscapeDataString(_projectQuery.FilterText));
+        if (_showResults || recordId.HasValue)
+        {
+            parts.Add($"page={_projectQuery.Page}&size={_projectQuery.PageSize}&sort={Uri.EscapeDataString(_projectQuery.SortField)}&desc={_projectQuery.SortDirection == SortDirection.Desc}");
+        }
+        if (recordId.HasValue) parts.Add($"projectId={recordId:D}");
+        return "/admin/projects" + (parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts));
+    }
+
+    private void SearchDirectory()
+    {
+        if (string.IsNullOrWhiteSpace(_searchDraft))
+        {
+            _error = "Enter a search term or choose Show all projects.";
+            return;
+        }
+        ClearMessages();
+        _projectQuery.FilterText = _searchDraft.Trim();
+        _projectQuery.Page = 1;
+        _showResults = true;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void ShowAllDirectory()
+    {
+        ClearMessages();
+        _searchDraft = _projectQuery.FilterText = string.Empty;
+        _projectQuery.Page = 1;
+        _showResults = true;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void OnDirectorySortChanged(ChangeEventArgs args)
+    {
+        _projectQuery.SortField = args.Value?.ToString() ?? "name";
+        _projectQuery.Page = 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void ToggleDirectorySortDirection()
+    {
+        _projectQuery.SortDirection = _projectQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        _projectQuery.Page = 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void OnDirectoryPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size))
+        {
+            _projectQuery.PageSize = size;
+            _projectQuery.Page = 1;
+            Navigation.NavigateTo(DirectoryUrl());
+        }
+    }
+
+    private void PreviousDirectoryPage()
+    {
+        if (_projectPage.Page <= 1) return;
+        _projectQuery.Page = _projectPage.Page - 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void NextDirectoryPage()
+    {
+        if (_projectPage.Page >= _projectPage.TotalPages) return;
+        _projectQuery.Page = _projectPage.Page + 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+
+    private Task ApplyMembershipFilterAsync()
+        => OnGroupSearchChanged(new ChangeEventArgs { Value = _membershipSearchDraft });
+
+    private Task ClearMembershipFilterAsync()
+    {
+        _membershipSearchDraft = string.Empty;
+        return OnGroupSearchChanged(new ChangeEventArgs { Value = string.Empty });
+    }
+
+    private static string PlainDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "—";
+        var markup = SimpleMarkupPreview.Render(value).Value;
+        var text = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(markup, "<[^>]+>", " "));
+        return System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
     }
 }

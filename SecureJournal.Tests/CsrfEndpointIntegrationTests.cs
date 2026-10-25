@@ -1,3 +1,9 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using SecureJournal.Core.Application;
+using SecureJournal.Web.Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -9,6 +15,54 @@ namespace SecureJournal.Tests;
 
 public sealed class CsrfEndpointIntegrationTests
 {
+    [Fact]
+    public async Task AttachmentDownload_RequiresLoginAndForcesDownloadWithNoCaching()
+    {
+        await using var factory = new SecureJournalWebAppFactory();
+        using var client = factory.CreateSecureClient();
+        using var signInPage = await client.GetAsync("/");
+        var document = new HtmlParser().ParseDocument(await signInPage.Content.ReadAsStringAsync());
+        var token = document.QuerySelector("form[action='/auth/local-login'] input[name='__RequestVerificationToken']")!.GetAttribute("value");
+        Guid attachmentId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "admin") }, "Identity.Application"));
+            var tickets = scope.ServiceProvider.GetRequiredService<InMemoryAuthenticationTicketStore>();
+            var ticketId = await tickets.StoreAsync(new AuthenticationTicket(principal,
+                new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) }, "Identity.Application"));
+            accessor.HttpContext = new DefaultHttpContext { User = principal };
+            var service = scope.ServiceProvider.GetRequiredService<ISecureJournalAppService>();
+            var project = service.CreateProject(new CreateProjectRequest { Name = "Download endpoint" });
+            var entry = service.CreateJournalEntry(new CreateJournalEntryRequest
+            {
+                ProjectId = project.ProjectId, Subject = "Untrusted HTML", Description = "Only served as download",
+                Attachments = new[] { new JournalAttachmentUpload { FileName = "evil.html", ContentType = "text/html", Content = "<script>alert(1)</script>"u8.ToArray() } }
+            });
+            attachmentId = entry.Attachments.Single().AttachmentId;
+            accessor.HttpContext = null;
+            await tickets.RemoveAsync(ticketId);
+        }
+        using var unauthorized = await client.GetAsync($"/attachments/{attachmentId}");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        using var signInContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["username"] = "admin", ["password"] = "AdminPass123!", ["__RequestVerificationToken"] = token!
+        });
+        using var login = await client.PostAsync("/auth/local-login", signInContent);
+        Assert.Equal(System.Net.HttpStatusCode.Found, login.StatusCode);
+        using var download = await client.GetAsync($"/attachments/{attachmentId}");
+        Assert.Equal(System.Net.HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal("application/octet-stream", download.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.True(download.Headers.CacheControl?.NoStore);
+        Assert.Contains("nosniff", download.Headers.GetValues("X-Content-Type-Options"));
+        Assert.Contains("sandbox; default-src 'none'", download.Headers.GetValues("Content-Security-Policy"));
+        Assert.Equal("<script>alert(1)</script>", await download.Content.ReadAsStringAsync());
+        using var missing = await client.GetAsync($"/attachments/{Guid.NewGuid()}");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
     [Fact]
     public async Task LocalLogin_RepeatedFailures_LockOutAccount()
     {

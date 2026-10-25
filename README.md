@@ -21,7 +21,7 @@ It is designed for:
 - Admins can create users from `User Accounts` (`/admin/user-accounts`)
 - Admins can manage user role/group memberships from `User management` (`/admin/users`)
 - Admins can create projects from `Create project` (`/admin/projects/create`) and groups from `Create group` (`/admin/groups/create`)
-- Admins can edit project metadata from `Project Management` (`/admin/projects`) per project row
+- Admins can edit project metadata from `Project Management` (`/admin/projects`) from a focused project card
 - Admins can enable/disable project access from `Project Management`; disabled projects are hidden from project users
 - Admins can enable/disable users and delete users from `User management`
 - Admins can reset passwords for local users from `Manage user` (selected-user context)
@@ -30,15 +30,15 @@ It is designed for:
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
 - Sort project journal entries by date (`Newest first` / `Oldest first`)
 - Open a dedicated journal entry details page from `My Projects` and return to the selected project context
-- Create append-only journal entries (`Subject`, `Description`, `Notes`)
+- Create append-only journal entries (`Subject`, `Description`, `Notes`) with multiple file attachments
 - Soft-delete journal entries (preserved for admin visibility and audit evidence)
 - Search audit logs with filters (date/user/project/action/entity/outcome + field-specific contains)
 - Validate audit checksums per audit row
-- Export journal/audit data as `CSV` or `JSON` (with automatic download)
+- Export journal/audit data as `CSV` or `JSON`; include journal files in a ZIP archive with a manifest
 
 ## Security/Behavior Highlights
 
-- Journal fields are encrypted before SQLite storage
+- Journal fields, attachment filenames, and file contents are encrypted before database storage
 - Audit details are plaintext with SHA-256 checksums
 - Per-browser authenticated sessions (cookie expiration configurable; default 8 hours)
 - Password hashing + configurable password complexity policy
@@ -65,17 +65,19 @@ The repository also keeps legacy fallback paths (prototype store/auth toggles) f
 
 Recent UI behavior highlights:
 
-- `/journal` redirects back to `/projects?projectId=...` after successful entry creation
-- `My Projects` uses a two-column flex layout with `Project Journal Entries` in the right column
-- `My Projects` project list supports search + paging
-- `My Projects` uses an inline columnar entry list with alternating row colors for readability
-- `Audit Search` displays checksum and checksum-validation controls in a dedicated `Integrity` result column
-- `User management` includes `Manage user` workflows for memberships, local-password reset (local users only), and account state toggle (`Enable user` / `Disable user`)
-- `User management` uses a three-column admin layout and supports assigned/unassigned filtering in `Manage user groups`
-- Blazor reconnect/lost-connection flow uses a custom reconnect modal with explicit retry/resume states
-- Primary navigation uses `My Settings` as the final main link (renamed from `Account`)
-- `My Settings` page uses a two-column flex layout with left-column card order: `My information`, `Change Password`, `Login`
-- Public landing page uses the PNG brand logo with centered `Secure Journal` heading
+- My projects, People, Groups, and Manage projects begin with Search or Show all, followed by paged results and a focused record card.
+- The body no longer has a separate directory column. Centered workspaces preserve search and paging when returning from a record.
+- Audit search keeps actions aligned, with evidence and integrity checks available inside each result.
+- New entries open their saved detail page, including file downloads. Draft text and prepared files survive a canceled navigation.
+- Layouts follow Sekura Design MCP 3.2.1 and support narrow screens, light/dark themes, keyboard use, and enlarged text.
+
+### File attachments and exports
+
+Choose multiple files or drag them into a new journal entry. Each entry supports up to **10 files**, **5 MiB per file**, and **20 MiB total**. Files are saved atomically with the entry and cannot be changed afterward. Cancel, retry, and remove controls help resolve upload errors before saving.
+
+File downloads require current access to the entry and use download-only responses. Names and contents are encrypted at rest. Files are not previewed or executed by the application; uploaded content is not malware-scanned.
+
+Administrators can include files when exporting journal records. The ZIP contains `journal.csv` or `journal.json`, `manifest.json`, and files grouped by entry ID. The manifest records filenames, paths, sizes, and SHA-256 checksums. Project, date, and soft-delete filters apply to both records and files. ZIP exports allow up to 10,000 entries, 10 MiB of journal text, 1,000 files, and 50 MiB of file contents; use smaller scopes for larger collections. Exports contain decrypted data and need appropriate storage protection. Audit exports remain CSV/JSON.
 
 ## Container / Cloud Configuration
 
@@ -132,8 +134,16 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: [0.21.1](docs/release_notes/v0.21.1.md)
+- Release notes: [0.22.0](docs/release_notes/v0.22.0.md)
 - Sanitized config templates:
+
+---
+
+## 0.22.0 Release
+
+Search-first workspaces replace body directory columns, and journal entries now
+support multiple files, drag and drop, and ZIP exports with file manifests.
+See the [release and upgrade notes](docs/release_notes/v0.22.0.md).
 
 ---
 

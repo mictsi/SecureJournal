@@ -13,6 +13,6 @@
 @code {
     protected override void OnInitialized()
     {
-        Navigation.NavigateTo("/admin/groups", forceLoad: false);
+        Navigation.NavigateTo("/admin/groups?create=true", forceLoad: false, replace: true);
     }
 }

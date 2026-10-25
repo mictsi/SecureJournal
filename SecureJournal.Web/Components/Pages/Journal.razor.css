@@ -20,8 +20,14 @@
 }
 
 .journal-compose-card {
-    max-inline-size: 60rem;
+    inline-size: 100%;
 }
+
+.journal-page { inline-size: 100%; max-inline-size: 60rem; margin-inline: auto; }
+.journal-files { display: flex; flex-direction: column; gap: var(--sk-space-12); min-inline-size: 0; }
+.journal-files h3, .journal-files p { margin: 0; }
+.journal-files h3 { font-size: var(--sk-font-size-heading-xs); }
+.journal-files .sk-field__optional { font-size: var(--sk-font-size-body-sm); font-weight: var(--sk-font-weight-regular); }
 
 .journal-persistence-note {
     border-inline-start: var(--sk-border-width-thick) solid var(--sk-color-border-brand);

@@ -47,7 +47,7 @@ public sealed record StoredProjectGroupRow(
     Guid ProjectId,
     Guid GroupId);
 
-public sealed class SqlitePrototypeStore : IPrototypeDataStore
+public sealed partial class SqlitePrototypeStore : IPrototypeDataStore
 {
     private const int SqliteBusyTimeoutMs = 5000;
     private const int ConnectionOpenRetryCount = 3;
@@ -209,6 +209,7 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
             EnsureProjectColumns(connection);
             EnsureGroupColumns(connection);
             EnsureJournalEntrySchema(connection);
+            EnsureAttachmentSchema(connection);
 
             _initialized = true;
         }
@@ -1094,9 +1095,14 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
     public void UpsertJournalEntry(JournalEntryRecord record)
     {
         Initialize();
-
         using var connection = OpenConnectionInternal();
+        WriteJournalEntry(connection, null, record);
+    }
+
+    private void WriteJournalEntry(SqliteConnection connection, SqliteTransaction? transaction, JournalEntryRecord record)
+    {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             INSERT INTO journal_entries (
@@ -1408,9 +1414,14 @@ public sealed class SqlitePrototypeStore : IPrototypeDataStore
     public void InsertAuditLog(AuditLogRecord record)
     {
         Initialize();
-
         using var connection = OpenConnectionInternal();
+        WriteAuditLog(connection, null, record);
+    }
+
+    private void WriteAuditLog(SqliteConnection connection, SqliteTransaction? transaction, AuditLogRecord record)
+    {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             INSERT INTO audit_logs (

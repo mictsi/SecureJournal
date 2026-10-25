@@ -1,0 +1,278 @@
+@implements IAsyncDisposable
+@using System.Security.Cryptography
+@inject IJSRuntime JS
+
+<div id="@_rootId" class="sk-upload attachment-picker" aria-busy="@(_isBusy ? "true" : "false")">
+    <InputFile id="@_inputId" class="sk-upload__input sk-visually-hidden" OnChange="SelectFilesAsync"
+               multiple disabled="@(Disabled || _isBusy)" aria-label="Choose files to attach"
+               aria-describedby="@(_rootId + "-constraints")" />
+    <div class="sk-upload__zone">
+        <p class="sk-upload__prompt">
+            <label for="@_inputId" class="sk-button sk-button--secondary">Choose files</label>
+            <span class="sk-upload__hint-drag">or drag and drop them here</span>
+        </p>
+        <p id="@(_rootId + "-constraints")" class="sk-upload__constraints">
+            Up to @AttachmentLimits.MaxFilesPerEntry files, @FormatSize(AttachmentLimits.MaxFileBytes) each,
+            @FormatSize(AttachmentLimits.MaxTotalBytes) total. Files are saved with the entry.
+        </p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_selectionError))
+    {
+        <p class="attachment-error" role="alert">@_selectionError</p>
+    }
+    @if (Files.Count > 0 || _pending.Count > 0)
+    {
+        <ul class="sk-upload__list attachment-files" aria-label="Files for this entry">
+            @foreach (var file in Files)
+            {
+                <li class="sk-upload__file attachment-file" @key="file">
+                    <div class="attachment-file-copy">
+                        <strong>@file.FileName</strong>
+                        <span>@FormatSize(file.Content.LongLength) · Ready to save</span>
+                    </div>
+                    <button type="button" class="sk-button sk-button--ghost sk-button--sm"
+                            disabled="@(Disabled || _isBusy)" aria-label="@($"Remove {file.FileName}")"
+                            @onclick="() => RemoveAsync(file)">Remove</button>
+                </li>
+            }
+            @foreach (var pending in _pending)
+            {
+                <li class="sk-upload__file attachment-file" @key="pending" data-error="@(pending.Error is not null ? "true" : null)">
+                    <div class="attachment-file-copy">
+                        <strong>@pending.File.Name</strong>
+                        @if (pending.IsReading)
+                        {
+                            <span>Adding to draft… @pending.Percent%</span>
+                            <progress max="100" value="@pending.Percent" aria-label="@($"Upload progress for {pending.File.Name}")"></progress>
+                        }
+                        else if (pending.Error is not null)
+                        {
+                            <span class="attachment-error">@pending.Error</span>
+                        }
+                        else
+                        {
+                            <span>@FormatSize(pending.File.Size) · Waiting</span>
+                        }
+                    </div>
+                    <div class="attachment-file-actions">
+                        @if (pending.IsReading)
+                        {
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="CancelCurrent"
+                                    aria-label="@($"Cancel upload of {pending.File.Name}")">Cancel</button>
+                        }
+                        else if (!_isBusy)
+                        {
+                            @if (pending.CanRetry)
+                            {
+                                <button type="button" class="sk-button sk-button--secondary sk-button--sm"
+                                        disabled="@Disabled" @onclick="() => RetryAsync(pending)"
+                                        aria-label="@($"Retry upload of {pending.File.Name}")">Retry</button>
+                            }
+                            <button type="button" class="sk-button sk-button--ghost sk-button--sm" disabled="@Disabled"
+                                    @onclick="() => RemovePendingAsync(pending)" aria-label="@($"Remove {pending.File.Name}")">Remove</button>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+    <p class="attachment-status" role="status" aria-live="polite">@StatusText</p>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<JournalAttachmentUpload> Files { get; set; } = Array.Empty<JournalAttachmentUpload>();
+    [Parameter] public EventCallback<IReadOnlyList<JournalAttachmentUpload>> FilesChanged { get; set; }
+    [Parameter] public EventCallback<bool> ReadyChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private readonly string _rootId = $"attachments-{Guid.NewGuid():N}";
+    private string _inputId => _rootId + "-input";
+    private readonly List<PendingFile> _pending = [];
+    private readonly CancellationTokenSource _lifetime = new();
+    private CancellationTokenSource? _currentRead;
+    private bool _isBusy;
+    private bool _disposed;
+    private bool _clearRequested;
+    private TaskCompletionSource<bool>? _batchFinished;
+    private string? _selectionError;
+
+    private string StatusText => _isBusy ? "Adding files to your draft. Wait for them to finish before saving."
+        : _pending.Count > 0 ? "Some files need attention. Retry or remove them before saving."
+        : Files.Count == 0 ? "No files selected."
+        : $"{Files.Count} file{(Files.Count == 1 ? "" : "s")} ready to save · {FormatSize(Files.Sum(file => file.Content.LongLength))} total";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("secureJournalUploads.bind", _rootId, _inputId);
+    }
+
+    private async Task SelectFilesAsync(InputFileChangeEventArgs args)
+    {
+        if (Disabled || _isBusy) return;
+        _selectionError = null;
+        // A new native selection replaces browser file handles. Keep prepared
+        // bytes, but replace unsuccessful rows so retry never uses a stale handle.
+        _pending.Clear();
+        if (args.FileCount > 100)
+        {
+            _selectionError = $"Choose up to {AttachmentLimits.MaxFilesPerEntry} files at a time. Your prepared files are still here.";
+            await NotifyReadyAsync();
+            return;
+        }
+        _pending.AddRange(args.GetMultipleFiles(100).Select(file => new PendingFile(file)));
+        await ReadBatchAsync(_pending.ToArray());
+        if (!_disposed) await JS.InvokeVoidAsync("secureJournalUploads.clearSelection", _inputId);
+    }
+
+    private async Task ReadBatchAsync(IEnumerable<PendingFile> batch)
+    {
+        _isBusy = true;
+        _batchFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        await NotifyReadyAsync();
+        try
+        {
+            foreach (var pending in batch)
+            {
+                if (_disposed || _clearRequested) break;
+                await ReadFileAsync(pending);
+            }
+        }
+        finally
+        {
+            _isBusy = false;
+            if (!_disposed) await NotifyReadyAsync();
+            _batchFinished.TrySetResult(true);
+        }
+    }
+
+    private async Task ReadFileAsync(PendingFile pending)
+    {
+        pending.Error = null;
+        pending.CanRetry = false;
+        var file = pending.File;
+        if (Files.Count >= AttachmentLimits.MaxFilesPerEntry)
+        {
+            pending.Error = $"An entry can contain up to {AttachmentLimits.MaxFilesPerEntry} files. Remove another file first.";
+            pending.CanRetry = true;
+        }
+        else if (file.Size > AttachmentLimits.MaxFileBytes)
+            pending.Error = $"This file is larger than {FormatSize(AttachmentLimits.MaxFileBytes)}. Choose a smaller file.";
+        else if (file.Size + Files.Sum(item => item.Content.LongLength) > AttachmentLimits.MaxTotalBytes)
+        {
+            pending.Error = $"These files exceed the {FormatSize(AttachmentLimits.MaxTotalBytes)} total. Remove a file first.";
+            pending.CanRetry = true;
+        }
+        if (pending.Error is not null) return;
+
+        pending.IsReading = true;
+        pending.Percent = 0;
+        _currentRead = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[64 * 1024];
+        try
+        {
+            await using var source = file.OpenReadStream(AttachmentLimits.MaxFileBytes, _currentRead.Token);
+            var previousMilestone = -1;
+            while (true)
+            {
+                var count = await source.ReadAsync(chunk, _currentRead.Token);
+                if (count == 0) break;
+                if (buffer.Length + count > AttachmentLimits.MaxFileBytes)
+                    throw new InvalidOperationException("The file exceeded the allowed size while uploading.");
+                await buffer.WriteAsync(chunk.AsMemory(0, count), _currentRead.Token);
+                pending.Percent = file.Size == 0 ? 100 : (int)Math.Min(100, buffer.Length * 100 / file.Size);
+                if (pending.Percent / 10 != previousMilestone)
+                {
+                    previousMilestone = pending.Percent / 10;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            if (buffer.Length != file.Size)
+                throw new InvalidOperationException("The file was not received completely. Retry the upload.");
+            _currentRead.Token.ThrowIfCancellationRequested();
+            var prepared = new JournalAttachmentUpload { FileName = file.Name, ContentType = file.ContentType, Content = buffer.ToArray() };
+            Files = Files.Append(prepared).ToArray();
+            _pending.Remove(pending);
+            await FilesChanged.InvokeAsync(Files);
+        }
+        catch (OperationCanceledException)
+        {
+            pending.Error = "Upload cancelled. Retry or remove this file.";
+            pending.CanRetry = true;
+        }
+        catch (Exception)
+        {
+            pending.Error = "The file could not be read. Retry, or choose it again.";
+            pending.CanRetry = true;
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(chunk);
+            if (buffer.TryGetBuffer(out var data)) CryptographicOperations.ZeroMemory(data.AsSpan());
+            pending.IsReading = false;
+            _currentRead.Dispose();
+            _currentRead = null;
+        }
+    }
+
+    private async Task RemoveAsync(JournalAttachmentUpload file)
+    {
+        if (Disabled || _isBusy) return;
+        Files = Files.Where(item => !ReferenceEquals(item, file)).ToArray();
+        CryptographicOperations.ZeroMemory(file.Content);
+        await FilesChanged.InvokeAsync(Files);
+        await NotifyReadyAsync();
+    }
+
+    private async Task RemovePendingAsync(PendingFile file)
+    {
+        _pending.Remove(file);
+        await NotifyReadyAsync();
+    }
+
+    private Task RetryAsync(PendingFile file) => Disabled || _isBusy ? Task.CompletedTask : ReadBatchAsync([file]);
+    private void CancelCurrent() => _currentRead?.Cancel();
+    private Task NotifyReadyAsync() => ReadyChanged.InvokeAsync(!_isBusy && _pending.Count == 0 && _selectionError is null);
+
+    public async Task ClearAsync()
+    {
+        if (_isBusy)
+        {
+            _clearRequested = true;
+            _currentRead?.Cancel();
+            if (_batchFinished is not null) await _batchFinished.Task;
+        }
+        foreach (var file in Files) CryptographicOperations.ZeroMemory(file.Content);
+        Files = Array.Empty<JournalAttachmentUpload>();
+        _pending.Clear();
+        _selectionError = null;
+        _clearRequested = false;
+        await FilesChanged.InvokeAsync(Files);
+        await NotifyReadyAsync();
+        await JS.InvokeVoidAsync("secureJournalUploads.clearSelection", _inputId);
+    }
+
+    public static string FormatSize(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / (1024d * 1024):0.#} MB"
+        : bytes >= 1024 ? $"{bytes / 1024d:0.#} KB" : $"{bytes} bytes";
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        _lifetime.Cancel();
+        foreach (var file in Files) CryptographicOperations.ZeroMemory(file.Content);
+        try { await JS.InvokeVoidAsync("secureJournalUploads.dispose", _rootId); }
+        catch (Exception ex) when (ex is JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
+        _lifetime.Dispose();
+    }
+
+    private sealed class PendingFile(IBrowserFile file)
+    {
+        public IBrowserFile File { get; } = file;
+        public int Percent { get; set; }
+        public bool IsReading { get; set; }
+        public bool CanRetry { get; set; }
+        public string? Error { get; set; }
+    }
+}

@@ -24,6 +24,10 @@ public interface IPrototypeDataStore
     IReadOnlyList<StoredGroupProjectCodeRow> LoadGroupProjectCodes(IReadOnlyCollection<Guid> groupIds);
     IReadOnlyList<JournalEntryRecord> LoadJournalEntries();
     IReadOnlyList<AuditLogRecord> LoadAuditLogs();
+    IReadOnlyList<JournalAttachmentRecord> LoadJournalAttachmentMetadata(Guid entryId);
+    IReadOnlyList<JournalAttachmentRecord> LoadJournalAttachmentMetadata(IReadOnlyCollection<Guid> entryIds);
+    JournalAttachmentRecord? LoadJournalAttachment(Guid attachmentId, bool includeContent = true);
+    void CreateJournalEntryWithAttachments(JournalEntryRecord record, IReadOnlyList<JournalAttachmentRecord> attachments, IReadOnlyList<AuditLogRecord> audits);
     void UpsertJournalEntry(JournalEntryRecord record);
     void UpsertUser(StoredUserRow user);
     void UpsertProject(StoredProjectRow project);

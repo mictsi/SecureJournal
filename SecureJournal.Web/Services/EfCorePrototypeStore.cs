@@ -7,7 +7,7 @@ using SecureJournal.Web.Infrastructure.Persistence;
 
 namespace SecureJournal.Web.Services;
 
-public sealed class EfCorePrototypeStore : IPrototypeDataStore
+public sealed partial class EfCorePrototypeStore : IPrototypeDataStore
 {
     private readonly IDbContextFactory<SecureJournalAppDbContext> _dbFactory;
     private readonly object _initLock = new();
@@ -39,6 +39,7 @@ public sealed class EfCorePrototypeStore : IPrototypeDataStore
             EnsureProjectColumns(db);
             EnsureGroupColumns(db);
             EnsureUserRolesTable(db);
+            EnsureAttachmentSchema(db);
             EnsureQueryIndexes(db);
             _initialized = true;
         }

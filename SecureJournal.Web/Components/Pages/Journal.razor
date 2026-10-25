@@ -4,18 +4,15 @@
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using SecureJournal.Web.Components.Forms
+@using Microsoft.AspNetCore.WebUtilities
 
 <PageTitle>New Journal Entry</PageTitle>
 
+<div class="journal-page">
+<a href="@BackUrl" class="sj-workspace-back">← Back to project</a>
 <PageHeader Title="New journal entry"
-            Description="Capture a decision, update, or event for your project.">
-    <Actions>
-        <a href="@BackUrl" class="sk-button sk-button--secondary">
-            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-left" /></svg>
-            Back to project
-        </a>
-    </Actions>
-</PageHeader>
+            Description="Write what happened and attach the files that support it." />
 
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmNavigationAsync" />
 
@@ -91,29 +88,41 @@
                     <p class="sk-field__hint" id="notesInput-hint">Add supporting details or references. Visible to everyone who can read this entry.</p>
                     <div class="journal-editor-shell">
                         <InputTextArea id="notesInput"
-                                       class="sk-input journal-rich-editor-source"
+                                       class="sk-input"
                                        maxlength="@FieldLimits.NotesMax"
-                                       rows="4"
+                                       rows="3"
                                        aria-describedby="notesInput-hint"
                                        @bind-Value="DraftModel.Notes" @oninput="OnNotesInput" />
                     </div>
                 </div>
+
+                <section class="journal-files" aria-labelledby="journal-files-title">
+                    <h3 id="journal-files-title">Files <span class="sk-field__optional">Optional</span></h3>
+                    <p class="sk-field__hint">Attach documents, images, or other supporting files. People who can read this entry can download them.</p>
+                    <AttachmentPicker @ref="_attachmentPicker" @bind-Files="DraftModel.Attachments"
+                                      Disabled="@_isSubmitting" ReadyChanged="OnAttachmentsReady" />
+                </section>
             </div>
 
             <div class="journal-compose-actions sj-form-actions">
                 <div class="sk-cluster sk-cluster--gap-8">
-                    <button type="submit" class="sk-button sk-button--primary" disabled="@_isSubmitting" aria-describedby="journal-save-guidance">@(_isSubmitting ? "Saving…" : "Save entry")</button>
+                    <button type="submit" class="sk-button sk-button--primary" disabled="@(_isSubmitting || !_attachmentsReady)" aria-describedby="journal-save-guidance">@(_isSubmitting ? "Saving…" : "Save entry")</button>
                     <a href="@BackUrl" class="sk-button sk-button--secondary">Cancel</a>
                 </div>
-                <button type="button" class="sk-button sk-button--secondary" disabled="@(_isSubmitting || !HasUnsavedChanges)" @onclick="ResetDraftAsync">Clear draft</button>
+                <button type="button" class="sk-button sk-button--ghost" disabled="@(_isSubmitting || !HasUnsavedChanges)" @onclick="ResetDraftAsync">Clear draft</button>
             </div>
         </EditForm>
     }
 </section>
+</div>
 
 @code {
     [SupplyParameterFromQuery(Name = "projectId")]
-    public Guid? ProjectId { get; set; }
+    public string? ProjectIdQuery { get; set; }
+    private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
 
     [SupplyParameterFromForm(FormName = "journal-create-entry")]
     private CreateJournalEntryRequest? PostedDraftModel { get; set; }
@@ -128,20 +137,22 @@
     private bool _hasAppliedProjectQuery;
     private Guid? _lastProjectQuery;
     private bool _discardDraftOnNavigation;
+    private AttachmentPicker? _attachmentPicker;
+    private bool _attachmentsReady = true;
     private bool HasUnsavedChanges => !_isSaved &&
         (!string.IsNullOrWhiteSpace(DraftModel.Subject) ||
          !string.IsNullOrWhiteSpace(DraftModel.Description) ||
-         !string.IsNullOrWhiteSpace(DraftModel.Notes));
-    private string BackUrl => DraftModel.ProjectId != Guid.Empty
+         !string.IsNullOrWhiteSpace(DraftModel.Notes) || DraftModel.Attachments.Count > 0 || !_attachmentsReady);
+    private string BackUrl => ProjectReturnUrl.Resolve(ReturnUrl, DraftModel.ProjectId != Guid.Empty
         ? $"/projects?projectId={DraftModel.ProjectId:D}"
-        : "/projects";
+        : "/projects");
     // JavaScript interop is only legal once the component has rendered
     // interactively. A form POST re-renders the page statically, and the editor
     // calls made during that pass threw "JavaScript interop calls cannot be issued
     // at this time", which surfaced as an unhandled error on every submit.
     private bool _jsReady;
 
-    private readonly string[] _editorIds = ["descriptionInput", "notesInput"];
+    private readonly string[] _editorIds = ["descriptionInput"];
 
     private bool CanUseRichEditor
         => _projects.Count > 0 && _currentUser?.Role != AppRole.Auditor;
@@ -198,12 +209,6 @@
                 id = "descriptionInput",
                 value = DraftModel.Description ?? string.Empty,
                 minHeight = 240
-            },
-            new
-            {
-                id = "notesInput",
-                value = DraftModel.Notes ?? string.Empty,
-                minHeight = 180
             }
         }, _editorIds);
     }
@@ -218,7 +223,11 @@
     {
         DraftModel.ProjectId = Guid.Empty;
         _error = null;
-        if (ProjectId is { } requestedId)
+        if (!string.IsNullOrWhiteSpace(ProjectIdQuery) && ProjectId is null)
+        {
+            _error = "The project link is invalid. Choose a project to continue.";
+        }
+        else if (ProjectId is { } requestedId)
         {
             if (_projects.Any(project => project.ProjectId == requestedId))
             {
@@ -238,10 +247,11 @@
     private void OnSubjectInput(ChangeEventArgs args) => DraftModel.Subject = args.Value?.ToString() ?? string.Empty;
     private void OnDescriptionInput(ChangeEventArgs args) => DraftModel.Description = args.Value?.ToString() ?? string.Empty;
     private void OnNotesInput(ChangeEventArgs args) => DraftModel.Notes = args.Value?.ToString() ?? string.Empty;
+    private void OnAttachmentsReady(bool ready) => _attachmentsReady = ready;
 
     private async Task CreateEntryAsync()
     {
-        if (_isSubmitting || _isSaved)
+        if (_isSubmitting || _isSaved || !_attachmentsReady)
         {
             return;
         }
@@ -266,7 +276,10 @@
             var selectedProject = DraftModel.ProjectId;
             var savedEntry = JournalApp.CreateJournalEntry(DraftModel);
             _isSaved = true;
-            Navigation.NavigateTo($"/projects?projectId={selectedProject:D}&saved={savedEntry.RecordId:D}");
+            Navigation.NavigateTo(QueryHelpers.AddQueryString($"/projects/entry/{savedEntry.RecordId:D}", new Dictionary<string, string?>
+            {
+                ["projectId"] = selectedProject.ToString("D"), ["saved"] = "true", ["returnUrl"] = BackUrl
+            }));
         }
         catch (Exception ex)
         {
@@ -280,11 +293,12 @@
 
     private async Task ResetDraftAsync()
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Clear this draft? The subject, description, and notes will be discarded."))
+        if (!await JS.InvokeAsync<bool>("confirm", "Clear this draft? The text and selected files will be discarded."))
         {
             return;
         }
 
+        if (_attachmentPicker is not null) await _attachmentPicker.ClearAsync();
         ClearDraft();
     }
 
@@ -293,6 +307,8 @@
         DraftModel.Subject = string.Empty;
         DraftModel.Description = string.Empty;
         DraftModel.Notes = string.Empty;
+        foreach (var file in DraftModel.Attachments) System.Security.Cryptography.CryptographicOperations.ZeroMemory(file.Content);
+        DraftModel.Attachments = Array.Empty<JournalAttachmentUpload>();
         _message = null;
         _error = null;
     }
@@ -301,12 +317,13 @@
     {
         if (HasUnsavedChanges)
         {
-            if (!await JS.InvokeAsync<bool>("confirm", "Leave without saving? Your journal entry draft will be discarded."))
+            if (!await JS.InvokeAsync<bool>("confirm", "Leave without saving? Your journal entry draft and selected files will be discarded."))
             {
                 context.PreventNavigation();
                 return;
             }
 
+            if (_attachmentPicker is not null) await _attachmentPicker.ClearAsync();
             _discardDraftOnNavigation = true;
         }
     }

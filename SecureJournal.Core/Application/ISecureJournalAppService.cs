@@ -54,6 +54,8 @@ public interface ISecureJournalAppService
     Task<PasswordChangeResult> ResetLocalUserPasswordAsync(AdminResetPasswordRequest request, CancellationToken cancellationToken = default);
     IReadOnlyList<JournalEntryView> GetJournalEntries(Guid? projectId = null, bool includeSoftDeleted = false);
     JournalEntryView CreateJournalEntry(CreateJournalEntryRequest request);
+    IReadOnlyList<JournalAttachmentView> GetJournalAttachments(Guid entryId);
+    JournalAttachmentDownload DownloadJournalAttachment(Guid attachmentId);
     bool SoftDeleteJournalEntry(Guid recordId, string? reason = null);
     bool RestoreJournalEntry(Guid recordId);
     IReadOnlyList<AuditLogView> SearchAuditLogs(AuditSearchFilter filter);

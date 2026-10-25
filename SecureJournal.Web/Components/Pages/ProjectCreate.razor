@@ -10,6 +10,7 @@
 
 <PageTitle>Create project</PageTitle>
 
+<div class="sj-focused-page">
 <PageHeader Title="Create project"
             Description="Define the project, choose its groups, then review before creating." />
 
@@ -49,7 +50,7 @@ else if (_createdProject is { } createdProject)
         <h2>Project created; finish access setup</h2>
         <p><strong>@createdProject.Name</strong> (@createdProject.Code) was created, but its group setup could not finish. Open Manage projects to review access before using it.</p>
         <div class="sk-cluster sj-form-actions">
-            <a href="/admin/projects" class="sk-button sk-button--primary">Review project access</a>
+            <a href="@($"/admin/projects?projectId={createdProject.ProjectId:D}")" class="sk-button sk-button--primary">Review project access</a>
             <a href="@($"/projects?projectId={createdProject.ProjectId:D}")" class="sk-button sk-button--secondary">View project</a>
         </div>
     </section>
@@ -104,7 +105,7 @@ else if (CurrentStep == 1)
                 </div>
             </div>
 
-            <div class="sk-cluster">
+            <div class="sk-cluster sj-form-actions">
                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
                 <button type="submit" class="sk-button sk-button--primary">Continue to group access</button>
             </div>
@@ -206,7 +207,7 @@ else if (CurrentStep == 2)
         }
 
         <div class="sk-cluster">
-            <div class="sk-cluster">
+            <div class="sk-cluster sj-form-actions">
                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
                 <button type="button" class="sk-button sk-button--secondary" @onclick="GoToStepOne">Back</button>
             </div>
@@ -264,7 +265,7 @@ else if (CurrentStep == 3)
         }
 
         <div class="sk-cluster">
-            <div class="sk-cluster">
+            <div class="sk-cluster sj-form-actions">
                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
                 <button type="button" class="sk-button sk-button--secondary" @onclick="GoToStepTwo">Back</button>
             </div>
@@ -335,6 +336,8 @@ else
         </div>
     </section>
 }
+
+</div>
 
 @code {
     [Parameter] public int? Step { get; set; }

@@ -1,350 +1,80 @@
-/* Group management.
-
-   Rewritten onto semantic tokens and flex composition, matching the shape used
-   by the other directory-and-detail pages. The previous version hard-coded its
-   palette (so the page ignored the light themes entirely) and used
-   `grid-template-columns` with rigid minimums, which crushed content once the
-   detail column narrowed.
-
-   Responsive-layout foundation: flex first, wrap by default, width expressed as
-   flex-basis, and min-inline-size: 0 on every child that can hold text. */
-
-.group-management-shell {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-24);
-    align-items: flex-start;
-    min-inline-size: 0;
-}
-
-/* The rail is the page's index: it has to show a project's name and its
-   subtitle without cutting either. A 20rem basis truncated both, so the ideal
-   width is larger and the cap is looser. */
-.group-directory-card {
-    flex: 1 1 24rem;
-    min-inline-size: 0;
-    max-inline-size: 32rem;
-}
-
-.group-detail-column {
-    /* Large grow, small basis: takes the slack, wraps when the basis will not fit. */
-    flex: 999 1 32rem;
-    min-inline-size: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sk-space-24);
-}
-
-.group-directory-card,
-.group-empty-card,
-.group-create-card,
-.group-danger-card,
-.group-detail-column > .panel-card {
-    background-color: var(--sk-color-surface-raised);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-lg);
-    padding: var(--sk-space-16);
-    min-inline-size: 0;
-}
-
-/* --- Directory --- */
-.group-directory-header,
-.group-directory-toolbar,
-.group-directory-footer-row {
-    display: flex;
-    flex-wrap: wrap;
+/* Page-specific details; shared admin workflows live in app.css. */
+.management-directory .sj-result-card {
     align-items: center;
-    gap: var(--sk-space-8) var(--sk-space-12);
-    min-inline-size: 0;
 }
 
-.group-directory-header > :first-child,
-.group-directory-footer-row > :first-child {
-    flex: 1 1 auto;
-    min-inline-size: 0;
-}
-
-.group-directory-copy,
-.group-directory-description {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.group-directory-total {
-    flex: 0 0 auto;
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-tertiary);
-    font-variant-numeric: tabular-nums;
-}
-
-.group-directory-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sk-space-8);
-    margin-block: var(--sk-space-12);
-    max-block-size: min(68vh, 54rem);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    min-inline-size: 0;
-}
-
-.group-directory-item {
-    display: block;
-    inline-size: 100%;
-    min-inline-size: 0;
-    padding: var(--sk-space-12);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-md);
-    background-color: var(--sk-color-surface-base);
-    color: var(--sk-color-text-primary);
-    text-align: start;
-    cursor: pointer;
-}
-
-.group-directory-item:hover {
-    background-color: var(--sk-color-surface-hover);
-    border-color: var(--sk-color-border-default);
-}
-
-.group-directory-item:focus-visible {
-    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
-    outline-offset: var(--sk-focus-ring-offset);
-}
-
-.group-directory-item.is-selected,
-.group-directory-item.is-active,
-.group-directory-item[aria-pressed="true"],
-.group-directory-item[aria-current="true"] {
-    background-color: var(--sk-color-surface-selected);
-    border-color: var(--sk-color-border-brand);
-}
-
-.group-directory-item-body {
-    /* Name, subtitle and chips are stacked content, not a row. Laid out as a
-       row they competed for the rail's width and the name lost — a project code
-       was being clipped to 43px. */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--sk-space-4);
-    min-inline-size: 0;
-}
-
-.group-directory-name,
-.group-directory-subtitle {
-    display: block;
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.group-directory-name {
-    font-weight: var(--sk-font-weight-medium);
-    color: var(--sk-color-text-primary);
-}
-
-.group-directory-subtitle {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-tertiary);
-}
-
-.group-directory-empty {
-    padding: var(--sk-space-16);
-    color: var(--sk-color-text-tertiary);
-    font-size: var(--sk-font-size-body-sm);
-}
-
-.group-directory-footer {
-    padding-block-start: var(--sk-space-12);
-    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-}
-
-.group-directory-sort,
-.group-page-size {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sk-space-8);
-    min-inline-size: 0;
-}
-
-/* --- Identity --- */
-.group-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    inline-size: 2.25rem;
-    block-size: 2.25rem;
-    border-radius: var(--sk-radius-full);
-    background-color: var(--sk-color-surface-brand-subtle);
-    color: var(--sk-color-text-brand);
-    font-weight: var(--sk-font-weight-semibold);
-}
-
-.group-avatar-large {
-    inline-size: 3rem;
-    block-size: 3rem;
-    font-size: var(--sk-font-size-heading-xs);
-}
-
-.group-profile-summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sk-space-16);
-    min-inline-size: 0;
-}
-
-.group-profile-copy {
-    flex: 1 1 14rem;
-    min-inline-size: 0;
-}
-
-.group-profile-heading {
-    font-size: var(--sk-font-size-overline);
-    font-weight: var(--sk-font-weight-semibold);
-    letter-spacing: var(--sk-letter-spacing-overline);
-    text-transform: uppercase;
-    color: var(--sk-color-text-tertiary);
-}
-
-.group-profile-description,
-.group-profile-subtitle,
-.group-profile-meta {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-/* --- Chips --- */
-.group-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-4);
-    margin: var(--sk-space-4) 0 0;
-    padding: 0;
-    list-style: none;
-    min-inline-size: 0;
-}
-
-.group-chip,
-.group-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sk-space-4);
-    padding: var(--sk-space-2) var(--sk-space-8);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-status-neutral-border);
-    border-radius: var(--sk-radius-full);
-    background-color: var(--sk-color-status-neutral-surface);
-    color: var(--sk-color-status-neutral-text);
-    font-size: var(--sk-font-size-body-xs);
-    font-weight: var(--sk-font-weight-medium);
-}
-
-.group-status-badge.is-disabled,
-.group-status-badge.is-deleted {
-    border-color: var(--sk-color-status-danger-border);
-    background-color: var(--sk-color-status-danger-surface);
-    color: var(--sk-color-status-danger-text);
-}
-
-/* --- Sections --- */
 .group-section-header {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
-    gap: var(--sk-space-12);
-    margin-block-end: var(--sk-space-12);
+    gap: var(--sk-space-16);
+    margin-block-end: var(--sk-space-24);
+}
+
+.group-section-header > div:first-child {
+    flex: 1 1 24rem;
     min-inline-size: 0;
+}
+
+.group-section-header h3 {
+    font-size: var(--sk-font-size-heading-sm);
+    margin-block: 0 var(--sk-space-8);
+}
+
+.group-section-kicker {
+    font-size: var(--sk-font-size-body-xs);
+    color: var(--sk-color-text-tertiary);
+    margin-block: 0 var(--sk-space-4);
 }
 
 .group-section-copy {
-    flex: 1 1 16rem;
-    min-inline-size: 0;
+    margin: 0;
+    color: var(--sk-color-text-secondary);
 }
 
-.group-section-actions,
-.group-danger-actions {
+.group-section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-8);
+    margin-block-start: var(--sk-space-24);
+}
+
+.group-chip-list {
     display: flex;
     flex-wrap: wrap;
     gap: var(--sk-space-8);
 }
 
-.group-section-kicker,
-.group-danger-kicker {
-    font-size: var(--sk-font-size-overline);
-    font-weight: var(--sk-font-weight-semibold);
-    letter-spacing: var(--sk-letter-spacing-overline);
-    text-transform: uppercase;
-    color: var(--sk-color-text-tertiary);
-}
-
-.group-danger-kicker { color: var(--sk-color-status-danger-text); }
-
-.group-section-title {
-    font-size: var(--sk-font-size-heading-xs);
-    font-weight: var(--sk-font-weight-semibold);
-    color: var(--sk-color-text-primary);
+.group-chip {
+    display: inline-flex;
+    padding: var(--sk-space-4) var(--sk-space-8);
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-sm);
+    color: var(--sk-color-text-secondary);
+    overflow-wrap: anywhere;
 }
 
 .group-danger-card {
     border-color: var(--sk-color-status-danger-border);
 }
 
-.group-danger-copy {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-}
-
-/* --- Shared bits --- */
-.table-sort {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sk-space-4);
-    padding: var(--sk-space-4) var(--sk-space-8);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-sm);
-    background: none;
-    color: var(--sk-color-text-secondary);
-    font-size: var(--sk-font-size-label-sm);
-    cursor: pointer;
-}
-
-.table-sort:hover { background-color: var(--sk-color-surface-hover); }
-
-.table-sort:focus-visible {
-    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
-    outline-offset: var(--sk-focus-ring-offset);
-}
-
-.project-page-size-label {
-    font-size: var(--sk-font-size-label-sm);
-    color: var(--sk-color-text-secondary);
-    flex: 0 0 auto;
-}
-
-.project-page-size-select {
-    flex: 0 1 6rem;
-    min-inline-size: 0;
-}
-
-.group-member-browser {
+.group-danger-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--sk-space-12);
+    align-items: center;
+    gap: var(--sk-space-24);
+}
+
+.group-danger-copy {
+    display: flex;
+    flex: 1 1 24rem;
+    flex-direction: column;
+    gap: var(--sk-space-8);
     min-inline-size: 0;
+    color: var(--sk-color-text-secondary);
 }
 
-.group-member-table-note {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-tertiary);
-}
-
-.group-role-option-title {
-    font-weight: var(--sk-font-weight-semibold);
+.group-danger-copy strong {
     color: var(--sk-color-text-primary);
 }

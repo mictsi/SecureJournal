@@ -7,6 +7,7 @@
 
 <PageTitle>Create User</PageTitle>
 
+<div class="sj-focused-page">
 <PageHeader Title="Create user"
             Description="Add an account and choose what it can do." />
 
@@ -28,8 +29,7 @@ else
     <section class="panel-card user-create-shell">
         <div class="panel-card-header user-section-header">
             <div>
-                <p class="user-section-kicker">Create User</p>
-                <h3>Add a new account</h3>
+                <h2>Account details</h2>
                 <p class="user-section-copy">Create local or external users and assign their initial roles before returning to user management.</p>
             </div>
         </div>
@@ -98,6 +98,8 @@ else
     </section>
 }
 
+</div>
+
 @code {
     private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
 
@@ -159,7 +161,7 @@ else
             }
 
             Logger.LogInformation("Admin user create submitted: {Username}", created.Username);
-            Navigation.NavigateTo("/admin/users", forceLoad: false);
+            Navigation.NavigateTo($"/admin/users?userId={created.UserId:D}", forceLoad: false);
         }
         catch (Exception ex)
         {

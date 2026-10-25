@@ -4,709 +4,447 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
-<PageTitle>My Projects</PageTitle>
+<PageTitle>@(SelectedProject?.Name ?? "My projects")</PageTitle>
 
-<PageHeader Title="My projects"
-            Description="Choose a project, find a record, or capture what happened next.">
-    <Actions>
-        <button type="button" class="sk-button sk-button--secondary" disabled="@(SelectedProject is null || _currentUser?.Role == AppRole.Auditor)" @onclick="RefreshSelectedProjectEntries">
-            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-refresh" /></svg>
-            Refresh entries
-        </button>
-    </Actions>
-</PageHeader>
+@if (SelectedProject is { } project)
+{
+    <div class="sj-workspace" role="region" @ref="_workspaceFocus" tabindex="-1" aria-label="@($"{project.Name} journal")">
+        <nav class="sj-workspace-nav" aria-label="Project navigation">
+            <a class="sk-link" href="@ProjectsUrl(null)"><span aria-hidden="true">←</span>Back to projects</a>
+            <span>@project.Code</span>
+        </nav>
 
-<PageAlerts Message="@_message" Error="@_error" />
+        <PageHeader Title="@project.Name" Description="@(string.IsNullOrWhiteSpace(project.Description) ? "A shared record of decisions, updates, and events." : project.Description)">
+            <Actions>
+                <a href="@NewEntryUrl" class="sk-button sk-button--primary"><svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>New entry</a>
+            </Actions>
+        </PageHeader>
 
-<div class="my-projects-shell">
-    <aside class="panel-card my-project-directory-card">
-        @if (SelectedProject is { } currentProject)
-        {
-            <div class="my-project-picker-summary">
-                <div class="my-project-picker-current">
-                    <span class="my-project-directory-subtitle">Current project</span>
-                    <strong>@currentProject.Name</strong>
+        <PageAlerts Message="@_message" Error="@(_projectSelectionError ?? _error)" />
+
+        <section class="panel-card project-journal-controls" aria-label="Find journal entries">
+            <form class="sk-field-row sj-directory-toolbar" role="search" aria-label="Search journal entries" @onsubmit="SearchEntries" @onsubmit:preventDefault>
+                <div class="sk-field">
+                    <label class="sk-field__label" for="projectJournalSearch">Search entries</label>
+                    <div class="sk-field__control">
+                        <input id="projectJournalSearch" class="sk-input" type="search" @bind="_entrySearchInput" @bind:event="oninput" placeholder="Subject, description, or notes" />
+                    </div>
                 </div>
-                <button type="button"
-                        class="sk-button sk-button--secondary sk-button--sm"
-                        aria-expanded="@(_projectPickerOpen ? "true" : "false")"
-                        aria-controls="project-picker-directory"
-                        @ref="_projectPickerToggle"
-                        @onclick="() => _projectPickerOpen = !_projectPickerOpen">
-                    @(_projectPickerOpen ? "Close picker" : "Change project")
-                </button>
+                <div class="sk-field-row__actions">
+                    <div class="sk-field-row__action-group">
+                        <button type="submit" class="sk-button sk-button--primary">Search</button>
+                        <button type="button" class="sk-button sk-button--secondary" @onclick="RefreshSelectedProjectEntries">Refresh</button>
+                    </div>
+                </div>
+            </form>
+            <div class="project-journal-options">
+                <div class="project-sort-control">
+                    <label class="sk-field__label" for="projectJournalSort">Order</label>
+                    <div class="sk-select-wrapper">
+                        <select id="projectJournalSort" class="sk-select sk-select--sm" value="@_dateSortOrder" @onchange="OnSortOrderChanged">
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                        </select>
+                    </div>
+                </div>
+                @if (_currentUser?.Role == AppRole.Administrator)
+                {
+                    <label class="sk-checkbox">
+                        <input id="projectIncludeDeleted" class="sk-checkbox__input" type="checkbox" checked="@_includeSoftDeleted" @onchange="OnIncludeSoftDeletedChanged" />
+                        <span class="sk-checkbox__box" aria-hidden="true"></span>
+                        <span class="sk-checkbox__content"><span class="sk-checkbox__label">Include deleted entries</span></span>
+                    </label>
+                }
+            </div>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            <div class="sj-filter-chips" aria-label="Active entry filters">
+                <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ClearEntrySearch" aria-label="@($"Remove entry search: {_searchText}")">Search: @_searchText <span aria-hidden="true">×</span></button>
             </div>
         }
 
-        <div id="project-picker-directory" class="my-project-picker-content @(_projectPickerOpen || SelectedProject is null ? "is-open" : string.Empty)">
-        <div class="my-project-directory-header">
-            <div>
-                <h3>Projects</h3>
-                <p class="my-project-directory-copy">Browse the projects you can access</p>
+        <section aria-labelledby="project-entries-heading" class="project-entry-results">
+            <div class="sj-results-summary">
+                <h2 id="project-entries-heading" class="sj-subheading">Journal entries</h2>
+                <p class="sj-muted" role="status">@EntryRangeLabel</p>
             </div>
-            <span class="my-project-directory-total">@FilteredProjectCount of @_projects.Count</span>
-        </div>
+            @if (_entriesLoadFailed)
+            {
+                <div class="panel-card sk-empty-state">
+                    <h3 class="sk-empty-state__heading">Entries could not be loaded</h3>
+                    <p class="sk-empty-state__body">Try loading this project again.</p>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="RefreshSelectedProjectEntries">Try again</button>
+                </div>
+            }
+            else if (_entries.Count == 0)
+            {
+                <div class="panel-card sk-empty-state">
+                    <h3 class="sk-empty-state__heading">Add the first entry</h3>
+                    <p class="sk-empty-state__body">Record a decision, milestone, or update for this project.</p>
+                    <a href="@NewEntryUrl" class="sk-button sk-button--primary">New entry</a>
+                </div>
+            }
+            else if (FilteredEntryCount == 0)
+            {
+                <div class="panel-card sk-empty-state">
+                    <h3 class="sk-empty-state__heading">No entries match “@_searchText”</h3>
+                    <p class="sk-empty-state__body">Try a shorter phrase, or clear the search to see all entries.</p>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearEntrySearch">Clear search</button>
+                </div>
+            }
+            else
+            {
+                <ul class="sj-directory-results project-entry-list" aria-label="Journal entries">
+                    @foreach (var entry in VisibleEntries)
+                    {
+                        <li @key="entry.RecordId">
+                            <article class="sj-result-card project-entry-card">
+                                <div class="sj-result-card__body">
+                                    <h3 class="sj-result-card__title"><a class="sk-link" href="@GetEntryDetailsUrl(entry)">@entry.Subject</a></h3>
+                                    <div class="sj-result-card__meta">
+                                        <time datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy · HH:mm") UTC</time>
+                                        <span>by @entry.CreatedBy</span>
+                                        @if (entry.IsSoftDeleted)
+                                        {
+                                            <span class="sk-badge sk-badge--warning">Deleted</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="sj-result-card__actions">
+                                    <a href="@GetEntryDetailsUrl(entry)" class="sk-button sk-button--secondary sk-button--sm">Open entry<span class="sk-visually-hidden">: @entry.Subject</span></a>
+                                    @if (!entry.IsSoftDeleted)
+                                    {
+                                        <button type="button" class="sk-button sk-button--ghost sk-button--sm" @onclick="() => SoftDeleteAsync(entry)">Delete<span class="sk-visually-hidden">: @entry.Subject</span></button>
+                                    }
+                                    else if (_currentUser?.Role == AppRole.Administrator)
+                                    {
+                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => Restore(entry.RecordId)">Restore<span class="sk-visually-hidden">: @entry.Subject</span></button>
+                                    }
+                                </div>
+                            </article>
+                        </li>
+                    }
+                </ul>
+                @if (TotalPages > 1 || FilteredEntryCount > _pageSizeOptions[0])
+                {
+                    <nav class="pager-bar" aria-label="Journal entry pages">
+                        @if (TotalPages > 1)
+                        {
+                            <p class="sj-muted">Page @_currentPage of @TotalPages</p>
+                            <div class="sj-result-card__actions">
+                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                            </div>
+                        }
+                        <div class="project-page-size">
+                            <label for="projectJournalPageSize">Per page</label>
+                            <div class="sk-select-wrapper"><select id="projectJournalPageSize" class="sk-select sk-select--sm" value="@_pageSize" @onchange="OnPageSizeChanged">@foreach (var size in _pageSizeOptions) { <option value="@size">@size</option> }</select></div>
+                        </div>
+                    </nav>
+                }
+            }
+        </section>
+    </div>
+}
+else
+{
+    <div class="sj-directory">
+        <PageHeader Title="My projects" Description="Find a project, then open its journal.">
+            <Actions>
+                @if (_currentUser?.Role == AppRole.Administrator)
+                {
+                    <a href="/admin/projects/create" class="sk-button sk-button--secondary">Create project</a>
+                }
+            </Actions>
+        </PageHeader>
+        <PageAlerts Error="@(_projectSelectionError ?? _error)" />
 
-        <div class="my-project-directory-toolbar">
-            <label class="sk-visually-hidden" for="projectListSearch">Search projects</label>
-            <input id="projectListSearch"
-                   class="sk-input"
-                   type="text"
-                   value="@_projectSearchText"
-                   @oninput="OnProjectFilterChanged"
-                   placeholder="Search projects..." />
-        </div>
+        <form class="panel-card sk-field-row sj-directory-toolbar" role="search" aria-label="Search projects" @onsubmit="SearchProjects" @onsubmit:preventDefault>
+            <div class="sk-field">
+                <label class="sk-field__label" for="projectListSearch">Search projects</label>
+                <div class="sk-field__control"><input id="projectListSearch" @ref="_directorySearch" class="sk-input" type="search" @bind="_projectSearchInput" @bind:event="oninput" placeholder="Project name, code, or description" /></div>
+            </div>
+            <div class="sk-field-row__actions">
+                <div class="sk-field-row__action-group">
+                    <button type="submit" class="sk-button sk-button--primary">Search</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ShowProjects">Show my projects</button>
+                </div>
+            </div>
+        </form>
 
         @if (_projects.Count == 0)
         {
-            <div class="my-project-directory-empty">
-                <h3>Your workspace is ready</h3>
-                <p>Projects appear here when you have access.</p>
+            <section class="panel-card sk-empty-state">
+                <h2 class="sk-empty-state__heading">No projects yet</h2>
+                <p class="sk-empty-state__body">Projects appear here when you have access.</p>
                 @if (_currentUser?.Role == AppRole.Administrator)
                 {
                     <a class="sk-button sk-button--primary" href="/admin/projects/create">Create your first project</a>
                 }
                 else
                 {
-                    <p>Ask an administrator to add you to a project group.</p>
+                    <p class="sk-empty-state__body">Ask an administrator to add you to a project group.</p>
                 }
-            </div>
-        }
-        else if (FilteredProjectCount == 0)
-        {
-            <div class="my-project-directory-empty">
-                <p>No projects match the current search text.</p>
-                <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ClearProjectSearch">Clear search</button>
-            </div>
-        }
-        else
-        {
-            <div class="my-project-directory-list">
-                @foreach (var project in VisibleProjects)
-                {
-                    <button type="button"
-                            class="my-project-directory-item @(_selectedProjectId == project.ProjectId ? "is-active" : string.Empty)"
-                            aria-pressed="@(_selectedProjectId == project.ProjectId ? "true" : "false")"
-                            @onclick="() => SelectProject(project.ProjectId)">
-                        <span class="my-project-avatar" aria-hidden="true">@ProjectInitial(project)</span>
-                        <span class="my-project-directory-item-body">
-                            <span class="my-project-directory-name">@project.Name</span>
-                            <span class="my-project-directory-subtitle">@project.Code</span>
-                            <span class="my-project-chip-list">
-                                @if (project.AssignedGroups.Count == 0)
-                                {
-                                    <span class="my-project-chip is-empty">No groups</span>
-                                }
-                                else
-                                {
-                                    @foreach (var groupName in project.AssignedGroups.Take(3))
-                                    {
-                                        <span class="my-project-chip">@groupName</span>
-                                    }
-                                    @if (project.AssignedGroups.Count > 3)
-                                    {
-                                        <span class="my-project-chip">+@(project.AssignedGroups.Count - 3) more</span>
-                                    }
-                                }
-                            </span>
-                        </span>
-                    </button>
-                }
-            </div>
-
-            <div class="my-project-directory-footer">
-                @if (ProjectListTotalPages > 1)
-                {
-                <div class="my-project-directory-footer-row">
-                    <span>Page @_projectListPage of @ProjectListTotalPages</span>
-                    <div class="sk-cluster">
-                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_projectListPage <= 1)" @onclick="GoToPreviousProjectListPage">Previous</button>
-                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_projectListPage >= ProjectListTotalPages)" @onclick="GoToNextProjectListPage">Next</button>
-                    </div>
-                </div>
-                }
-                <div class="my-project-directory-footer-row">
-                    <span>@VisibleProjectRangeLabel()</span>
-                    @if (FilteredProjectCount > _projectListPageSizeOptions[0])
-                    {
-                    <div class="my-project-page-size">
-                        <label class="project-page-size-label" for="projectListPageSize">Page size</label>
-                        <div class="sk-select-wrapper">
-                            <select id="projectListPageSize" class="sk-select sk-select--sm project-page-size-select" @onchange="OnProjectListPageSizeChanged">
-                            @foreach (var pageSize in _projectListPageSizeOptions)
-                            {
-                                <option value="@pageSize" selected="@(pageSize == _projectListPageSize)">@pageSize</option>
-                            }
-                        </select>
-                        </div>
-                    </div>
-                    }
-                </div>
-            </div>
-        }
-        </div>
-    </aside>
-
-    @if (_projects.Count > 0)
-    {
-    <div class="my-project-detail-column">
-
-        @if (SelectedProject is null)
-        {
-            <section class="panel-card my-project-empty-card">
-                <h3>Select a project</h3>
-                <p>Choose a project from the directory to review details and browse journal entries.</p>
             </section>
         }
+        else if (!_showProjects)
+        {
+            <p class="sj-muted project-directory-prompt">Search by name or code, or show all @_projects.Count @(_projects.Count == 1 ? "project" : "projects") you can access.</p>
+        }
         else
         {
-            <section class="panel-card my-project-journal-card">
-                <div class="panel-card-header my-project-section-header">
-                    <div>
-                        <p class="my-project-section-kicker">@SelectedProject.Code · Project journal</p>
-                        <h3>@JournalEntriesPanelTitle</h3>
-                        <p class="my-project-section-copy">A shared record of decisions, updates, and events.</p>
-                    </div>
-                    <div class="panel-card-header-actions">
-                        @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
-                        {
-                            <a href="@NewEntryUrl" class="sk-button sk-button--primary"><svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>New entry</a>
-                        }
-                    </div>
+            @if (!string.IsNullOrWhiteSpace(_projectSearchText))
+            {
+                <div class="sj-filter-chips" aria-label="Active project filters">
+                    <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ShowProjects" aria-label="@($"Remove project search: {_projectSearchText}")">Search: @_projectSearchText <span aria-hidden="true">×</span></button>
                 </div>
-
-                @if (_currentUser?.Role == AppRole.Auditor)
+            }
+            <section class="project-directory-results" aria-labelledby="project-results-heading">
+                <div class="sj-results-summary">
+                    <h2 id="project-results-heading" class="sj-subheading">Projects</h2>
+                    <p class="sj-muted" role="status">@ProjectRangeLabel</p>
+                </div>
+                @if (FilteredProjectCount == 0)
                 {
-                    <p>Auditors can use this page to identify projects but cannot directly read journal entries. Use <a href="/audit">Audit Search</a> for evidence and activity.</p>
+                    <div class="panel-card sk-empty-state">
+                        <h3 class="sk-empty-state__heading">No projects match “@_projectSearchText”</h3>
+                        <p class="sk-empty-state__body">Try another name or show all your projects.</p>
+                        <button class="sk-button sk-button--secondary" type="button" @onclick="ShowProjects">Show my projects</button>
+                    </div>
                 }
                 else
                 {
-                    <div class="my-project-journal-toolbar">
-                        <div class="sk-field my-project-journal-search">
-                            <label class="sk-field__label" for="projectJournalSearch">Search</label>
-                            <input id="projectJournalSearch"
-                                   class="sk-input"
-                                   type="search"
-                                   value="@_searchText"
-                                   @oninput="OnSearchChanged"
-                                   placeholder="Search subject, description, notes..." />
-                        </div>
-                        <div class="sk-field">
-                            <label class="sk-field__label" for="projectJournalPageSize">Entries per page</label>
-                            <div class="sk-select-wrapper">
-                                <select id="projectJournalPageSize" class="sk-select" @onchange="OnPageSizeChanged">
-                                @foreach (var pageSize in _pageSizeOptions)
-                                {
-                                    <option value="@pageSize" selected="@(pageSize == _pageSize)">@pageSize</option>
-                                }
-                            </select>
-                            </div>
-                        </div>
-                        <div class="sk-field">
-                            <label class="sk-field__label" for="projectJournalSort">Sort by date</label>
-                            <div class="sk-select-wrapper">
-                                <select id="projectJournalSort" class="sk-select" @onchange="OnSortOrderChanged">
-                                <option value="@DateSortNewest" selected="@(_dateSortOrder == DateSortNewest)">Newest first</option>
-                                <option value="@DateSortOldest" selected="@(_dateSortOrder == DateSortOldest)">Oldest first</option>
-                            </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="my-project-journal-tools">
-                        <p class="sj-muted" role="status">@FilteredEntries.Count() @(FilteredEntries.Count() == 1 ? "entry" : "entries")</p>
-                        @if (!string.IsNullOrWhiteSpace(_searchText))
+                    <ul class="sj-directory-results" aria-label="Projects">
+                        @foreach (var item in VisibleProjects)
                         {
-                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="ClearEntrySearch">Clear search</button>
+                            <li @key="item.ProjectId">
+                                <a class="sj-result-card project-directory-card" href="@ProjectsUrl(item.ProjectId)">
+                                    <div class="sj-result-card__body">
+                                        <h3 class="sj-result-card__title">@item.Name</h3>
+                                        <span class="sj-result-card__meta">@item.Code</span>
+                                        @if (!string.IsNullOrWhiteSpace(item.Description)) { <p class="sj-result-card__description">@item.Description</p> }
+                                    </div>
+                                    <span class="project-open-label">Open journal <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-arrow-right" /></svg></span>
+                                </a>
+                            </li>
                         }
-                        @if (_currentUser?.Role == AppRole.Administrator)
-                        {
-                            <label class="sk-checkbox">
-                                    <input id="projectIncludeDeleted"
-                                           class="sk-checkbox__input"
-                                           type="checkbox"
-                                           checked="@_includeSoftDeleted"
-                                           @onchange="OnIncludeSoftDeletedChanged" />
-                                <span class="sk-checkbox__box" aria-hidden="true"></span>
-                                <span class="sk-checkbox__content">
-                                    <span class="sk-checkbox__label">Show deleted entries</span>
-                                </span>
-                            </label>
-                        }
-                    </div>
-
-                    @if (!_entries.Any())
+                    </ul>
+                    @if (ProjectListTotalPages > 1 || FilteredProjectCount > _projectListPageSizeOptions[0])
                     {
-                        <div class="sk-empty-state">
-                            <svg class="sk-empty-state__icon" aria-hidden="true" focusable="false" width="48" height="48"><use href="#sk-icon-book" /></svg>
-                            <h3 class="sk-empty-state__heading">Start this project's story</h3>
-                            <p class="sk-empty-state__body">Record a decision, milestone, or update. Each entry becomes part of the project's history.</p>
-                            <a href="@NewEntryUrl" class="sk-button sk-button--primary">Create the first entry</a>
-                        </div>
-                    }
-                    else if (!FilteredEntries.Any())
-                    {
-                        <div class="sk-empty-state">
-                            <h3 class="sk-empty-state__heading">No matching entries</h3>
-                            <p class="sk-empty-state__body">Try a shorter phrase. Search looks in subjects, descriptions, and notes.</p>
-                            <button type="button" class="sk-button sk-button--secondary" @onclick="ClearEntrySearch">Clear search</button>
-                        </div>
-                    }
-                    else
-                    {
-                        @* Genuinely tabular data: it was previously built from divs with an
-                           aria-hidden header row, so the column names never reached a screen
-                           reader and every cell lost its association with its header. *@
-                        <div class="sk-table entry-list" role="region" aria-labelledby="entry-list-caption" tabindex="0">
-                            <table role="table">
-                                <caption id="entry-list-caption" class="sk-visually-hidden">
-                                    Journal entries
-                                    <span class="sk-table__caption-detail">@VisibleEntries.Count() shown</span>
-                                </caption>
-                                <thead role="rowgroup">
-                                    <tr role="row">
-                                        <th scope="col" role="columnheader" class="entry-col-created">Created (UTC)</th>
-                                        <th scope="col" role="columnheader" class="entry-col-subject">Subject</th>
-                                        <th scope="col" role="columnheader" class="entry-col-status">Status</th>
-                                        <th scope="col" role="columnheader" class="entry-col-actions"><span class="sk-visually-hidden">Actions</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody role="rowgroup">
-                                    @foreach (var entry in VisibleEntries)
-                                    {
-                                        <tr role="row" class="@(entry.IsSoftDeleted ? "is-soft-deleted" : string.Empty)">
-                                            <td role="cell" class="entry-col-created">
-                                                <time datetime="@entry.CreatedAtUtc.ToString("o")" title="@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")">@entry.CreatedAtUtc.ToString("dd MMM yyyy")</time><span class="entry-mobile-zone" aria-hidden="true"> UTC</span>
-                                                <span class="entry-created-by">by @entry.CreatedBy</span>
-                                            </td>
-                                            <th scope="row" role="rowheader" class="entry-col-subject">
-                                                <a class="sk-link" href="@GetEntryDetailsUrl(entry)">@entry.Subject</a>
-                                            </th>
-                                            <td role="cell" class="entry-col-status">
-                                                @if (entry.IsSoftDeleted)
-                                                {
-                                                    <span class="sk-badge sk-badge--warning">Soft-deleted</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="sk-badge sk-badge--success">Active</span>
-                                                }
-                                            </td>
-                                            <td role="cell" class="entry-col-actions">
-                                                <div class="sk-cluster sk-cluster--end sk-cluster--gap-8">
-                                                    <a href="@GetEntryDetailsUrl(entry)" class="sk-button sk-button--secondary sk-button--sm">
-                                                        View<span class="sk-visually-hidden"> @entry.Subject</span>
-                                                    </a>
-                                                    @if (!entry.IsSoftDeleted)
-                                                    {
-                                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => SoftDeleteAsync(entry)">
-                                                            Delete<span class="sk-visually-hidden"> @entry.Subject</span>
-                                                        </button>
-                                                    }
-                                                    else if (_currentUser?.Role == AppRole.Administrator)
-                                                    {
-                                                        <button type="button" class="sk-button sk-button--success sk-button--sm" @onclick="() => Restore(entry.RecordId)">
-                                                            Restore<span class="sk-visually-hidden"> @entry.Subject</span>
-                                                        </button>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="pager-bar">
-                            <div class="sj-muted">Page @_currentPage of @TotalPages (@FilteredEntries.Count() matching)</div>
-                            <div class="sk-cluster">
-                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
-                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+                        <nav class="pager-bar" aria-label="Project pages">
+                            @if (ProjectListTotalPages > 1)
+                            {
+                                <p class="sj-muted">Page @_projectListPage of @ProjectListTotalPages</p>
+                                <div class="sj-result-card__actions">
+                                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_projectListPage <= 1)" @onclick="GoToPreviousProjectListPage">Previous</button>
+                                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_projectListPage >= ProjectListTotalPages)" @onclick="GoToNextProjectListPage">Next</button>
+                                </div>
+                            }
+                            <div class="project-page-size">
+                                <label for="projectListPageSize">Per page</label>
+                                <div class="sk-select-wrapper"><select id="projectListPageSize" class="sk-select sk-select--sm" value="@_projectListPageSize" @onchange="OnProjectListPageSizeChanged">@foreach (var size in _projectListPageSizeOptions) { <option value="@size">@size</option> }</select></div>
                             </div>
-                        </div>
+                        </nav>
                     }
                 }
             </section>
         }
     </div>
-    }
-</div>
+}
 
 @code {
-    [SupplyParameterFromQuery(Name = "projectId")]
-    public Guid? ProjectId { get; set; }
+    [SupplyParameterFromQuery(Name = "projectId")] public string? ProjectIdQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "saved")] public string? SavedEntryQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? ProjectQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "browse")] public string? BrowseQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "projectPage")] public string? ProjectPageQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "projectSize")] public string? ProjectSizeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "entryQuery")] public string? EntryQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public string? EntryPageQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "size")] public string? EntrySizeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+    [SupplyParameterFromQuery(Name = "deleted")] public string? IncludeDeletedQuery { get; set; }
 
-    [SupplyParameterFromQuery(Name = "saved")]
-    public Guid? SavedEntryId { get; set; }
+    private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
+    private Guid? SavedEntryId => Guid.TryParse(SavedEntryQuery, out var id) ? id : null;
+    private bool Browse => bool.TryParse(BrowseQuery, out var value) && value;
+    private bool IncludeDeleted => bool.TryParse(IncludeDeletedQuery, out var value) && value;
+    private int? ProjectPage => ParseNumber(ProjectPageQuery);
+    private int? ProjectSize => ParseNumber(ProjectSizeQuery);
+    private int? EntryPage => ParseNumber(EntryPageQuery);
+    private int? EntrySize => ParseNumber(EntrySizeQuery);
+    private static int? ParseNumber(string? value) => int.TryParse(value, out var number) ? number : null;
 
     private const string DateSortNewest = "newest";
     private const string DateSortOldest = "oldest";
     private readonly int[] _pageSizeOptions = [5, 10, 20, 50];
     private readonly int[] _projectListPageSizeOptions = [10, 20, 50, 100];
-
     private UserContext? _currentUser;
     private List<ProjectOverview> _projects = new();
     private List<JournalEntryView> _entries = new();
     private Guid? _selectedProjectId;
+    private Guid? _entriesProjectId;
+    private bool _entriesIncludeDeleted;
+    private bool _entriesLoadFailed;
     private bool _includeSoftDeleted;
+    private bool _showProjects;
     private string _searchText = string.Empty;
+    private string _entrySearchInput = string.Empty;
+    private string _projectSearchText = string.Empty;
+    private string _projectSearchInput = string.Empty;
     private int _pageSize = 20;
     private int _currentPage = 1;
     private string _dateSortOrder = DateSortNewest;
-    private string _projectSearchText = string.Empty;
     private int _projectListPageSize = 20;
     private int _projectListPage = 1;
     private string? _message;
     private string? _error;
+    private string? _projectSelectionError;
     private Guid? _lastSavedEntryId;
-    private bool _projectPickerOpen;
-    private bool _focusProjectPicker;
-    private ElementReference _projectPickerToggle;
+    private ElementReference _workspaceFocus;
+    private ElementReference _directorySearch;
+    private bool _focusChangedView;
+    private bool _parametersLoaded;
 
-    private ProjectOverview? SelectedProject
-        => _selectedProjectId is { } id
-            ? _projects.FirstOrDefault(p => p.ProjectId == id)
-            : null;
-
-    private IReadOnlyList<ProjectOverview> FilteredProjects
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(_projectSearchText))
-            {
-                return _projects;
-            }
-
-            var term = _projectSearchText.Trim();
-            return _projects
-                .Where(p =>
-                    p.Code.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
-    }
-
-    private int FilteredProjectCount => FilteredProjects.Count;
-
-    private int ProjectListTotalPages
-    {
-        get
-        {
-            var count = FilteredProjectCount;
-            return Math.Max(1, (int)Math.Ceiling(count / (double)_projectListPageSize));
-        }
-    }
-
-    private IEnumerable<ProjectOverview> VisibleProjects
-    {
-        get
-        {
-            var page = Math.Clamp(_projectListPage, 1, ProjectListTotalPages);
-            return FilteredProjects
-                .Skip((page - 1) * _projectListPageSize)
-                .Take(_projectListPageSize);
-        }
-    }
-
-    private IEnumerable<JournalEntryView> FilteredEntries
-        => _entries.Where(e =>
-            string.IsNullOrWhiteSpace(_searchText) ||
-            e.Subject.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
-            e.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
-            e.Notes.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
-
-    private IEnumerable<JournalEntryView> SortedEntries
-        => _dateSortOrder == DateSortOldest
-            ? FilteredEntries.OrderBy(e => e.CreatedAtUtc)
-            : FilteredEntries.OrderByDescending(e => e.CreatedAtUtc);
-
-    private IEnumerable<JournalEntryView> VisibleEntries
-        => SortedEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
-
-    private int TotalPages
-    {
-        get
-        {
-            var count = FilteredEntries.Count();
-            return Math.Max(1, (int)Math.Ceiling(count / (double)_pageSize));
-        }
-    }
-
-    private string JournalEntriesPanelTitle
-        => SelectedProject is { } project
-            ? project.Name
-            : "Project Journal Entries";
-
-    private string NewEntryUrl => _selectedProjectId is { } id ? $"/journal?projectId={id:D}" : "/journal";
-
-    protected override void OnParametersSet()
-    {
-        if (_currentUser is null || _currentUser.Role == AppRole.Auditor)
-        {
-            return;
-        }
-
-        var nextProjectId = ProjectId is { } id && _projects.Any(project => project.ProjectId == id)
-            ? id
-            : _projects.FirstOrDefault()?.ProjectId;
-        if (nextProjectId != _selectedProjectId)
-        {
-            _selectedProjectId = nextProjectId;
-            _searchText = string.Empty;
-            _currentPage = 1;
-            _message = null;
-            RefreshSelectedProjectEntries();
-        }
-
-        if (SavedEntryId != _lastSavedEntryId)
-        {
-            _lastSavedEntryId = SavedEntryId;
-            _message = SavedEntryId is { } savedId && _entries.FirstOrDefault(entry => entry.RecordId == savedId) is { } savedEntry
-                ? $"“{savedEntry.Subject}” was saved to this project."
-                : null;
-        }
-    }
+    private ProjectOverview? SelectedProject => _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId);
+    private IEnumerable<ProjectOverview> FilteredProjects => _projects.Where(p => string.IsNullOrWhiteSpace(_projectSearchText) || p.Code.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Name.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Description.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase));
+    private int FilteredProjectCount => FilteredProjects.Count();
+    private int ProjectListTotalPages => Math.Max(1, (int)Math.Ceiling(FilteredProjectCount / (double)_projectListPageSize));
+    private IEnumerable<ProjectOverview> VisibleProjects => FilteredProjects.Skip((_projectListPage - 1) * _projectListPageSize).Take(_projectListPageSize);
+    private IEnumerable<JournalEntryView> FilteredEntries => _entries.Where(e => string.IsNullOrWhiteSpace(_searchText) || e.Subject.Contains(_searchText, StringComparison.OrdinalIgnoreCase) || e.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase) || e.Notes.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+    private int FilteredEntryCount => FilteredEntries.Count();
+    private IEnumerable<JournalEntryView> SortedEntries => _dateSortOrder == DateSortOldest ? FilteredEntries.OrderBy(e => e.CreatedAtUtc) : FilteredEntries.OrderByDescending(e => e.CreatedAtUtc);
+    private IEnumerable<JournalEntryView> VisibleEntries => SortedEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(FilteredEntryCount / (double)_pageSize));
+    private string ProjectRangeLabel => RangeLabel(_projectListPage, _projectListPageSize, FilteredProjectCount, "project", "projects");
+    private string EntryRangeLabel => RangeLabel(_currentPage, _pageSize, FilteredEntryCount, "entry", "entries");
+    private string WorkspaceReturnUrl => Uri.EscapeDataString(ProjectsUrl(_selectedProjectId, includeEntryState: true));
+    private string NewEntryUrl => $"/journal?projectId={_selectedProjectId:D}&returnUrl={WorkspaceReturnUrl}";
+    private string GetEntryDetailsUrl(JournalEntryView entry) => $"/projects/entry/{entry.RecordId:D}?projectId={entry.ProjectId:D}&returnUrl={WorkspaceReturnUrl}";
 
     protected override async Task OnInitializedAsync()
     {
-        if (!await JournalApp.HasCurrentUserAsync())
-        {
-            Navigation.NavigateTo("/", forceLoad: false);
-            return;
-        }
+        if (!await JournalApp.HasCurrentUserAsync()) { Navigation.NavigateTo("/"); return; }
+        _currentUser = await JournalApp.GetCurrentUserAsync();
+        if (_currentUser.Role == AppRole.Auditor) { Navigation.NavigateTo("/audit", replace: true); return; }
+        _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
+    }
 
-        await LoadPageAsync();
+    protected override void OnParametersSet()
+    {
+        if (_currentUser is null || _currentUser.Role == AppRole.Auditor) return;
+        var previousProject = _selectedProjectId;
+        _selectedProjectId = ProjectId is { } id && _projects.Any(p => p.ProjectId == id) ? id : null;
+        _projectSearchInput = _projectSearchText = ProjectQuery?.Trim() ?? string.Empty;
+        _showProjects = Browse || !string.IsNullOrWhiteSpace(_projectSearchText);
+        _projectListPageSize = ProjectSize is { } ps && _projectListPageSizeOptions.Contains(ps) ? ps : 20;
+        _projectListPage = Math.Clamp(ProjectPage ?? 1, 1, ProjectListTotalPages);
+        _entrySearchInput = _searchText = EntryQuery?.Trim() ?? string.Empty;
+        _pageSize = EntrySize is { } es && _pageSizeOptions.Contains(es) ? es : 20;
+        _dateSortOrder = Sort == DateSortOldest ? DateSortOldest : DateSortNewest;
+        _includeSoftDeleted = IncludeDeleted && _currentUser.Role == AppRole.Administrator;
+        _currentPage = Math.Max(1, EntryPage ?? 1);
+        if (_selectedProjectId != _entriesProjectId || _includeSoftDeleted != _entriesIncludeDeleted) RefreshSelectedProjectEntries();
+        _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+        if (previousProject != _selectedProjectId)
+        {
+            _message = null;
+            _focusChangedView = _parametersLoaded;
+        }
+        _parametersLoaded = true;
+        _projectSelectionError = !string.IsNullOrWhiteSpace(ProjectIdQuery) && SelectedProject is null
+            ? "This project is unavailable or you do not have access. Choose another project below."
+            : null;
+        if (SavedEntryId != _lastSavedEntryId)
+        {
+            _lastSavedEntryId = SavedEntryId;
+            _message = SavedEntryId is { } savedId && _entries.FirstOrDefault(e => e.RecordId == savedId) is { } saved ? $"“{saved.Subject}” was saved to this project." : null;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_focusProjectPicker)
-        {
-            _focusProjectPicker = false;
-            await _projectPickerToggle.FocusAsync(preventScroll: true);
-        }
+        if (!_focusChangedView) return;
+        _focusChangedView = false;
+        if (_selectedProjectId.HasValue) await _workspaceFocus.FocusAsync();
+        else await _directorySearch.FocusAsync();
     }
 
-    private async Task LoadPageAsync()
+    private string ProjectsUrl(Guid? projectId, bool includeEntryState = false)
     {
-        _currentUser = await JournalApp.GetCurrentUserAsync();
-        if (_currentUser.Role == AppRole.Auditor)
+        var values = new Dictionary<string, string?>
         {
-            Navigation.NavigateTo("/audit", replace: true);
-            return;
-        }
-
-        _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
-        _projectListPage = 1;
-
-        if (ProjectId.HasValue && _projects.Any(p => p.ProjectId == ProjectId.Value))
-        {
-            _selectedProjectId = ProjectId.Value;
-        }
-        else if (!_selectedProjectId.HasValue || _projects.All(p => p.ProjectId != _selectedProjectId.Value))
-        {
-            _selectedProjectId = _projects.FirstOrDefault()?.ProjectId;
-        }
-
-        if (_currentUser?.Role != AppRole.Auditor)
-        {
-            RefreshSelectedProjectEntries();
-        }
-        else
-        {
-            _entries.Clear();
-        }
+            ["projectId"] = projectId?.ToString("D"),
+            ["q"] = string.IsNullOrWhiteSpace(_projectSearchText) ? null : _projectSearchText,
+            ["browse"] = _showProjects ? "true" : null,
+            ["projectPage"] = _projectListPage > 1 ? _projectListPage.ToString() : null,
+            ["projectSize"] = _projectListPageSize != 20 ? _projectListPageSize.ToString() : null,
+            ["entryQuery"] = includeEntryState && !string.IsNullOrWhiteSpace(_searchText) ? _searchText : null,
+            ["page"] = includeEntryState && _currentPage > 1 ? _currentPage.ToString() : null,
+            ["size"] = includeEntryState && _pageSize != 20 ? _pageSize.ToString() : null,
+            ["sort"] = includeEntryState && _dateSortOrder == DateSortOldest ? DateSortOldest : null,
+            ["deleted"] = includeEntryState && _includeSoftDeleted ? "true" : null
+        };
+        var query = string.Join("&", values.Where(p => p.Value is not null).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value!)}"));
+        return string.IsNullOrEmpty(query) ? "/projects" : $"/projects?{query}";
     }
 
-    private void OnProjectFilterChanged(ChangeEventArgs args)
-    {
-        _projectSearchText = args.Value?.ToString() ?? string.Empty;
-        _projectListPage = 1;
-    }
-
-    private void OnProjectListPageSizeChanged(ChangeEventArgs args)
-    {
-        if (int.TryParse(args.Value?.ToString(), out var next) && _projectListPageSizeOptions.Contains(next))
-        {
-            _projectListPageSize = next;
-            _projectListPage = 1;
-        }
-    }
-
-    private void GoToPreviousProjectListPage()
-    {
-        if (_projectListPage > 1)
-        {
-            _projectListPage--;
-        }
-    }
-
-    private void GoToNextProjectListPage()
-    {
-        if (_projectListPage < ProjectListTotalPages)
-        {
-            _projectListPage++;
-        }
-    }
-
-    private void SelectProject(Guid projectId)
-    {
-        _focusProjectPicker = _projectPickerOpen;
-        _projectPickerOpen = false;
-        _message = null;
-        _selectedProjectId = projectId;
-        _searchText = string.Empty;
-        _currentPage = 1;
-        RefreshSelectedProjectEntries();
-        Navigation.NavigateTo($"/projects?projectId={projectId:D}");
-    }
+    private void NavigateState() => Navigation.NavigateTo(ProjectsUrl(_selectedProjectId, includeEntryState: _selectedProjectId.HasValue));
+    private void SearchProjects() { _projectSearchText = _projectSearchInput.Trim(); _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
+    private void ShowProjects() { _projectSearchText = _projectSearchInput = string.Empty; _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
+    private void SearchEntries() { _searchText = _entrySearchInput.Trim(); _currentPage = 1; NavigateState(); }
+    private void ClearEntrySearch() { _searchText = _entrySearchInput = string.Empty; _currentPage = 1; NavigateState(); }
+    private void PreviousPage() { if (_currentPage > 1) { _currentPage--; NavigateState(); } }
+    private void NextPage() { if (_currentPage < TotalPages) { _currentPage++; NavigateState(); } }
+    private void GoToPreviousProjectListPage() { if (_projectListPage > 1) { _projectListPage--; NavigateState(); } }
+    private void GoToNextProjectListPage() { if (_projectListPage < ProjectListTotalPages) { _projectListPage++; NavigateState(); } }
+    private void OnPageSizeChanged(ChangeEventArgs args) { if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size)) { _pageSize = size; _currentPage = 1; NavigateState(); } }
+    private void OnProjectListPageSizeChanged(ChangeEventArgs args) { if (int.TryParse(args.Value?.ToString(), out var size) && _projectListPageSizeOptions.Contains(size)) { _projectListPageSize = size; _projectListPage = 1; NavigateState(); } }
+    private void OnSortOrderChanged(ChangeEventArgs args) { _dateSortOrder = args.Value?.ToString() == DateSortOldest ? DateSortOldest : DateSortNewest; _currentPage = 1; NavigateState(); }
+    private void OnIncludeSoftDeletedChanged(ChangeEventArgs args) { _includeSoftDeleted = args.Value is true; _currentPage = 1; NavigateState(); }
 
     private void RefreshSelectedProjectEntries()
     {
         _error = null;
-
-        if (!_selectedProjectId.HasValue || _currentUser?.Role == AppRole.Auditor)
-        {
-            _entries = new List<JournalEntryView>();
-            _currentPage = 1;
-            return;
-        }
-
+        _entriesLoadFailed = false;
+        _entriesProjectId = _selectedProjectId;
+        _entriesIncludeDeleted = _includeSoftDeleted;
+        if (!_selectedProjectId.HasValue || _currentUser?.Role == AppRole.Auditor) { _entries.Clear(); _currentPage = 1; return; }
         try
         {
             _entries = JournalApp.GetJournalEntries(_selectedProjectId.Value, includeSoftDeleted: _includeSoftDeleted).ToList();
-            _currentPage = Math.Min(_currentPage, TotalPages);
-            _currentPage = Math.Max(_currentPage, 1);
+            _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
         }
-        catch (Exception ex)
-        {
-            _entries = new List<JournalEntryView>();
-            _error = ex.Message;
-            _currentPage = 1;
-        }
+        catch (Exception ex) { _entriesLoadFailed = true; _entries.Clear(); _error = ex.Message; _currentPage = 1; }
     }
 
     private async Task SoftDeleteAsync(JournalEntryView entry)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", $"Delete “{entry.Subject}”? The entry will be hidden from the project journal. Its history is retained, and an administrator can restore it."))
-        {
-            return;
-        }
-
-        _message = null;
-        _error = null;
-
+        if (!await JS.InvokeAsync<bool>("confirm", $"Delete “{entry.Subject}”? The entry will be hidden from the project journal. Its history is retained, and an administrator can restore it.")) return;
+        _message = null; _error = null;
         try
         {
             var deleted = JournalApp.SoftDeleteJournalEntry(entry.RecordId);
             _message = deleted ? $"“{entry.Subject}” was deleted. An administrator can restore it." : "Entry was already deleted or not found.";
             RefreshSelectedProjectEntries();
         }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 
     private void Restore(Guid recordId)
     {
-        _message = null;
-        _error = null;
-
+        _message = null; _error = null;
         try
         {
             var restored = JournalApp.RestoreJournalEntry(recordId);
             _message = restored ? "Entry restored." : "Entry was already active or not found.";
             RefreshSelectedProjectEntries();
         }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 
-    private void OnSearchChanged(ChangeEventArgs args)
-    {
-        _searchText = args.Value?.ToString() ?? string.Empty;
-        _currentPage = 1;
-    }
-
-    private void ClearProjectSearch()
-    {
-        _projectSearchText = string.Empty;
-        _projectListPage = 1;
-    }
-
-    private void ClearEntrySearch()
-    {
-        _searchText = string.Empty;
-        _currentPage = 1;
-    }
-
-    private void OnPageSizeChanged(ChangeEventArgs args)
-    {
-        if (int.TryParse(args.Value?.ToString(), out var next) && _pageSizeOptions.Contains(next))
-        {
-            _pageSize = next;
-            _currentPage = 1;
-        }
-    }
-
-    private void OnSortOrderChanged(ChangeEventArgs args)
-    {
-        var selected = args.Value?.ToString();
-        _dateSortOrder = selected == DateSortOldest ? DateSortOldest : DateSortNewest;
-        _currentPage = 1;
-    }
-
-    private void OnIncludeSoftDeletedChanged(ChangeEventArgs args)
-    {
-        _includeSoftDeleted = args.Value switch
-        {
-            bool b => b,
-            string s when bool.TryParse(s, out var parsed) => parsed,
-            _ => false
-        };
-
-        _currentPage = 1;
-        RefreshSelectedProjectEntries();
-    }
-
-    private void PreviousPage()
-    {
-        if (_currentPage > 1)
-        {
-            _currentPage--;
-        }
-    }
-
-    private void NextPage()
-    {
-        if (_currentPage < TotalPages)
-        {
-            _currentPage++;
-        }
-    }
-
-    private string VisibleProjectRangeLabel()
-    {
-        if (FilteredProjectCount == 0)
-        {
-            return "Showing 0 projects";
-        }
-
-        var start = ((_projectListPage - 1) * _projectListPageSize) + 1;
-        var end = Math.Min(_projectListPage * _projectListPageSize, FilteredProjectCount);
-        return $"Showing {start}-{end} of {FilteredProjectCount} projects";
-    }
-
-    private static string GetEntryDetailsUrl(JournalEntryView entry)
-        => $"/projects/entry/{entry.RecordId:D}?projectId={entry.ProjectId:D}";
-
-    private static string ProjectInitial(ProjectOverview project)
-    {
-        var source = string.IsNullOrWhiteSpace(project.Code) ? project.Name : project.Code;
-        return string.IsNullOrWhiteSpace(source) ? "P" : source.Trim()[0].ToString().ToUpperInvariant();
-    }
-
+    private static string RangeLabel(int page, int size, int count, string singular, string plural)
+        => count == 0 ? $"0 {plural}" : count <= size ? $"{count} {(count == 1 ? singular : plural)}" : $"{(page - 1) * size + 1}–{Math.Min(page * size, count)} of {count} {plural}";
 }

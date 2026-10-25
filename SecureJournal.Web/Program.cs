@@ -146,8 +146,9 @@ app.Use(async (context, next) =>
             ? "connect-src 'self' ws: wss:; "
             : "connect-src 'self' wss:; ";
 
-        headers["Content-Security-Policy"] =
-            "default-src 'self'; " +
+        headers["Content-Security-Policy"] = context.Request.Path.StartsWithSegments("/attachments")
+            ? "sandbox; default-src 'none'"
+            : "default-src 'self'; " +
             "base-uri 'self'; " +
             "object-src 'none'; " +
             "frame-ancestors 'none'; " +
@@ -371,6 +372,27 @@ if (authStackEnabled)
 }
 
 app.MapStaticAssets();
+app.MapGet("/attachments/{attachmentId:guid}", async (Guid attachmentId, HttpContext context, ISecureJournalAppService journalApp) =>
+{
+    var statusPages = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IStatusCodePagesFeature>();
+    if (statusPages is not null) statusPages.Enabled = false;
+    context.Response.Headers.CacheControl = "no-store, private";
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Content-Security-Policy"] = "sandbox";
+    if (!await journalApp.HasCurrentUserAsync(context.RequestAborted)) return Results.Unauthorized();
+    try
+    {
+        var file = journalApp.DownloadJournalAttachment(attachmentId);
+        // Never trust a supplied MIME type or render uploaded HTML/SVG in the app origin.
+        return Results.File(file.Content, "application/octet-stream", file.FileName, enableRangeProcessing: false);
+    }
+    catch (UnauthorizedAccessException)
+    {
+        // Missing and inaccessible IDs have the same response.
+        return Results.NotFound();
+    }
+});
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

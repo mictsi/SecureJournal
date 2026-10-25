@@ -1,583 +1,91 @@
-/* My projects.
-
-   Rewritten onto semantic tokens and flex composition, matching the shape used
-   by the other directory-and-detail pages. The previous version hard-coded its
-   palette (so the page ignored the light themes entirely) and used
-   `grid-template-columns` with rigid minimums, which crushed content once the
-   detail column narrowed.
-
-   Responsive-layout foundation: flex first, wrap by default, width expressed as
-   flex-basis, and min-inline-size: 0 on every child that can hold text. */
-
-.my-projects-shell {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-24);
-    align-items: flex-start;
-    min-inline-size: 0;
-}
-
-/* The rail is the page's index: it has to show a project's name and its
-   subtitle without cutting either. A 20rem basis truncated both, so the ideal
-   width is larger and the cap is looser. */
-.my-project-directory-card {
-    flex: 1 1 19rem;
-    min-inline-size: 0;
-    max-inline-size: 25rem;
-}
-
-.my-project-picker-summary {
-    display: none;
-}
-
-.my-project-picker-current {
-    flex: 1 1 9rem;
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.my-project-detail-column {
-    /* Large grow, small basis: takes the slack, wraps when the basis will not fit. */
-    flex: 999 1 32rem;
-    min-inline-size: 0;
+/* Projects are a search directory or one focused journal. Cards keep the same
+   information and actions at every width; there is no secondary entity rail. */
+.project-directory-results,
+.project-entry-results {
     display: flex;
     flex-direction: column;
-    gap: var(--sk-space-24);
-}
-
-.my-project-directory-card,
-.my-project-empty-card,
-.my-project-journal-card,
-.my-project-detail-column > .panel-card {
-    background-color: var(--sk-color-surface-raised);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-lg);
-    padding: var(--sk-space-16);
-    min-inline-size: 0;
-}
-
-/* --- Directory --- */
-.my-project-directory-header,
-.my-project-directory-toolbar,
-.my-project-directory-footer-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sk-space-8) var(--sk-space-12);
-    min-inline-size: 0;
-}
-
-.my-project-directory-header > :first-child,
-.my-project-directory-footer-row > :first-child {
-    flex: 1 1 auto;
-    min-inline-size: 0;
-}
-
-.my-project-directory-copy,
-.my-project-directory-description {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.my-project-directory-total {
-    flex: 0 0 auto;
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-tertiary);
-    font-variant-numeric: tabular-nums;
-}
-
-.my-project-directory-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sk-space-8);
-    margin-block: var(--sk-space-12);
-    max-block-size: min(68vh, 54rem);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    min-inline-size: 0;
-}
-
-.my-project-directory-item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--sk-space-12);
-    inline-size: 100%;
-    min-inline-size: 0;
-    padding: var(--sk-space-12);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-md);
-    background-color: var(--sk-color-surface-base);
-    color: var(--sk-color-text-primary);
-    text-align: start;
-    cursor: pointer;
-}
-
-.my-project-directory-item:hover {
-    background-color: var(--sk-color-surface-hover);
-    border-color: var(--sk-color-border-default);
-}
-
-.my-project-directory-item:focus-visible {
-    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
-    outline-offset: var(--sk-focus-ring-offset);
-}
-
-.my-project-directory-item.is-selected,
-.my-project-directory-item.is-active,
-.my-project-directory-item[aria-pressed="true"],
-.my-project-directory-item[aria-current="true"] {
-    background-color: var(--sk-color-surface-selected);
-    border-color: var(--sk-color-border-brand);
-}
-
-.my-project-journal-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--sk-space-12);
-    padding-block: var(--sk-space-16);
-    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-}
-
-.my-project-journal-toolbar > .sk-field {
-    flex: 1 1 8rem;
-    min-inline-size: 0;
-}
-
-.my-project-journal-toolbar > .my-project-journal-search {
-    flex: 4 1 16rem;
-}
-
-.my-project-journal-tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sk-space-12);
-    margin-block-end: var(--sk-space-16);
-}
-
-.my-project-journal-tools p {
-    flex: 1 1 auto;
-    margin: 0;
-    font-size: var(--sk-font-size-body-sm);
-}
-
-@media (max-width: 48rem) {
-    .my-project-directory-card {
-        flex-basis: 100%;
-        max-inline-size: none;
-    }
-
-    .my-project-picker-summary {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--sk-space-12);
-    }
-
-    .my-project-picker-content:not(.is-open) {
-        display: none;
-    }
-
-    .my-project-picker-summary + .my-project-picker-content.is-open {
-        margin-block-start: var(--sk-space-16);
-        padding-block-start: var(--sk-space-16);
-        border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    }
-
-    .my-project-directory-list { max-block-size: 16rem; }
-}
-
-.my-project-directory-item-body {
-    /* Name, subtitle and chips are stacked content, not a row. Laid out as a
-       row they competed for the rail's width and the name lost — a project code
-       was being clipped to 43px. */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--sk-space-4);
-    min-inline-size: 0;
-}
-
-.my-project-directory-name,
-.my-project-directory-subtitle {
-    display: block;
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-.my-project-directory-name {
-    font-weight: var(--sk-font-weight-medium);
-    color: var(--sk-color-text-primary);
-}
-
-.my-project-directory-subtitle {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-tertiary);
-}
-
-.my-project-directory-empty {
-    padding: var(--sk-space-16);
-    color: var(--sk-color-text-tertiary);
-    font-size: var(--sk-font-size-body-sm);
-}
-
-.my-project-directory-footer {
-    padding-block-start: var(--sk-space-12);
-    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-}
-
-.my-project-directory-sort,
-.my-project-page-size {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sk-space-8);
-    min-inline-size: 0;
-}
-
-/* --- Identity --- */
-.my-project-avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    inline-size: 2.25rem;
-    block-size: 2.25rem;
-    border-radius: var(--sk-radius-full);
-    background-color: var(--sk-color-surface-brand-subtle);
-    color: var(--sk-color-text-brand);
-    font-weight: var(--sk-font-weight-semibold);
-}
-
-.my-project-avatar-large {
-    inline-size: 3rem;
-    block-size: 3rem;
-    font-size: var(--sk-font-size-heading-xs);
-}
-
-.my-project-profile-summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
     gap: var(--sk-space-16);
     min-inline-size: 0;
 }
 
-.my-project-profile-copy {
-    flex: 1 1 14rem;
-    min-inline-size: 0;
+.project-directory-prompt {
+    margin: 0;
+    max-inline-size: var(--sk-container-prose);
 }
 
-.my-project-profile-heading {
-    font-size: var(--sk-font-size-overline);
-    font-weight: var(--sk-font-weight-semibold);
-    letter-spacing: var(--sk-letter-spacing-overline);
-    text-transform: uppercase;
-    color: var(--sk-color-text-tertiary);
-}
-
-.my-project-profile-description,
-.my-project-profile-subtitle,
-.my-project-profile-meta {
-    font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-}
-
-/* --- Chips --- */
-.my-project-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-4);
-    margin: var(--sk-space-4) 0 0;
-    padding: 0;
-    list-style: none;
-    min-inline-size: 0;
-}
-
-.my-project-chip,
-.my-project-status-badge {
-    display: inline-flex;
+.project-directory-card {
     align-items: center;
-    gap: var(--sk-space-4);
-    padding: var(--sk-space-2) var(--sk-space-8);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-status-neutral-border);
-    border-radius: var(--sk-radius-full);
-    background-color: var(--sk-color-status-neutral-surface);
-    color: var(--sk-color-status-neutral-text);
-    font-size: var(--sk-font-size-body-xs);
-    font-weight: var(--sk-font-weight-medium);
 }
 
-.my-project-status-badge.is-disabled,
-.my-project-status-badge.is-deleted {
-    border-color: var(--sk-color-status-danger-border);
-    background-color: var(--sk-color-status-danger-surface);
-    color: var(--sk-color-status-danger-text);
-}
-
-/* --- Sections --- */
-.my-project-section-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--sk-space-12);
-    margin-block-end: var(--sk-space-12);
-    min-inline-size: 0;
-}
-
-.my-project-section-copy {
-    flex: 1 1 16rem;
-    min-inline-size: 0;
-}
-
-.my-project-section-actions,
-.my-project-danger-actions {
-    display: flex;
-    flex-wrap: wrap;
+.project-open-label {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
     gap: var(--sk-space-8);
-}
-
-.my-project-section-kicker,
-.my-project-danger-kicker {
-    font-size: var(--sk-font-size-overline);
-    font-weight: var(--sk-font-weight-semibold);
-    letter-spacing: var(--sk-letter-spacing-overline);
-    text-transform: uppercase;
-    color: var(--sk-color-text-tertiary);
-}
-
-.my-project-danger-kicker { color: var(--sk-color-status-danger-text); }
-
-.my-project-section-title {
-    font-size: var(--sk-font-size-heading-xs);
-    font-weight: var(--sk-font-weight-semibold);
-    color: var(--sk-color-text-primary);
-}
-
-.my-project-danger-card {
-    border-color: var(--sk-color-status-danger-border);
-}
-
-.my-project-danger-copy {
+    color: var(--sk-color-text-link);
     font-size: var(--sk-font-size-body-sm);
-    color: var(--sk-color-text-secondary);
-}
-
-/* --- Shared bits --- */
-.table-sort {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sk-space-4);
-    padding: var(--sk-space-4) var(--sk-space-8);
-    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-    border-radius: var(--sk-radius-sm);
-    background: none;
-    color: var(--sk-color-text-secondary);
-    font-size: var(--sk-font-size-label-sm);
-    cursor: pointer;
-}
-
-.table-sort:hover { background-color: var(--sk-color-surface-hover); }
-
-.table-sort:focus-visible {
-    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
-    outline-offset: var(--sk-focus-ring-offset);
-}
-
-.project-page-size-label {
-    font-size: var(--sk-font-size-label-sm);
-    color: var(--sk-color-text-secondary);
-    flex: 0 0 auto;
-}
-
-.project-page-size-select {
-    flex: 0 1 6rem;
-    min-inline-size: 0;
-}
-
-/* Context pairs wrap instead of being forced into a fixed column count. */
-.my-project-context-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-12) var(--sk-space-24);
-    min-inline-size: 0;
-}
-
-.my-project-context-item {
-    flex: 1 1 12rem;
-    min-inline-size: 0;
-}
-
-.my-project-context-label {
-    display: block;
-    font-size: var(--sk-font-size-label-sm);
-    color: var(--sk-color-text-tertiary);
-}
-
-.my-project-context-value {
-    color: var(--sk-color-text-primary);
-    overflow-wrap: anywhere;
-}
-
-/* --- Journal entries table ---
-   Restores styling for the entry list, which lost its rules when the old
-   stylesheet was retired. It is a real table now rather than divs pretending to
-   be one, so it only needs column sizing and the soft-deleted treatment. */
-
-/* The scroll container must also be a containing block. The visually-hidden
-   spans that give each action button a unique accessible name are absolutely
-   positioned, and without this they resolve against the viewport instead of the
-   container, escaping its clip and widening the page at narrow widths. */
-.entry-list {
-    position: relative;
-}
-
-.entry-list table {
-    table-layout: auto;
-    inline-size: 100%;
-}
-
-.entry-list th,
-.entry-list td {
-    vertical-align: top;
-}
-
-.entry-col-created { white-space: nowrap; }
-
-.entry-created-by {
-    display: block;
-    font-size: var(--sk-font-size-body-xs);
-    color: var(--sk-color-text-tertiary);
-}
-
-.entry-mobile-zone {
-    display: none;
-}
-
-/* Subject absorbs the slack; the other three size to their content. */
-.entry-col-subject {
-    inline-size: 100%;
-    min-inline-size: 0;
-    font-weight: var(--sk-font-weight-regular);
-    overflow-wrap: anywhere;
-}
-
-.entry-col-status,
-.entry-col-actions { white-space: nowrap; }
-
-.entry-col-actions { text-align: end; }
-
-/* A cluster wraps by default, which is right almost everywhere but not for a
-   two-button action cell: the buttons belong on one line and the column already
-   sizes to them. */
-.entry-col-actions .sk-cluster {
-    flex-wrap: nowrap;
-    justify-content: flex-end;
-}
-
-/* Action labels keep their intrinsic width while the subject takes the remaining
-   space. On phones the surrounding cluster can still wrap whole buttons. */
-.entry-col-actions .sk-button {
-    flex: 0 0 auto;
+    font-weight: var(--sk-font-weight-medium);
     white-space: nowrap;
 }
 
-/* A soft-deleted row is still readable — the badge carries the meaning, so this
-   is a supporting signal rather than the only one. */
-.entry-list tr.is-soft-deleted td,
-.entry-list tr.is-soft-deleted th {
-    background-color: var(--sk-color-surface-sunken);
+.project-journal-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-16);
+}
+
+.project-journal-options,
+.project-sort-control,
+.project-page-size {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-8) var(--sk-space-16);
+    min-inline-size: 0;
+}
+
+.project-journal-options {
+    justify-content: space-between;
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    padding-block-start: var(--sk-space-16);
+}
+
+.project-sort-control .sk-field__label {
+    margin: 0;
+}
+
+.project-sort-control .sk-select-wrapper {
+    flex: 1 1 10rem;
+    min-inline-size: 0;
+}
+
+.project-page-size {
+    margin-inline-start: auto;
+    font-size: var(--sk-font-size-body-sm);
     color: var(--sk-color-text-secondary);
 }
 
-/* On phones each record gets the full reading width. Keep one table and its
-   column headers in the accessibility tree; explicit roles preserve the table
-   relationships in browsers that otherwise flatten restyled table elements. */
-@media (max-width: 40rem) {
-    .entry-list {
-        overflow: visible;
-        border: 0;
-        background: transparent;
-    }
-
-    .entry-list table,
-    .entry-list tbody {
-        display: block;
-    }
-
-    .entry-list thead {
-        position: absolute;
-        inline-size: 1px;
-        block-size: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
-    }
-
-    .entry-list tbody tr {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--sk-space-8) var(--sk-space-12);
-        padding: var(--sk-space-12);
-        border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-        border-radius: var(--sk-radius-md);
-        background-color: var(--sk-color-surface-base);
-    }
-
-    .entry-list tbody tr + tr {
-        margin-block-start: var(--sk-space-12);
-    }
-
-    .entry-list tbody :is(td, th) {
-        display: block;
-        min-inline-size: 0;
-        padding: 0;
-        white-space: normal;
-    }
-
-    .entry-list .entry-col-created,
-    .entry-list .entry-col-subject {
-        flex: 1 1 100%;
-        inline-size: auto;
-    }
-
-    .entry-col-created {
-        color: var(--sk-color-text-secondary);
-        font-size: var(--sk-font-size-body-xs);
-        overflow-wrap: anywhere;
-    }
-
-    .entry-mobile-zone {
-        display: inline;
-    }
-
-    .entry-list .entry-col-subject {
-        padding-block-end: var(--sk-space-4);
-        font-size: var(--sk-font-size-body-md);
-        font-weight: var(--sk-font-weight-semibold);
-        line-height: var(--sk-line-height-body-md);
-    }
-
-    .entry-col-status {
-        flex: 1 1 auto;
-    }
-
-    .entry-col-actions {
-        flex: 0 1 auto;
-    }
-
-    .entry-col-actions .sk-cluster {
-        flex-wrap: wrap;
-    }
-
-    .entry-list tbody tr.is-soft-deleted {
-        background-color: var(--sk-color-surface-sunken);
-    }
+.project-page-size .sk-select-wrapper {
+    flex: 0 1 5rem;
+    min-inline-size: 0;
 }
+
+.project-entry-card .sj-result-card__body {
+    flex-basis: 24rem;
+}
+
+.project-entry-card .sj-result-card__actions {
+    margin-block-start: var(--sk-space-4);
+}
+
+.project-entry-card .sk-button {
+    white-space: nowrap;
+}
+
+.project-entry-card .sj-result-card__title {
+    line-height: var(--sk-line-height-body-lg);
+}
+
+/* This region receives focus after opening a project so keyboard focus is not
+   left on a removed result link. Its visible controls retain their own rings. */
+.sj-workspace:focus { outline: none; }

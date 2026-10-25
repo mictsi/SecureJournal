@@ -4,10 +4,13 @@
 
 .sk-top-bar__utilities {
     display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--sk-space-8);
     margin-inline-start: auto;
     min-inline-size: 0;
+    max-inline-size: 100%;
 }
 
 .sj-theme-control {
@@ -71,10 +74,19 @@
 .sj-nav-backdrop { display: none; }
 
 @media (max-width: 63.999rem) {
+    /* Anchor overlays to the actual space below the header. The header can grow
+       when text is enlarged, so a fixed token offset would cover its controls. */
+    .sk-app-shell__body { position: relative; }
+
+    .sk-app-shell__body ::deep .sk-app-shell__nav {
+        position: absolute;
+        inset-block: 0;
+    }
+
     .sj-nav-backdrop {
         display: block;
-        position: fixed;
-        inset: var(--sk-layout-header-height) 0 0;
+        position: absolute;
+        inset: 0;
         z-index: calc(var(--sk-z-drawer) - 1);
         border: 0;
         background: color-mix(in srgb, var(--sk-color-text-primary) 24%, transparent);

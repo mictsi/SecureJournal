@@ -9,7 +9,7 @@
 <PageTitle>User Management</PageTitle>
 
 <PageHeader Title="User management"
-            Description="Manage members, permissions, security and group access from one page.">
+            Description="Find a person, then manage their access or account settings.">
     <Actions>
         <button type="button" class="sk-button sk-button--primary" @onclick="NavigateToCreateUser">
             <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>
@@ -21,135 +21,91 @@
 <PageAlerts Message="@_message" Error="@_error" />
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
 
-@if (_currentUser is null)
+@if (_currentUser is null){<p role="status">Loading user management…</p>}
+else if (_currentUser.Role != AppRole.Administrator){<p role="alert">Administrator access is required.</p>}
+else if (!HasRequestedRecord)
 {
-    <p>Loading current user...</p>
-}
-else if (_currentUser.Role != AppRole.Administrator)
-{
-    <div class="sk-alert sk-alert--warning" role="alert">
-    <svg class="sk-alert__icon" aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-warning" /></svg>
-    <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
-    </div>
+<section class="sj-directory management-directory" aria-label="Find users">
+    <form class="panel-card management-search" role="search" @onsubmit="SearchDirectory" @onsubmit:preventDefault>
+        <div class="sk-field-row sj-directory-toolbar">
+            <div class="sk-field management-search-field">
+                <label class="sk-field__label" for="userSearch">Search users</label>
+                <div class="sk-field__control"><input id="userSearch" class="sk-input" type="search" @bind="_searchDraft" @bind:event="oninput" placeholder="Name or username" /></div>
+            </div>
+            <div class="sk-field-row__actions"><div class="sk-field-row__action-group">
+                <button type="submit" class="sk-button sk-button--primary">Search</button>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ShowAllDirectory">Show all users</button>
+            </div></div>
+        </div>
+    </form>
+    @if (!_showResults)
+    {
+        <div class="management-start">
+            <h2>Find a person to get started</h2>
+            <p>Search for a specific person, or choose <strong>Show all users</strong> to browse. Open a result to manage its details.</p>
+        </div>
+    }
+    else
+    {
+        <div class="management-results-toolbar">
+            <p role="status" aria-live="polite">@_userPage.TotalCount @(_userPage.TotalCount == 1 ? "user" : "users") found</p>
+            <div class="management-sort">
+                <label for="userSort">Sort by</label>
+                <div class="sk-select-wrapper"><select id="userSort" class="sk-select" @onchange="OnDirectorySortChanged"><option value="displayName" selected="@(_userQuery.SortField == "displayName")">Name</option>
+<option value="username" selected="@(_userQuery.SortField == "username")">Username</option></select></div>
+                <button type="button" class="sk-button sk-button--secondary" @onclick="ToggleDirectorySortDirection" aria-label="@(_userQuery.SortDirection == SortDirection.Asc ? "Sort descending" : "Sort ascending")">@(_userQuery.SortDirection == SortDirection.Asc ? "A–Z" : "Z–A")</button>
+            </div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_userQuery.FilterText))
+        {
+            <div class="management-active-filter"><span>Search: <strong>@_userQuery.FilterText</strong></span><button type="button" class="sk-button sk-button--ghost" @onclick="ShowAllDirectory" aria-label="Clear search filter">Clear search</button></div>
+        }
+        @if (_userPage.TotalCount == 0)
+        {
+            <section class="panel-card management-empty"><h2>No users found</h2><p>@(string.IsNullOrWhiteSpace(_userQuery.FilterText) ? "Create a user to start building your directory." : $"Nothing matched ‘{_userQuery.FilterText}’. Try another search or clear the filter.")</p></section>
+        }
+        else
+        {
+            <div class="sj-directory-results" aria-label="Users results">
+                @foreach (var user in _userPage.Items)
+                {
+                    <a class="sj-result-card user-directory-item" href="@DirectoryUrl(user.UserId)">
+                        <span class="management-result-identity"><span class="user-avatar" aria-hidden="true">@UserInitial(user)</span><span class="management-result-copy"><strong>@user.DisplayName</strong><span>@user.Username</span></span></span>
+<span class="management-result-meta">@foreach (var role in UserRoles(user)){<span class="sk-badge sk-badge--neutral">@RoleLabel(role)</span>}<span class="sk-badge @(user.IsDisabled ? "sk-badge--danger" : "sk-badge--success")">@(user.IsDisabled ? "Disabled" : "Active")</span></span>
+                        <span class="management-open">Open person<span aria-hidden="true"> →</span></span>
+                    </a>
+                }
+            </div>
+            <nav class="management-pagination" aria-label="Users pages">
+                <p>Page @_userPage.Page of @_userPage.TotalPages · @VisibleUserRangeLabel()</p>
+                <div class="management-pagination-actions">
+                    <div class="management-page-size"><label for="userPageSize">Per page</label><div class="sk-select-wrapper"><select id="userPageSize" class="sk-select" @onchange="OnDirectoryPageSizeChanged">@foreach (var size in _pageSizeOptions){<option value="@size" selected="@(size == _userQuery.PageSize)">@size</option>}</select></div></div>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="PreviousDirectoryPage" disabled="@(_userPage.Page <= 1)">Previous</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="NextDirectoryPage" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
+                </div>
+            </nav>
+        }
+    }
+</section>
 }
 else
 {
-    <div class="user-management-shell">
-        <aside class="panel-card user-directory-card">
-            <div class="user-directory-header">
-                <div>
-                    <h3>Users</h3>
-                    <p class="user-directory-copy">Manage members and user permissions</p>
-                </div>
-                <span class="user-directory-total">@_userPage.TotalCount total</span>
-            </div>
-
-            <div class="user-directory-toolbar">
-                <label class="sk-visually-hidden" for="userSearch">Search users</label>
-                <input id="userSearch"
-                       class="sk-input"
-                       type="text"
-                       value="@_userQuery.FilterText"
-                       @oninput="OnUserSearchChanged"
-                       placeholder="Search users..." />
-
-                <div class="user-directory-sort">
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeUserSortAsync("displayName"))">
-                        Name @SortGlyph("displayName", _userQuery.SortField, _userQuery.SortDirection)
-                    </button>
-                    <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="@(() => ChangeUserSortAsync("username"))">
-                        Username @SortGlyph("username", _userQuery.SortField, _userQuery.SortDirection)
-                    </button>
-                </div>
-            </div>
-
-            @if (_userPage.TotalCount == 0)
-            {
-                <div class="user-directory-empty">
-                    <p>No users found for the current filter.</p>
-                </div>
-            }
-            else
-            {
-                <div class="user-directory-list">
-                    @foreach (var user in _userPage.Items)
-                    {
-                        <button type="button"
-                                class="user-directory-item @(user.UserId == _selectedUserId ? "is-active" : string.Empty)"
-                                aria-pressed="@(user.UserId == _selectedUserId ? "true" : "false")"
-                                @onclick="() => SelectUserAsync(user.UserId)">
-                            <span class="user-avatar" aria-hidden="true">@UserInitial(user)</span>
-                            <span class="user-directory-item-body">
-                                <span class="user-directory-name">@user.DisplayName</span>
-                                <span class="user-directory-username">@user.Username</span>
-                                <span class="user-directory-role-list">
-                                    @foreach (var role in UserRoles(user))
-                                    {
-                                        <span class="user-role-badge">@RoleLabel(role)</span>
-                                    }
-                                    @if (user.IsDisabled)
-                                    {
-                                        <span class="user-status-badge is-disabled">Disabled</span>
-                                    }
-                                </span>
-                            </span>
-                        </button>
-                    }
-                </div>
-
-                <div class="user-directory-footer">
-                    <div class="user-directory-footer-row">
-                        <span>Page @_userPage.Page of @_userPage.TotalPages</span>
-                        <div class="sk-cluster">
-                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousUserPageAsync" disabled="@(_userPage.Page <= 1)">Previous</button>
-                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextUserPageAsync" disabled="@(_userPage.Page >= _userPage.TotalPages)">Next</button>
-                        </div>
-                    </div>
-                    <div class="user-directory-footer-row">
-                        <span>@VisibleUserRangeLabel()</span>
-                        <div class="user-page-size">
-                            <label class="project-page-size-label" for="userPageSize">Page size</label>
-                            <div class="sk-select-wrapper">
-                                <select id="userPageSize"
-                                    class="sk-select sk-select--sm project-page-size-select"
-                                    @onchange="OnUserPageSizeChanged">
-                                @foreach (var option in _pageSizeOptions)
-                                {
-                                    <option value="@option" selected="@(option == _userQuery.PageSize)">@option</option>
-                                }
-                            </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-        </aside>
-
-        <div class="user-detail-column">
-            @if (SelectedUser is null)
-            {
-                <section class="panel-card user-empty-card">
-                    <h3>Select a user</h3>
-                    <p>Choose a user from the directory to manage roles, passwords, groups, and account state.</p>
-                </section>
-            }
-            else
-            {
-                <div class="user-detail-grid">
-                    <section class="panel-card user-overview-card">
-                        <div class="user-overview-grid">
-                            <section class="user-account-card">
-                                <div class="user-account-section user-account-section-summary">
+ <div class="sj-workspace user-workspace">
+  <nav class="sj-workspace-nav" aria-label="User navigation"><a class="sk-link sj-workspace-back" href="@DirectoryUrl()">← Back to user results</a></nav>
+  @if (SelectedUser is null){<section class="panel-card management-empty"><h2>User unavailable</h2><p>This account may have been removed. Return to your results to choose another person.</p></section>}
+  else
+  {
+<div class="panel-card management-identity">
                                     <div class="user-account-summary">
                                         <div class="user-panel-summary-identity">
                                             <span class="user-avatar user-avatar-large" aria-hidden="true">@UserInitial(SelectedUser)</span>
                                             <div class="user-panel-summary-copy">
-                                                <strong>@SelectedUser.DisplayName</strong>
+                                                <h2>@SelectedUser.DisplayName</h2>
                                                 <span>@SelectedUser.Username</span>
                                             </div>
                                         </div>
 
-                                        <dl class="sk-dl sk-dl--columns user-panel-stat-grid">
+                                        <dl class="sk-dl user-panel-stat-grid">
                                             <div class="sk-dl__group">
                                                 <dt class="sk-dl__term">Status</dt>
                                                 <dd class="sk-dl__detail">
@@ -174,12 +130,66 @@ else
                                         </dl>
                                     </div>
                                 </div>
+   <nav class="management-sections" aria-label="User settings">
+    <button type="button" class="sk-button @(_activeSection == "access" ? "sk-button--primary" : "sk-button--secondary")" @onclick='() => _activeSection = "access"' aria-pressed="@(_activeSection == "access")">Roles &amp; groups @if (_rolesDirty || _groupsDirty){<span aria-label="Unsaved changes">•</span>}</button>
+    <button type="button" class="sk-button @(_activeSection == "security" ? "sk-button--primary" : "sk-button--secondary")" @onclick='() => _activeSection = "security"' aria-pressed="@(_activeSection == "security")">Password &amp; account @if (!string.IsNullOrEmpty(_resetPasswordRequest.NewPassword)){<span aria-label="Unsaved password">•</span>}</button>
+   </nav>
+   @if (_activeSection == "access")
+   {
+<section class="panel-card user-roles-card">
+                                <div class="panel-card-header user-section-header">
+                                    <div>
+                                        <p class="user-section-kicker">Roles &amp; Permissions</p>
+                                        <h2>Roles</h2>
+                                        <p class="user-section-copy">Manage user roles and access levels.</p>
+                                    </div>
+                                </div>
 
-                                <div class="user-account-section user-account-section-security">
+                                <div class="user-role-stack">
+                                    @foreach (var role in _roles)
+                                    {
+                                        <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
+                                            <input class="sk-checkbox__input"
+                                                   type="checkbox"
+                                                   checked="@_editedRoles.Contains(role)"
+                                                   @onchange="args => ToggleRoleLocal(role, args)" />
+                                            <span class="sk-checkbox__box" aria-hidden="true"></span>
+                                            <span class="user-role-option-body">
+                                                <span class="user-role-option-title">@RoleLabel(role)</span>
+                                                <span class="user-role-option-description">@RoleDescription(role)</span>
+                                            </span>
+                                        </label>
+                                    }
+                                </div>
+
+                                <div class="user-section-actions">
+                                    <button type="button" class="sk-button sk-button--primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
+                                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
+                                </div>
+                            </section>
+<section class="panel-card management-membership">
+ <div class="management-panel-heading"><div><h2>Group access</h2><p>@SelectedUser.Groups.Count @(SelectedUser.Groups.Count == 1 ? "group" : "groups") currently assigned</p></div><button type="button" class="sk-button sk-button--secondary" @onclick="ToggleGroupBrowser" aria-expanded="@_showGroupBrowser" aria-controls="manageUserGroupBrowser">@(_showGroupBrowser ? "Close access editor" : "Edit group access")</button></div>
+ <div class="management-pills">@if (SelectedUser.Groups.Count == 0){<span class="sj-muted">None assigned yet.</span>}else{@foreach(var name in SelectedUser.Groups){<span class="sk-badge sk-badge--neutral">@name</span>}}</div>
+ @if (_showGroupBrowser)
+ {
+  <div id="manageUserGroupBrowser" class="management-membership-browser">
+   <form class="sk-field-row management-filter-row" role="search" @onsubmit="ApplyMembershipFilterAsync" @onsubmit:preventDefault><div class="sk-field"><label class="sk-field__label" for="manageUserGroupSearch">Filter groups</label><div class="sk-field__control"><input id="manageUserGroupSearch" class="sk-input" @bind="_membershipSearchDraft" @bind:event="oninput" placeholder="Filter by name" /></div></div><div class="sk-field"><label class="sk-field__label" for="manageUserGroupAssigned">Membership</label><div class="sk-field__control sk-select-wrapper"><select id="manageUserGroupAssigned" class="sk-select" @onchange="OnGroupAssignedFilterChanged"><option value="all" selected="@(!_groupQuery.Assigned.HasValue)">Everyone</option><option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option><option value="unassigned" selected="@(_groupQuery.Assigned == false)">Not assigned</option></select></div></div><div class="sk-field"><label class="sk-field__label" for="manageUserGroupPageSize">Per page</label><div class="sk-field__control sk-select-wrapper"><select id="manageUserGroupPageSize" class="sk-select" @onchange="OnGroupPageSizeChanged">@foreach(var option in _pageSizeOptions){<option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>}</select></div></div><div class="sk-field-row__actions"><div class="sk-field-row__action-group"><button type="submit" class="sk-button sk-button--secondary">Apply filter</button><button type="button" class="sk-button sk-button--ghost" @onclick="ClearMembershipFilterAsync">Clear filter</button></div></div></form>
+   <p role="status" aria-live="polite">@_groupPage.TotalCount available @(_groupPage.TotalCount == 1 ? "choice" : "choices"). Select changes, then save.</p>
+   @if (_groupPage.TotalCount == 0){<p>No matches. Try another name or remove the filter.</p>}
+   <div class="management-membership-list">@foreach(var group in _groupPage.Items){<label class="management-membership-choice"><input type="checkbox" aria-label="@($"Assign {group.Name} to {SelectedUser.DisplayName}")" checked="@IsGroupAssigned(group)" @onchange="args => ToggleGroupLocal(group, args)" disabled="@_isSaving" /><span><strong>@group.Name</strong><span>@PlainDescription(group.Description)</span></span><span class="management-choice-state">@(IsGroupAssigned(group) ? "Assigned" : "Not assigned")</span></label>}</div>
+   <nav class="management-pagination" aria-label="Group access pages"><span>Page @_groupPage.Page of @_groupPage.TotalPages</span><div class="management-pagination-actions"><button type="button" class="sk-button sk-button--secondary" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button><button type="button" class="sk-button sk-button--secondary" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button></div></nav>
+  </div>
+ }
+ @if (_showGroupBrowser || _groupsDirty){<div class="management-savebar"><span role="status">@(_groupsDirty ? "Unsaved access changes" : "No pending changes")</span><div class="sk-cluster"><button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Discard changes</button><button type="button" class="sk-button sk-button--primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">@(_isSaving ? "Saving…" : "Save group access")</button></div></div>}
+</section>
+   }
+   else
+   {
+<div class="panel-card user-security-card">
                                     <div class="panel-card-header user-section-header">
                                         <div>
                                             <p class="user-section-kicker">Security</p>
-                                            <h3>Password &amp; access</h3>
+                                            <h2>Reset password</h2>
                                             <p class="user-section-copy">Update password and security settings.</p>
                                         </div>
                                     </div>
@@ -221,13 +231,12 @@ else
                                         </EditForm>
                                     }
                                 </div>
-
-                                <div class="user-account-section user-account-section-danger">
+<div class="panel-card management-danger">
                                     <div class="panel-card-header user-section-header">
                                         <div>
                                             <p class="user-section-kicker user-danger-kicker">Danger Zone</p>
-                                            <h3>Irreversible actions</h3>
-                                            <p class="user-section-copy">Delete accounts or disable access for this user.</p>
+                                            <h2>Account access</h2>
+                                            <p class="user-section-copy">Enable or disable access, or delete the account.</p>
                                         </div>
                                     </div>
 
@@ -251,179 +260,41 @@ else
                                         </div>
                                     </div>
                                 </div>
-                            </section>
-
-                            <section class="user-roles-card">
-                                <div class="panel-card-header user-section-header">
-                                    <div>
-                                        <p class="user-section-kicker">Roles &amp; Permissions</p>
-                                        <h3>Roles</h3>
-                                        <p class="user-section-copy">Manage user roles and access levels.</p>
-                                    </div>
-                                </div>
-
-                                <div class="user-role-stack">
-                                    @foreach (var role in _roles)
-                                    {
-                                        <label class="user-role-option @RoleOptionClass(_editedRoles.Contains(role))">
-                                            <input class="sk-checkbox__input"
-                                                   type="checkbox"
-                                                   checked="@_editedRoles.Contains(role)"
-                                                   @onchange="args => ToggleRoleLocal(role, args)" />
-                                            <span class="sk-checkbox__box" aria-hidden="true"></span>
-                                            <span class="user-role-option-body">
-                                                <span class="user-role-option-title">@RoleLabel(role)</span>
-                                                <span class="user-role-option-description">@RoleDescription(role)</span>
-                                            </span>
-                                        </label>
-                                    }
-                                </div>
-
-                                <div class="user-section-actions">
-                                    <button type="button" class="sk-button sk-button--primary" @onclick="SaveRolesAsync" disabled="@(!_rolesDirty || _isSaving)">Save Roles</button>
-                                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetRoleEdits" disabled="@(!_rolesDirty || _isSaving)">Reset Roles</button>
-                                </div>
-                            </section>
-                        </div>
-                    </section>
-
-                    <section class="panel-card user-groups-card @(_showGroupBrowser ? "is-expanded" : string.Empty)">
-                    <div class="panel-card-header user-section-header">
-                        <div>
-                            <p class="user-section-kicker">Groups</p>
-                            <h3>Group membership</h3>
-                            <p class="user-section-copy">User has (@SelectedUser.Groups.Count) group memberships.</p>
-                        </div>
-                        <div class="panel-card-header-actions">
-                            <button type="button" class="sk-button sk-button--secondary" @onclick="ToggleGroupBrowser">
-                                @(_showGroupBrowser ? "Close Group Browser" : "Add to Group")
-                            </button>
-                        </div>
-                    </div>
-
-                    @if (SelectedUser.Groups.Count == 0)
-                    {
-                        <div class="user-group-pill-list">
-                            <span class="user-group-pill is-empty">No groups assigned</span>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="user-group-pill-list">
-                            @foreach (var groupName in SelectedUser.Groups)
-                            {
-                                <span class="user-group-pill">@groupName</span>
-                            }
-                        </div>
-                    }
-
-                    @if (_showGroupBrowser)
-                    {
-                        <div class="user-group-browser">
-                            <div class="sk-stack sk-stack--gap-16">
-                                <div class="sk-field">
-                                    <label class="sk-field__label" for="manageUserGroupSearch">Search groups</label>
-                                    <input id="manageUserGroupSearch"
-                                           class="sk-input"
-                                           type="text"
-                                           value="@_groupQuery.FilterText"
-                                           @oninput="OnGroupSearchChanged"
-                                           placeholder="Filter by group name..." />
-                                </div>
-                                <div class="sk-field">
-                                    <label class="sk-field__label" for="manageUserGroupAssigned">Assigned</label>
-                                    <div class="sk-select-wrapper">
-                                        <select id="manageUserGroupAssigned" class="sk-select" @onchange="OnGroupAssignedFilterChanged">
-                                        <option value="all" selected="@(!_groupQuery.Assigned.HasValue)">All</option>
-                                        <option value="assigned" selected="@(_groupQuery.Assigned == true)">Assigned</option>
-                                        <option value="unassigned" selected="@(_groupQuery.Assigned == false)">Unassigned</option>
-                                    </select>
-                                    </div>
-                                </div>
-                                <div class="sk-field">
-                                    <label class="sk-field__label" for="manageUserGroupPageSize">Page size</label>
-                                    <div class="sk-select-wrapper">
-                                        <select id="manageUserGroupPageSize" class="sk-select" @onchange="OnGroupPageSizeChanged">
-                                        @foreach (var option in _pageSizeOptions)
-                                        {
-                                            <option value="@option" selected="@(option == _groupQuery.PageSize)">@option</option>
-                                        }
-                                    </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @if (_groupPage.TotalCount == 0)
-                            {
-                                <p>No groups available for the current filter.</p>
-                            }
-                            else
-                            {
-                                <div class="sk-table" role="region" aria-label="Group memberships" tabindex="0">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("name"))">Group @SortGlyph("name", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                                                <th>Description</th>
-                                                <th class="sj-text-end"><button type="button" class="sk-button sk-button--ghost table-sort" @onclick="@(() => ChangeGroupSortAsync("assigned"))">Assigned @SortGlyph("assigned", _groupQuery.SortField, _groupQuery.SortDirection)</button></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var group in _groupPage.Items)
-                                            {
-                                                <tr>
-                                                    <td>@group.Name</td>
-                                                    <td>@RenderValueOrDash(group.Description)</td>
-                                                    <td class="sj-text-end">
-                                                        <input class="sk-checkbox__input"
-                                                               type="checkbox"
-                                                               aria-label="@($"Assign {SelectedUser.DisplayName} to {group.Name}")"
-                                                               checked="@IsGroupAssigned(group)"
-                                                               @onchange="args => ToggleGroupLocal(group, args)" />
-                                                    </td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="pager-bar">
-                                    <span class="sj-muted">Page @_groupPage.Page of @_groupPage.TotalPages</span>
-                                    <div class="sk-cluster">
-                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToPreviousGroupPageAsync" disabled="@(_groupPage.Page <= 1)">Previous</button>
-                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="GoToNextGroupPageAsync" disabled="@(_groupPage.Page >= _groupPage.TotalPages)">Next</button>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-
-                    @if (_groupsDirty || _showGroupBrowser)
-                    {
-                        <div class="user-section-actions">
-                            <button type="button" class="sk-button sk-button--primary" @onclick="SaveGroupsAsync" disabled="@(!_groupsDirty || _isSaving)">Save Groups</button>
-                            <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupEdits" disabled="@(!_groupsDirty || _isSaving)">Reset Groups</button>
-                        </div>
-                    }
-                </section>
-
-                </div>
-            }
-        </div>
-    </div>
+   }
+  }
+ </div>
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "userId")] public string? RequestedId { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? SearchQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "all")] public string? BrowseAllQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public string? RequestedPageQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "size")] public string? RequestedPageSizeQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? RequestedSort { get; set; }
+    [SupplyParameterFromQuery(Name = "desc")] public string? SortDescendingQuery { get; set; }
+    private bool BrowseAll => bool.TryParse(BrowseAllQuery, out var value) && value;
+    private bool SortDescending => bool.TryParse(SortDescendingQuery, out var value) && value;
+    private int? RequestedPage => int.TryParse(RequestedPageQuery, out var value) ? value : null;
+    private int? RequestedPageSize => int.TryParse(RequestedPageSizeQuery, out var value) ? value : null;
+    private string _searchDraft = string.Empty;
+    private string _membershipSearchDraft = string.Empty;
+    private bool _showResults;
+    private bool _allowNavigation;
+    private string? _appliedRoute;
+    private string _activeSection = "access";
+    private bool HasRequestedRecord => !string.IsNullOrWhiteSpace(RequestedId);
+
     private const string GeneratedPasswordAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$?_-";
 
     private readonly AppRole[] _roles = [AppRole.Administrator, AppRole.ProjectUser, AppRole.Auditor];
-    private readonly int[] _pageSizeOptions = [20, 30, 50, 100];
+    private readonly int[] _pageSizeOptions = [10, 20, 50];
 
     private UserContext? _currentUser;
-    private PagedResult<UserOverview> _userPage = new(Array.Empty<UserOverview>(), 0, 1, 20, 1);
-    private PagedResult<GroupAccessRow> _groupPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 20, 1);
-    private UserListQuery _userQuery = new() { PageSize = 20, SortField = "username" };
-    private UserGroupMembershipQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
+    private PagedResult<UserOverview> _userPage = new(Array.Empty<UserOverview>(), 0, 1, 10, 1);
+    private PagedResult<GroupAccessRow> _groupPage = new(Array.Empty<GroupAccessRow>(), 0, 1, 10, 1);
+    private UserListQuery _userQuery = new() { PageSize = 10, SortField = "username" };
+    private UserGroupMembershipQuery _groupQuery = new() { PageSize = 10, SortField = "name" };
     private Guid? _selectedUserId;
     private UserOverview? _selectedUser;
 
@@ -461,7 +332,7 @@ else
 
             _currentUser = await JournalApp.GetCurrentUserAsync();
             _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
-            await LoadUsersAsync();
+
         }
         catch (Exception ex)
         {
@@ -472,21 +343,9 @@ else
 
     private Task LoadUsersAsync()
     {
-        _userPage = JournalApp.GetUsers(_userQuery);
-        // Searching, sorting, and paging the directory must not replace the
-        // account whose pending permissions are being edited.
-        if (_selectedUserId is { } selectedId)
-        {
-            _selectedUser = _userPage.Items.FirstOrDefault(user => user.UserId == selectedId) ?? _selectedUser;
-        }
-
-        if (_selectedUser is null)
-        {
-            _selectedUser = _userPage.Items.FirstOrDefault();
-            _selectedUserId = _selectedUser?.UserId;
-            InitializeSelectedUserEdits();
-        }
-
+        _userPage = _showResults ? JournalApp.GetUsers(_userQuery) : new PagedResult<UserOverview>(Array.Empty<UserOverview>(), 0, 1, _userQuery.PageSize, 1);
+        _userQuery.Page = _userPage.Page;
+        if (_selectedUserId is { } id) _selectedUser = _userPage.Items.FirstOrDefault(user => user.UserId == id) ?? _selectedUser;
         return LoadGroupsAsync();
     }
 
@@ -503,33 +362,13 @@ else
         return Task.CompletedTask;
     }
 
-    private async Task SelectUserAsync(Guid userId)
-    {
-        if (_selectedUserId == userId)
-        {
-            return;
-        }
-
-        if (_isSaving || !await ConfirmDiscardAsync())
-        {
-            return;
-        }
-
-        _selectedUserId = userId;
-        _selectedUser = _userPage.Items.FirstOrDefault(user => user.UserId == userId);
-        _message = null;
-        _error = null;
-        _groupQuery.Page = 1;
-        InitializeSelectedUserEdits();
-        await LoadGroupsAsync();
-    }
-
     private async Task<bool> ConfirmDiscardAsync()
         => !HasUnsavedChanges || await JS.InvokeAsync<bool>("confirm",
             $"Discard unsaved changes for '{SelectedUser?.Username}'? Role, group, and password changes have not been saved.");
 
     private async Task ConfirmLeaveAsync(LocationChangingContext context)
     {
+        if (_allowNavigation) return;
         if (_isSaving || !await ConfirmDiscardAsync())
         {
             context.PreventNavigation();
@@ -790,7 +629,10 @@ else
             await JournalApp.DeleteUserAsync(selectedUser.UserId);
             _selectedUser = null;
             _selectedUserId = null;
+            InitializeSelectedUserEdits();
             await LoadUsersAsync();
+            _allowNavigation = true;
+            Navigation.NavigateTo(DirectoryUrl(), replace: true);
             _message = $"User '{selectedUser.Username}' was deleted.";
         }
         catch (Exception ex)
@@ -866,57 +708,6 @@ else
         _confirmResetPassword = password;
     }
 
-    private async Task OnUserSearchChanged(ChangeEventArgs args)
-    {
-        _userQuery.FilterText = args.Value?.ToString() ?? string.Empty;
-        _userQuery.Page = 1;
-        await LoadUsersAsync();
-    }
-
-    private async Task OnUserPageSizeChanged(ChangeEventArgs args)
-    {
-        if (int.TryParse(args.Value?.ToString(), out var pageSize) && _pageSizeOptions.Contains(pageSize))
-        {
-            _userQuery.PageSize = pageSize;
-            _userQuery.Page = 1;
-            await LoadUsersAsync();
-        }
-    }
-
-    private async Task GoToPreviousUserPageAsync()
-    {
-        if (_userQuery.Page > 1)
-        {
-            _userQuery.Page--;
-            await LoadUsersAsync();
-        }
-    }
-
-    private async Task GoToNextUserPageAsync()
-    {
-        if (_userQuery.Page < _userPage.TotalPages)
-        {
-            _userQuery.Page++;
-            await LoadUsersAsync();
-        }
-    }
-
-    private async Task ChangeUserSortAsync(string field)
-    {
-        if (string.Equals(_userQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
-        {
-            _userQuery.SortDirection = _userQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
-        }
-        else
-        {
-            _userQuery.SortField = field;
-            _userQuery.SortDirection = SortDirection.Asc;
-        }
-
-        _userQuery.Page = 1;
-        await LoadUsersAsync();
-    }
-
     private async Task OnGroupSearchChanged(ChangeEventArgs args)
     {
         _groupQuery.FilterText = args.Value?.ToString() ?? string.Empty;
@@ -965,22 +756,6 @@ else
         }
     }
 
-    private async Task ChangeGroupSortAsync(string field)
-    {
-        if (string.Equals(_groupQuery.SortField, field, StringComparison.OrdinalIgnoreCase))
-        {
-            _groupQuery.SortDirection = _groupQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
-        }
-        else
-        {
-            _groupQuery.SortField = field;
-            _groupQuery.SortDirection = SortDirection.Asc;
-        }
-
-        _groupQuery.Page = 1;
-        await LoadGroupsAsync();
-    }
-
     private void ResetLocalPasswordForm()
     {
         _resetPasswordRequest.NewPassword = string.Empty;
@@ -1002,11 +777,6 @@ else
 
         return bool.TryParse(args.Value?.ToString(), out var parsed) && parsed;
     }
-
-    private static string SortGlyph(string field, string currentField, SortDirection currentDirection)
-        => string.Equals(currentField, field, StringComparison.OrdinalIgnoreCase)
-            ? currentDirection == SortDirection.Asc ? "\u2191" : "\u2193"
-            : string.Empty;
 
     private static string RenderValueOrDash(string? value)
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
@@ -1045,5 +815,123 @@ else
         var start = ((_userPage.Page - 1) * _userPage.PageSize) + 1;
         var end = Math.Min(_userPage.Page * _userPage.PageSize, _userPage.TotalCount);
         return $"Showing {start}-{end} of {_userPage.TotalCount} users";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_currentUser?.Role != AppRole.Administrator || _appliedRoute == Navigation.Uri) return;
+        _appliedRoute = Navigation.Uri;
+        _allowNavigation = false;
+        _showResults = BrowseAll || !string.IsNullOrWhiteSpace(SearchQuery) || HasRequestedRecord;
+        _userQuery.FilterText = SearchQuery?.Trim() ?? string.Empty;
+        _searchDraft = _userQuery.FilterText;
+        _userQuery.Page = Math.Max(1, RequestedPage ?? 1);
+        _userQuery.PageSize = _pageSizeOptions.Contains(RequestedPageSize ?? 10) ? RequestedPageSize ?? 10 : 10;
+        _userQuery.SortField = RequestedSort is "displayName" or "username" ? RequestedSort : "displayName";
+        _userQuery.SortDirection = SortDescending ? SortDirection.Desc : SortDirection.Asc;
+        var nextId = Guid.TryParse(RequestedId, out var id) ? id : (Guid?)null;
+        if (nextId != _selectedUserId || (HasRequestedRecord && _selectedUser is null))
+        {
+            _selectedUserId = nextId;
+            _selectedUser = nextId is { } recordId ? JournalApp.GetUsers().FirstOrDefault(item => item.UserId == recordId) : null;
+            InitializeSelectedUserEdits();
+            _membershipSearchDraft = string.Empty;
+            _activeSection = "access";
+            await LoadGroupsAsync();
+        }
+        await LoadUsersAsync();
+    }
+
+    private string DirectoryUrl(Guid? recordId = null)
+    {
+        var parts = new List<string>();
+        if (_showResults || recordId.HasValue) parts.Add("all=true");
+        if (!string.IsNullOrWhiteSpace(_userQuery.FilterText)) parts.Add("q=" + Uri.EscapeDataString(_userQuery.FilterText));
+        if (_showResults || recordId.HasValue)
+        {
+            parts.Add($"page={_userQuery.Page}&size={_userQuery.PageSize}&sort={Uri.EscapeDataString(_userQuery.SortField)}&desc={_userQuery.SortDirection == SortDirection.Desc}");
+        }
+        if (recordId.HasValue) parts.Add($"userId={recordId:D}");
+        return "/admin/users" + (parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts));
+    }
+
+    private void SearchDirectory()
+    {
+        if (string.IsNullOrWhiteSpace(_searchDraft))
+        {
+            _error = "Enter a search term or choose Show all users.";
+            return;
+        }
+        ClearMessages();
+        _userQuery.FilterText = _searchDraft.Trim();
+        _userQuery.Page = 1;
+        _showResults = true;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void ShowAllDirectory()
+    {
+        ClearMessages();
+        _searchDraft = _userQuery.FilterText = string.Empty;
+        _userQuery.Page = 1;
+        _showResults = true;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void OnDirectorySortChanged(ChangeEventArgs args)
+    {
+        _userQuery.SortField = args.Value?.ToString() ?? "displayName";
+        _userQuery.Page = 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void ToggleDirectorySortDirection()
+    {
+        _userQuery.SortDirection = _userQuery.SortDirection == SortDirection.Asc ? SortDirection.Desc : SortDirection.Asc;
+        _userQuery.Page = 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void OnDirectoryPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size))
+        {
+            _userQuery.PageSize = size;
+            _userQuery.Page = 1;
+            Navigation.NavigateTo(DirectoryUrl());
+        }
+    }
+
+    private void PreviousDirectoryPage()
+    {
+        if (_userPage.Page <= 1) return;
+        _userQuery.Page = _userPage.Page - 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+    private void NextDirectoryPage()
+    {
+        if (_userPage.Page >= _userPage.TotalPages) return;
+        _userQuery.Page = _userPage.Page + 1;
+        Navigation.NavigateTo(DirectoryUrl());
+    }
+
+
+    private Task ApplyMembershipFilterAsync()
+        => OnGroupSearchChanged(new ChangeEventArgs { Value = _membershipSearchDraft });
+
+    private Task ClearMembershipFilterAsync()
+    {
+        _membershipSearchDraft = string.Empty;
+        _groupQuery.Assigned = null;
+        return OnGroupSearchChanged(new ChangeEventArgs { Value = string.Empty });
+    }
+
+    private static string PlainDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "—";
+        var markup = SimpleMarkupPreview.Render(value).Value;
+        var text = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(markup, "<[^>]+>", " "));
+        return System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
     }
 }

@@ -1,12 +1,9 @@
-.export-layout {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sk-space-24);
-    align-items: flex-start;
-}
-
-.export-main { flex: 3 1 36rem; min-inline-size: 0; }
-.export-guide { flex: 1 1 17rem; min-inline-size: 0; }
+.export-page { inline-size: 100%; max-inline-size: 60rem; margin-inline: auto; }
+.export-main { min-inline-size: 0; }
+.export-guide { margin-block: var(--sk-space-24); padding: var(--sk-space-16) var(--sk-space-24); border: 1px solid var(--sk-color-border-subtle); border-radius: var(--sk-radius-md); background: var(--sk-color-surface-sunken); }
+.export-guide summary { cursor: pointer; font-weight: var(--sk-font-weight-medium); }
+.export-file-choice { padding: var(--sk-space-16); border: 1px solid var(--sk-color-border-subtle); border-radius: var(--sk-radius-md); }
+.export-file-choice > p { margin-block: var(--sk-space-8) 0; }
 .export-step { color: var(--sk-color-text-brand); font-size: var(--sk-font-size-body-sm); font-weight: 600; margin-block-end: var(--sk-space-8); }
 .export-main h2, .export-guide h2 { font-size: var(--sk-font-size-heading-xs); margin: 0; }
 

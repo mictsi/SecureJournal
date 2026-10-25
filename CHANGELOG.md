@@ -1,3 +1,15 @@
+# 0.22.0 - 2026-10-25
+
+## Highlights
+- Replace body directory columns with centered search, paged results, and focused user/project/group cards using Sekura 3.2.1 patterns.
+- Rework project journals, audit actions, administration, and entry reading; preserve search context and unsaved drafts.
+- Add multiple-file and drag-and-drop uploads with progress, cancel/retry/remove, encrypted storage, and protected downloads.
+- Export selected journal records and files together in ZIP archives with an integrity manifest.
+- Handle malformed query values without page errors and improve mobile, theme, keyboard, and enlarged-text layouts.
+- Recheck current authorization for cached export downloads after session or role changes.
+- Validation: 160 automated tests and browser workflow checks passed; NuGet, npm, and final-image scans found no known vulnerabilities.
+- Full notes and database upgrade guidance: [0.22.0](docs/release_notes/v0.22.0.md).
+
 # 0.21.1 - 2026-10-25
 
 ## Fixes

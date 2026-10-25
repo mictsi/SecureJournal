@@ -68,6 +68,13 @@ public sealed class SecureJournalAppServiceTests
 
             Assert.Equal(AppRole.Administrator, (await app.GetCurrentUserAsync()).Role);
             Assert.True(app.HasCurrentUser());
+            var project = app.CreateProject(new CreateProjectRequest { Name = "Session protected files" });
+            var entry = app.CreateJournalEntry(new CreateJournalEntryRequest
+            {
+                ProjectId = project.ProjectId, Subject = "Protected file", Description = "Session required",
+                Attachments = new[] { new JournalAttachmentUpload { FileName = "protected.txt", Content = new byte[] { 1 } } }
+            });
+            var attachmentId = Assert.Single(entry.Attachments).AttachmentId;
 
             if (expire)
             {
@@ -84,6 +91,8 @@ public sealed class SecureJournalAppServiceTests
             Assert.False(app.HasCurrentUser());
             Assert.False(await app.HasCurrentUserAsync());
             Assert.Throws<UnauthorizedAccessException>(() => app.GetJournalEntries());
+            Assert.Throws<UnauthorizedAccessException>(() => app.GetJournalAttachments(entry.RecordId));
+            Assert.Throws<UnauthorizedAccessException>(() => app.DownloadJournalAttachment(attachmentId));
             Assert.Throws<UnauthorizedAccessException>(() => app.CreateProject(new CreateProjectRequest { Name = "Forbidden" }));
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => app.GetCurrentUserAsync());
         }

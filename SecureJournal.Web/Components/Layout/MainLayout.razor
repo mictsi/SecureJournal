@@ -23,7 +23,7 @@ else
 {
     <a class="sk-skip-link" href="#main">Skip to main content</a>
 
-    <header class="sk-top-bar sk-top-bar--sticky sk-app-shell__header">
+    <header class="sk-top-bar sk-top-bar--sticky sk-app-shell__header" @onkeydown="HandleNavigationKey">
         <button type="button"
                 @ref="_navTrigger"
                 class="sk-icon-button sk-top-bar__nav-trigger"
@@ -88,8 +88,8 @@ else
         }
         <NavMenu IsOpen="_navOpen" />
 
-        <main class="sk-app-shell__main" id="main" tabindex="-1">
-            <div class="sk-app-shell__content">
+        <main class="sk-app-shell__main" id="main" tabindex="-1" @ref="_mainContent">
+            <div class="sk-app-shell__content sj-page-canvas">
                 @Body
             </div>
         </main>
@@ -116,6 +116,8 @@ else
     private bool _navOpen;
     private UserContext? _currentUser;
     private ElementReference _navTrigger;
+    private ElementReference _mainContent;
+    private bool _focusMainAfterNavigation;
 
     protected override void OnInitialized()
     {
@@ -131,9 +133,19 @@ else
     {
         _ = InvokeAsync(() =>
         {
+            _focusMainAfterNavigation = _navOpen;
             _navOpen = false;
             StateHasChanged();
         });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusMainAfterNavigation)
+        {
+            _focusMainAfterNavigation = false;
+            await _mainContent.FocusAsync();
+        }
     }
 
     private async Task CloseNavigationAsync()

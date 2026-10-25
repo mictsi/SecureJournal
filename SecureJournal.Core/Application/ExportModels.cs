@@ -16,6 +16,7 @@ public sealed class JournalExportFilter
 
 public sealed class JournalExportRequest
 {
+    public bool IncludeAttachments { get; set; }
     public ExportFormat Format { get; set; } = ExportFormat.Json;
     public JournalExportFilter Filter { get; set; } = new();
 }
@@ -31,4 +32,7 @@ public sealed record ExportFileResult(
     string ContentType,
     string ContentText,
     int RowCount,
-    string Summary);
+    string Summary)
+{
+    public byte[]? ContentBytes { get; init; }
+}

@@ -22,7 +22,8 @@ public enum AuditEntityType
     Project = 4,
     Permission = 5,
     Authentication = 6,
-    Export = 7
+    Export = 7,
+    Attachment = 8
 }
 
 public enum AuditOutcome

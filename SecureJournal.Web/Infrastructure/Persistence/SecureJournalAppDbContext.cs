@@ -15,6 +15,7 @@ public sealed class SecureJournalAppDbContext : DbContext
     public DbSet<UserRoleEntity> UserRoles => Set<UserRoleEntity>();
     public DbSet<UserGroupEntity> UserGroups => Set<UserGroupEntity>();
     public DbSet<ProjectGroupEntity> ProjectGroups => Set<ProjectGroupEntity>();
+    public DbSet<JournalAttachmentEntity> JournalAttachments => Set<JournalAttachmentEntity>();
     public DbSet<JournalEntryEntity> JournalEntries => Set<JournalEntryEntity>();
     public DbSet<AuditLogEntity> AuditLogs => Set<AuditLogEntity>();
 
@@ -96,6 +97,20 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.Property(x => x.ProjectId).HasColumnName("project_id");
             entity.Property(x => x.GroupId).HasColumnName("group_id");
             entity.HasIndex(x => x.GroupId);
+        });
+
+        builder.Entity<JournalAttachmentEntity>(entity =>
+        {
+            entity.ToTable("journal_attachments", table => table.HasCheckConstraint("CK_journal_attachments_size", "size_bytes >= 0 AND size_bytes <= 5242880"));
+            entity.HasKey(x => x.AttachmentId);
+            entity.Property(x => x.AttachmentId).HasColumnName("attachment_id");
+            entity.Property(x => x.EntryId).HasColumnName("entry_id");
+            entity.Property(x => x.FileNameCiphertext).HasColumnName("file_name_ciphertext").IsRequired();
+            entity.Property(x => x.SizeBytes).HasColumnName("size_bytes");
+            entity.Property(x => x.Sha256).HasColumnName("sha256").HasMaxLength(64).IsRequired();
+            entity.Property(x => x.ContentCiphertext).HasColumnName("content_ciphertext").IsRequired();
+            entity.HasIndex(x => x.EntryId).HasDatabaseName("ix_journal_attachments_entry_id");
+            entity.HasOne<JournalEntryEntity>().WithMany().HasForeignKey(x => x.EntryId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<JournalEntryEntity>(entity =>
@@ -234,4 +249,14 @@ public sealed class AuditLogEntity
     public int Outcome { get; set; }
     public string DetailsCiphertext { get; set; } = string.Empty;
     public string DetailsChecksum { get; set; } = string.Empty;
+}
+
+public sealed class JournalAttachmentEntity
+{
+    public Guid AttachmentId { get; set; }
+    public Guid EntryId { get; set; }
+    public string FileNameCiphertext { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public string ContentCiphertext { get; set; } = string.Empty;
 }

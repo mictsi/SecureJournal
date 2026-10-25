@@ -2,149 +2,122 @@
 @attribute [Authorize]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
-@using SecureJournal.Web.Utilities
+@using SecureJournal.Web.Components.Forms
+@using Microsoft.AspNetCore.WebUtilities
 
 <PageTitle>Journal entry · Secure Journal</PageTitle>
 
-<PageHeader Title="Journal entry"
-            Description="A saved record in your project's history.">
-    <Actions>
-        <a href="@BackUrl" class="sk-button sk-button--secondary">
-            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-left" /></svg>
-            Back to project
-        </a>
-    </Actions>
-</PageHeader>
+<div class="entry-page">
+    <a href="@BackUrl" class="sj-workspace-back">← Back to project entries</a>
+    <PageHeader Title="@(_entry?.Subject ?? "Journal entry")"
+                Description="@(_entry is null ? "A saved record in your project's history." : $"{_entry.ProjectCode} · {_entry.ProjectName}")" />
+    <PageAlerts Error="@_error" Message="@(Saved && _entry is not null ? "Entry saved. Your text and files are now part of this project's history." : null)" />
 
-<PageAlerts Error="@_error" />
-
-@if (_entry is not null)
-{
-    <section class="panel-card entry-detail-card">
-        <div class="panel-card-header">
-            <div>
-                <p class="entry-project-label">@_entry.ProjectCode · @_entry.ProjectName</p>
-                <h2>@_entry.Subject</h2>
-            </div>
-            <span class="sk-badge @(_entry.IsSoftDeleted ? "sk-badge--warning" : "sk-badge--success")">@(_entry.IsSoftDeleted ? "Deleted" : "Saved")</span>
-        </div>
-
-        <dl class="meta-list">
-            <dt>Created (UTC)</dt>
-            <dd><time datetime="@_entry.CreatedAtUtc.ToString("o")">@_entry.CreatedAtUtc.ToString("dd MMM yyyy, HH:mm:ss")</time></dd>
-            <dt>Author</dt>
-            <dd>@_entry.CreatedBy</dd>
-            @if (_entry.IsSoftDeleted)
-            {
-                <dt>Deleted (UTC)</dt>
-                <dd>@_entry.DeletedAtUtc?.ToString("dd MMM yyyy, HH:mm:ss") by @_entry.DeletedBy</dd>
-            }
-        </dl>
-    </section>
-
-    <section class="panel-card entry-detail-card">
-        <div class="entry-view-grid">
-            <div class="entry-view-block">
-                <h3>Description</h3>
-                <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.Description)</div>
-            </div>
-            <div class="entry-view-block">
-                <h3>Notes</h3>
-                @if (string.IsNullOrWhiteSpace(_entry.Notes))
+    @if (_loading)
+    {
+        <p role="status">Loading entry…</p>
+    }
+    else if (_entry is not null)
+    {
+        <article class="panel-card entry-detail-card">
+            <dl class="entry-metadata">
+                <div><dt>Status</dt><dd><span class="sk-badge @(_entry.IsSoftDeleted ? "sk-badge--warning" : "sk-badge--success")">@(_entry.IsSoftDeleted ? "Deleted" : "Saved")</span></dd></div>
+                <div><dt>Created (UTC)</dt><dd><time datetime="@_entry.CreatedAtUtc.ToString("o")">@_entry.CreatedAtUtc.ToString("dd MMM yyyy, HH:mm")</time></dd></div>
+                <div><dt>Author</dt><dd>@_entry.CreatedBy</dd></div>
+                @if (_entry.IsSoftDeleted)
                 {
-                    <p class="sj-muted">No additional notes.</p>
+                    <div><dt>Deleted (UTC)</dt><dd>@_entry.DeletedAtUtc?.ToString("dd MMM yyyy, HH:mm") by @_entry.DeletedBy</dd></div>
+                }
+            </dl>
+            <div class="entry-content">
+                <section aria-labelledby="entry-description-title">
+                    <h2 id="entry-description-title">Description</h2>
+                    <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.Description)</div>
+                </section>
+                @if (!string.IsNullOrWhiteSpace(_entry.Notes))
+                {
+                    <section aria-labelledby="entry-notes-title">
+                        <h2 id="entry-notes-title">Notes</h2>
+                        <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.Notes)</div>
+                    </section>
+                }
+                @if (_entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(_entry.DeleteReason))
+                {
+                    <section aria-labelledby="entry-deletion-title">
+                        <h2 id="entry-deletion-title">Delete reason</h2>
+                        <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.DeleteReason)</div>
+                    </section>
+                }
+            </div>
+            <section class="entry-files" aria-labelledby="entry-files-title">
+                <h2 id="entry-files-title">Files <span class="sk-badge sk-badge--neutral">@_entry.Attachments.Count</span></h2>
+                @if (_entry.Attachments.Count == 0)
+                {
+                    <p class="sj-muted">No files were attached to this entry.</p>
                 }
                 else
                 {
-                    <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.Notes)</div>
+                    <ul class="entry-file-list">
+                        @foreach (var file in _entry.Attachments)
+                        {
+                            <li>
+                                <div class="entry-file-copy"><strong>@file.FileName</strong><span>@AttachmentPicker.FormatSize(file.SizeBytes)</span></div>
+                                <a href="@($"/attachments/{file.AttachmentId:D}")" class="sk-button sk-button--secondary sk-button--sm"
+                                   download="@file.FileName" aria-label="@($"Download {file.FileName}")">Download</a>
+                            </li>
+                        }
+                    </ul>
                 }
-            </div>
-            @if (_entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(_entry.DeleteReason))
-            {
-                <div class="entry-view-block entry-view-block-full">
-                    <h3>Delete reason</h3>
-                    <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.DeleteReason)</div>
-                </div>
-            }
-        </div>
-
-        <div class="entry-detail-footer">
-            <p class="sj-muted">Saved entries cannot be edited. Create a follow-up entry to add new information.</p>
-            @if (!_entry.IsSoftDeleted)
-            {
-                <a href="@($"/journal?projectId={_entry.ProjectId:D}")" class="sk-button sk-button--primary">New entry in this project</a>
-            }
-        </div>
-    </section>
-}
-else if (string.IsNullOrWhiteSpace(_error))
-{
-    <section class="panel-card">
-        <p>Entry not found or you do not have access to view it.</p>
-    </section>
-}
+            </section>
+            <footer class="entry-detail-footer">
+                <p>Saved entries and their files cannot be edited. Use a follow-up entry to add more information.</p>
+                @if (!_entry.IsSoftDeleted)
+                {
+                    <a href="@QueryHelpers.AddQueryString($"/journal?projectId={_entry.ProjectId:D}", "returnUrl", BackUrl)" class="sk-button sk-button--primary">Add a follow-up entry</a>
+                }
+            </footer>
+        </article>
+    }
+</div>
 
 @code {
-    [Parameter]
-    public Guid RecordId { get; set; }
+    [Parameter] public Guid RecordId { get; set; }
+    [SupplyParameterFromQuery(Name = "projectId")] public string? ProjectIdQuery { get; set; }
+    private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "saved")] public string? SavedQuery { get; set; }
+    private bool Saved => bool.TryParse(SavedQuery, out var saved) && saved;
 
-    [SupplyParameterFromQuery(Name = "projectId")]
-    public Guid? ProjectId { get; set; }
-
-    private UserContext? _currentUser;
     private JournalEntryView? _entry;
     private string? _error;
-
-    private string BackUrl
-        => _entry is not null
-            ? $"/projects?projectId={_entry.ProjectId:D}"
-            : ProjectId.HasValue
-                ? $"/projects?projectId={ProjectId.Value:D}"
-                : "/projects";
+    private bool _loading = true;
+    private string BackUrl => ProjectReturnUrl.Resolve(ReturnUrl,
+        (_entry?.ProjectId ?? ProjectId) is { } id ? $"/projects?projectId={id:D}" : "/projects");
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!await JournalApp.HasCurrentUserAsync())
-        {
-            Navigation.NavigateTo("/", forceLoad: false);
-            return;
-        }
-
-        _currentUser = await JournalApp.GetCurrentUserAsync();
-        if (_currentUser.Role == AppRole.Auditor)
-        {
-            _entry = null;
-            _error = "Auditors cannot view full journal entry details.";
-            return;
-        }
-
-        LoadEntry();
-    }
-
-    private void LoadEntry()
-    {
+        _loading = true;
         _error = null;
         _entry = null;
-
         try
         {
-            var entries = JournalApp.GetJournalEntries(ProjectId, includeSoftDeleted: true);
-            _entry = entries.FirstOrDefault(e => e.RecordId == RecordId);
-
+            if (!await JournalApp.HasCurrentUserAsync())
+            {
+                Navigation.NavigateTo("/", forceLoad: false);
+                return;
+            }
+            var user = await JournalApp.GetCurrentUserAsync();
+            if (user.Role == AppRole.Auditor)
+            {
+                _error = "Auditors cannot view full journal entry details.";
+                return;
+            }
+            _entry = JournalApp.GetJournalEntries(ProjectId, includeSoftDeleted: true).FirstOrDefault(entry => entry.RecordId == RecordId);
             if (_entry is null && ProjectId.HasValue)
-            {
-                _entry = JournalApp.GetJournalEntries(projectId: null, includeSoftDeleted: true)
-                    .FirstOrDefault(e => e.RecordId == RecordId);
-            }
-
-            if (_entry is null)
-            {
-                _error = "Journal entry was not found or is not accessible for your account.";
-            }
+                _entry = JournalApp.GetJournalEntries(includeSoftDeleted: true).FirstOrDefault(entry => entry.RecordId == RecordId);
+            if (_entry is null) _error = "Journal entry was not found or is not accessible for your account.";
         }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
     }
 }

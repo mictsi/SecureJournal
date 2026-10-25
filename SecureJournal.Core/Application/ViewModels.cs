@@ -63,7 +63,10 @@ public sealed record JournalEntryView(
     DateTime? DeletedAtUtc,
     string? DeletedBy,
     string? DeleteReason,
-    string FullRecordChecksum);
+    string FullRecordChecksum)
+{
+    public IReadOnlyList<JournalAttachmentView> Attachments { get; init; } = Array.Empty<JournalAttachmentView>();
+}
 
 public sealed record AuditRelatedJournalEntryView(
     Guid RecordId,

@@ -13,10 +13,11 @@ using SecureJournal.Web.Infrastructure.Identity;
 
 namespace SecureJournal.Web.Services;
 
-public sealed class SecureJournalAppService : ISecureJournalAppService
+public sealed partial class SecureJournalAppService : ISecureJournalAppService
 {
     private readonly IChecksumService _checksumService;
     private readonly IAuditFieldEncryptor _auditEncryptor;
+    private readonly IJournalFieldEncryptor _attachmentEncryptor;
     private readonly IJournalEntryRecordFactory _journalRecordFactory;
     private readonly IAuditLogRecordFactory _auditRecordFactory;
     private readonly IRecordViewMapper _recordViewMapper;
@@ -80,6 +81,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     {
         _checksumService = checksumService;
         _auditEncryptor = auditEncryptor;
+        _attachmentEncryptor = new JournalFieldEncryptor(EncryptionKeyParser.GetKeyBytes(configuration["Security:JournalEncryptionKey"], "journal"));
         _journalRecordFactory = journalRecordFactory;
         _auditRecordFactory = auditRecordFactory;
         _recordViewMapper = recordViewMapper;
@@ -2639,13 +2641,13 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var canSeeSoftDeleted = includeSoftDeleted && CanSeeSoftDeletedEntries(currentUser);
-            return _journalEntries
+            var records = _journalEntries
                 .Where(e => readableProjectIds.Contains(e.ProjectId))
                 .Where(e => !projectId.HasValue || e.ProjectId == projectId.Value)
                 .Where(e => !e.IsSoftDeleted || canSeeSoftDeleted)
                 .OrderByDescending(e => e.CreatedAtUtc)
-                .Select(record => _recordViewMapper.MapJournalEntry(record, _projects))
                 .ToList();
+            return MapJournalEntriesWithAttachments(records);
         }
     }
 
@@ -2702,20 +2704,29 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 notes,
                 result);
 
+            var attachments = PrepareAttachments(record.RecordId, request.Attachments);
+            var audits = new List<AuditLogRecord>
+            {
+                _auditRecordFactory.Create(actor, AuditActionType.Create, AuditEntityType.JournalEntry,
+                    record.RecordId.ToString(), project.ProjectId, AuditOutcome.Success,
+                    $"Journal entry created in project '{project.Code}'.")
+            };
+            audits.AddRange(attachments.Select(a => _auditRecordFactory.Create(actor, AuditActionType.Create,
+                AuditEntityType.Attachment, a.AttachmentId.ToString(), project.ProjectId, AuditOutcome.Success,
+                $"File attached to journal entry {record.RecordId:D} ({a.SizeBytes} bytes).")));
+            // Prepare the return value before committing. A later metadata read failure
+            // must not report a successful save as failed and invite a duplicate retry.
+            var savedView = _recordViewMapper.MapJournalEntry(record, _projects) with
+            {
+                Attachments = attachments.Select(MapAttachment).ToList()
+            };
+            // Persist the entry, all files and their audit records together before publishing in memory.
+            _sqliteStore.CreateJournalEntryWithAttachments(record, attachments, audits);
             _journalEntries.Add(record);
-            _sqliteStore.UpsertJournalEntry(record);
+            _auditLogs.AddRange(audits);
             InvalidateJournalsCache();
 
-            AppendAudit(
-                actor,
-                AuditActionType.Create,
-                AuditEntityType.JournalEntry,
-                entityId: record.RecordId.ToString(),
-                projectId: project.ProjectId,
-                AuditOutcome.Success,
-                $"Journal entry created in project '{project.Code}'.");
-
-            return _recordViewMapper.MapJournalEntry(record, _projects);
+            return savedView;
         }
     }
 
@@ -2981,9 +2992,23 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 throw new UnauthorizedAccessException("Only administrators can export journal entries.");
             }
 
+            if (request.IncludeAttachments)
+            {
+                var selected = _journalEntries.Where(e => MatchesExportFilter(e, request.Filter));
+                if (selected.Count() > AttachmentLimits.MaxExportRows)
+                    throw new ValidationException($"File exports are limited to {AttachmentLimits.MaxExportRows:N0} entries. Choose a smaller date range or one project.");
+                // Check encrypted text size before decrypting/materializing rows. This bounds
+                // the text formatter's temporary allocations as well as the archive itself.
+                if (selected.Sum(e => (long)e.SubjectCiphertext.Length + e.DescriptionCiphertext.Length + e.NotesCiphertext.Length) > 16 * 1024 * 1024)
+                    throw new ValidationException("The journal text in this export is too large. Choose a smaller date range or one project.");
+            }
+
             var rows = GetJournalEntriesForExportInternal(request.Filter)
                 .OrderByDescending(e => e.CreatedAtUtc)
                 .ToList();
+
+            if (request.IncludeAttachments)
+                return ExportJournalArchive(request, rows, actor);
 
             var fileName = $"journal-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{(request.Format == ExportFormat.Csv ? "csv" : "json")}";
             var content = request.Format == ExportFormat.Csv
@@ -3367,10 +3392,9 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             .Where(e => !filter.FromUtc.HasValue || e.CreatedAtUtc >= filter.FromUtc.Value)
             .Where(e => !filter.ToUtc.HasValue || e.CreatedAtUtc <= filter.ToUtc.Value)
             .Where(e => filter.IncludeSoftDeleted || !e.IsSoftDeleted)
-            .Select(record => _recordViewMapper.MapJournalEntry(record, _projects))
             .ToList();
 
-        return rows;
+        return MapJournalEntriesWithAttachments(rows);
     }
 
     private AppUser RequireAdmin()

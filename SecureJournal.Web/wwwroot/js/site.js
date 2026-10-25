@@ -29,6 +29,18 @@ window.secureJournalTheme = (() => {
 })();
 
 window.secureJournalDownloads = {
+    async downloadStream(fileName, contentType, streamReference) {
+        const content = await streamReference.arrayBuffer();
+        const blob = new Blob([content], { type: contentType || "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    },
     downloadText(fileName, contentType, content) {
         const blob = new Blob([content ?? ""], { type: contentType || "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
@@ -41,6 +53,49 @@ window.secureJournalDownloads = {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 };
+
+// Blazor owns the file list and transfer state. This only gives its native file
+// input a drop target; choosing files remains fully keyboard accessible.
+window.secureJournalUploads = (() => {
+    const bindings = new Map();
+    function dispose(id) {
+        const binding = bindings.get(id);
+        if (!binding) return;
+        for (const [event, handler] of Object.entries(binding.handlers)) {
+            binding.root.removeEventListener(event, handler);
+        }
+        bindings.delete(id);
+    }
+    return {
+        bind(id, inputId) {
+            dispose(id);
+            const root = document.getElementById(id);
+            if (!root) return;
+            const handlers = {
+                dragover(event) {
+                    if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+                    event.preventDefault();
+                    if (!document.getElementById(inputId)?.disabled) root.setAttribute("data-dragover", "");
+                },
+                dragleave(event) {
+                    if (!root.contains(event.relatedTarget)) root.removeAttribute("data-dragover");
+                },
+                drop(event) {
+                    event.preventDefault();
+                    root.removeAttribute("data-dragover");
+                    const input = document.getElementById(inputId);
+                    if (!input || input.disabled || !event.dataTransfer?.files.length) return;
+                    input.files = event.dataTransfer.files;
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            };
+            for (const [event, handler] of Object.entries(handlers)) root.addEventListener(event, handler);
+            bindings.set(id, { root, handlers });
+        },
+        clearSelection(id) { const input = document.getElementById(id); if (input) input.value = ""; },
+        dispose
+    };
+})();
 
 window.secureJournalSession = {
     set(name, value, maxAgeSeconds) {

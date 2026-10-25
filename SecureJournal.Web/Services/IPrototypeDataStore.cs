@@ -8,6 +8,8 @@ public interface IPrototypeDataStore
     IReadOnlyList<StoredUserRow> LoadUsers();
     IReadOnlyList<StoredUserRoleRow> LoadUserRoles();
     IReadOnlyList<StoredProjectRow> LoadProjects();
+    IReadOnlyList<Guid> LoadFavoriteProjectIds(Guid userId);
+    void SetProjectFavorite(Guid userId, Guid projectId, bool isFavorite);
     IReadOnlyList<StoredGroupRow> LoadGroups();
     IReadOnlyList<StoredUserGroupRow> LoadUserGroups();
     IReadOnlyList<StoredProjectGroupRow> LoadProjectGroups();

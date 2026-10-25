@@ -17,6 +17,8 @@ public interface ISecureJournalAppService
     IReadOnlyList<UserContext> GetAvailableUsers();
     DashboardSummary GetDashboardSummary();
     IReadOnlyList<ProjectOverview> GetProjects();
+    IReadOnlyList<Guid> GetFavoriteProjectIds();
+    bool SetProjectFavorite(Guid projectId, bool isFavorite);
     PagedResult<ProjectOverview> GetProjects(ProjectListQuery request);
     IReadOnlyList<GroupOverview> GetGroups();
     PagedResult<GroupOverview> GetGroups(GroupListQuery request);

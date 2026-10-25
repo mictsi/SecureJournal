@@ -1,0 +1,13 @@
+.project-favorite-toggle {
+    flex: 0 0 auto;
+    gap: var(--sk-space-8);
+    white-space: nowrap;
+}
+.project-favorite-toggle svg {
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linejoin: round;
+}
+.project-favorite-toggle.is-favorite svg { fill: currentColor; }

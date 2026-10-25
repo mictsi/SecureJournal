@@ -13,7 +13,7 @@ internal static class ProjectReturnUrl
             || uri.AbsolutePath != "/projects" || !string.IsNullOrEmpty(uri.Fragment)) return fallback;
 
         var allowed = new HashSet<string>(StringComparer.Ordinal)
-        { "projectId", "q", "browse", "projectPage", "projectSize", "entryQuery", "page", "size", "sort", "deleted", "view" };
+        { "projectId", "q", "browse", "favorites", "projectPage", "projectSize", "entryQuery", "page", "size", "sort", "deleted", "view", "entryId" };
         var values = QueryHelpers.ParseQuery(uri.Query)
             .Where(pair => allowed.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => (string?)pair.Value.ToString());

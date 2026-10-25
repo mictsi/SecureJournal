@@ -11,6 +11,7 @@ public sealed class SecureJournalAppDbContext : DbContext
 
     public DbSet<AppUserEntity> AppUsers => Set<AppUserEntity>();
     public DbSet<ProjectEntity> Projects => Set<ProjectEntity>();
+    public DbSet<ProjectFavoriteEntity> ProjectFavorites => Set<ProjectFavoriteEntity>();
     public DbSet<GroupEntity> Groups => Set<GroupEntity>();
     public DbSet<UserRoleEntity> UserRoles => Set<UserRoleEntity>();
     public DbSet<UserGroupEntity> UserGroups => Set<UserGroupEntity>();
@@ -60,6 +61,17 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasIndex(x => x.Code).IsUnique();
             entity.HasIndex(x => x.Name);
             entity.HasIndex(x => x.Description);
+        });
+
+        builder.Entity<ProjectFavoriteEntity>(entity =>
+        {
+            entity.ToTable("project_favorites");
+            entity.HasKey(x => new { x.UserId, x.ProjectId });
+            entity.Property(x => x.UserId).HasColumnName("user_id");
+            entity.Property(x => x.ProjectId).HasColumnName("project_id");
+            entity.HasIndex(x => x.ProjectId).HasDatabaseName("ix_project_favorites_project_id");
+            entity.HasOne<AppUserEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ProjectEntity>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<GroupEntity>(entity =>
@@ -157,6 +169,12 @@ public sealed class SecureJournalAppDbContext : DbContext
             entity.HasIndex(x => x.TimestampUtc);
         });
     }
+}
+
+public sealed class ProjectFavoriteEntity
+{
+    public Guid UserId { get; set; }
+    public Guid ProjectId { get; set; }
 }
 
 public sealed class AppUserEntity

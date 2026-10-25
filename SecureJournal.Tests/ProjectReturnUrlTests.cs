@@ -27,6 +27,7 @@ public sealed class ProjectReturnUrlTests
         {
             ["projectId"] = id.ToString(), ["q"] = "Möten & planering", ["entryQuery"] = "handover",
             ["page"] = "3", ["size"] = "20", ["sort"] = "oldest", ["deleted"] = "true", ["view"] = "quick",
+            ["entryId"] = id.ToString(), ["favorites"] = "true",
             ["access_token"] = "must-not-propagate", ["returnUrl"] = "https://example.com"
         });
 
@@ -41,6 +42,8 @@ public sealed class ProjectReturnUrlTests
         Assert.Equal("oldest", values["sort"].ToString());
         Assert.Equal("true", values["deleted"].ToString());
         Assert.Equal("quick", values["view"].ToString());
+        Assert.Equal(id.ToString(), values["entryId"].ToString());
+        Assert.Equal("true", values["favorites"].ToString());
         Assert.False(values.ContainsKey("access_token"));
         Assert.False(values.ContainsKey("returnUrl"));
     }
@@ -49,7 +52,7 @@ public sealed class ProjectReturnUrlTests
     public void NewEntryUrl_PreservesCurrentJournalAndQuickReadContext()
     {
         var id = Guid.NewGuid();
-        var current = new Uri($"https://local.invalid/projects?projectId={id:D}&view=quick&page=2");
+        var current = new Uri($"https://local.invalid/projects?projectId={id:D}&view=quick&page=2&entryId={Guid.NewGuid():D}&favorites=true");
         var result = ProjectReturnUrl.NewEntryUrl(current);
         var query = QueryHelpers.ParseQuery(new Uri("https://local.invalid" + result).Query);
         Assert.Equal(id.ToString("D"), query["projectId"].ToString());

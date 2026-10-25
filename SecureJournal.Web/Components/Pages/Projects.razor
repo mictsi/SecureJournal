@@ -4,8 +4,10 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @using SecureJournal.Web.Components.Journal
+@using SecureJournal.Web.Components.Projects
 
 <PageTitle>@(SelectedProject?.Name ?? "My projects")</PageTitle>
+<span class="sk-visually-hidden" role="status" aria-live="polite">@_favoriteStatus</span>
 
 @if (SelectedProject is { } project)
 {
@@ -17,11 +19,13 @@
 
         <PageHeader Title="@project.Name" Description="@(string.IsNullOrWhiteSpace(project.Description) ? "A shared record of decisions, updates, and events." : project.Description)">
             <Actions>
+                <ProjectFavoriteButton ProjectName="@project.Name" IsFavorite="@_favoriteProjectIds.Contains(project.ProjectId)"
+                                       Disabled="@_favoritesLoadFailed" OnToggle="() => ToggleFavorite(project)" />
                 <a href="@NewEntryUrl" class="sk-button sk-button--primary"><svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>New entry</a>
             </Actions>
         </PageHeader>
 
-        <PageAlerts Message="@_message" Error="@(_projectSelectionError ?? _error)" />
+        <PageAlerts Message="@_message" Error="@(_projectSelectionError ?? _error ?? _favoritesError)" />
 
         <section class="panel-card project-journal-controls" aria-label="Find journal entries">
             <form class="sk-field-row sj-directory-toolbar" role="search" aria-label="Search journal entries" @onsubmit="SearchEntries" @onsubmit:preventDefault>
@@ -103,28 +107,59 @@
             {
                 @if (_quickRead)
                 {
-                    <p class="project-reading-hint">Read the full description and notes for every entry on this page.</p>
-                }
-                <ul class="sj-directory-results project-entry-list @(_quickRead ? "is-quick-read" : null)" aria-label="Journal entries">
-                    @foreach (var entry in VisibleEntries)
-                    {
-                        <li @key="(entry.RecordId, _quickRead)">
-                            @if (_quickRead)
+                    <div class="quick-reader @(SelectedReaderEntry is not null ? "has-selection" : null)">
+                        <section class="quick-reader-list" aria-labelledby="quick-reader-list-heading" tabindex="-1" @ref="_readerListFocus">
+                            <div class="quick-reader-list-heading">
+                                <h3 id="quick-reader-list-heading">Entries</h3>
+                                <span class="sj-muted">Page @_currentPage of @TotalPages</span>
+                            </div>
+                            <ul class="quick-reader-list-items" aria-label="Choose an entry to read">
+                                @foreach (var entry in VisibleEntries)
+                                {
+                                    <li @key="entry.RecordId">
+                                        <button type="button" class="quick-reader-item @(entry.RecordId == _selectedReaderEntryId ? "is-selected" : null)"
+                                                aria-current="@(entry.RecordId == _selectedReaderEntryId ? "true" : null)"
+                                                aria-controls="quick-reader-detail" @ref="_readerEntryButtons[entry.RecordId]"
+                                                @onclick="() => SelectReaderEntry(entry.RecordId)">
+                                            <span class="quick-reader-item-meta"><time datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time><span>by @entry.CreatedBy</span></span>
+                                            <strong>@entry.Subject</strong>
+                                            @if (entry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                            @if (HasEntryPager) { @EntryPager() }
+                        </section>
+                        <section @key="SelectedReaderEntry?.RecordId" id="quick-reader-detail" class="quick-reader-detail" aria-label="Selected journal entry" tabindex="-1" @ref="_readerDetailFocus">
+                            @if (SelectedReaderEntry is { } readingEntry)
                             {
-                                <article class="project-entry-card project-entry-quickread" aria-labelledby="@($"entry-title-{entry.RecordId:N}")">
-                                    <header class="project-entry-summary project-entry-reading-header">
-                                        <time class="project-entry-date" datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time>
-                                        <span class="project-entry-author">by @entry.CreatedBy</span>
-                                        <h3 class="project-entry-title" id="@($"entry-title-{entry.RecordId:N}")">@entry.Subject</h3>
-                                        @if (entry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }
+                                <article @key="readingEntry.RecordId" aria-labelledby="quick-reader-title">
+                                    <header class="quick-reader-detail-heading">
+                                        <button type="button" class="sk-button sk-button--ghost sk-button--sm quick-reader-back" @onclick="ClearReaderSelection"><span aria-hidden="true">←</span> Back to entries</button>
+                                        <div class="quick-reader-entry-meta"><time datetime="@readingEntry.CreatedAtUtc.ToString("o")">@readingEntry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time><span>by @readingEntry.CreatedBy</span>@if (readingEntry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }</div>
+                                        <h3 id="quick-reader-title">@readingEntry.Subject</h3>
                                     </header>
-                                    <div class="project-entry-expanded">
-                                        <JournalEntryContent Entry="entry" ReturnUrl="@ProjectsUrl(_selectedProjectId, includeEntryState: true)" HeadingLevel="4" ShowCreatedMetadata="false" QuickRead="true" />
+                                    <div class="quick-reader-content">
+                                        <JournalEntryContent Entry="readingEntry" ReturnUrl="@ProjectsUrl(_selectedProjectId, includeEntryState: true)" HeadingLevel="4" ShowCreatedMetadata="false" QuickRead="true" />
                                     </div>
                                 </article>
                             }
                             else
                             {
+                                <div class="quick-reader-empty" role="status">
+                                    <h3>Select an entry</h3>
+                                    <p>@(string.IsNullOrWhiteSpace(ReaderEntryQuery) ? "Choose an entry from the list to read its full description, notes, and files here." : "That entry is not available on this page. Choose an entry from the list.")</p>
+                                </div>
+                            }
+                        </section>
+                    </div>
+                }
+                else
+                {
+                    <ul class="sj-directory-results project-entry-list" aria-label="Journal entries">
+                        @foreach (var entry in VisibleEntries)
+                        {
+                            <li @key="entry.RecordId">
                                 <details class="project-entry-card project-entry-disclosure">
                                     <summary class="project-entry-summary">
                                         <time class="project-entry-date" datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time>
@@ -140,26 +175,10 @@
                                         @EntryActions(entry)
                                     </div>
                                 </details>
-                            }
-                        </li>
-                    }
-                </ul>
-                @if (TotalPages > 1 || FilteredEntryCount > _pageSizeOptions[0])
-                {
-                    <nav class="pager-bar" aria-label="Journal entry pages">
-                        @if (TotalPages > 1)
-                        {
-                            <p class="sj-muted">Page @_currentPage of @TotalPages</p>
-                            <div class="sj-result-card__actions">
-                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
-                                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
-                            </div>
+                            </li>
                         }
-                        <div class="project-page-size">
-                            <label for="projectJournalPageSize">Per page</label>
-                            <div class="sk-select-wrapper"><select id="projectJournalPageSize" class="sk-select sk-select--sm" value="@_pageSize" @onchange="OnPageSizeChanged">@foreach (var size in _pageSizeOptions) { <option value="@size">@size</option> }</select></div>
-                        </div>
-                    </nav>
+                    </ul>
+                    @if (HasEntryPager) { @EntryPager() }
                 }
             }
         </section>
@@ -176,7 +195,7 @@ else
                 }
             </Actions>
         </PageHeader>
-        <PageAlerts Error="@(_projectSelectionError ?? _error)" />
+        <PageAlerts Error="@(_projectSelectionError ?? _error ?? _favoritesError)" />
 
         <form class="panel-card sk-field-row sj-directory-toolbar" role="search" aria-label="Search projects" @onsubmit="SearchProjects" @onsubmit:preventDefault>
             <div class="sk-field">
@@ -187,6 +206,7 @@ else
                 <div class="sk-field-row__action-group">
                     <button type="submit" class="sk-button sk-button--primary">Search</button>
                     <button type="button" class="sk-button sk-button--secondary" @onclick="ShowProjects">Show my projects</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ShowFavorites">Show favorites</button>
                 </div>
             </div>
         </form>
@@ -212,23 +232,46 @@ else
         }
         else
         {
-            @if (!string.IsNullOrWhiteSpace(_projectSearchText))
+            @if (_favoritesOnly || !string.IsNullOrWhiteSpace(_projectSearchText))
             {
                 <div class="sj-filter-chips" aria-label="Active project filters">
-                    <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ShowProjects" aria-label="@($"Remove project search: {_projectSearchText}")">Search: @_projectSearchText <span aria-hidden="true">×</span></button>
+                    @if (_favoritesOnly)
+                    {
+                        <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ClearFavoriteFilter" aria-label="Remove favorites filter">Favorites <span aria-hidden="true">×</span></button>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_projectSearchText))
+                    {
+                        <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ClearProjectSearch" aria-label="@($"Remove project search: {_projectSearchText}")">Search: @_projectSearchText <span aria-hidden="true">×</span></button>
+                    }
                 </div>
             }
             <section class="project-directory-results" aria-labelledby="project-results-heading">
                 <div class="sj-results-summary">
-                    <h2 id="project-results-heading" class="sj-subheading">Projects</h2>
+                    <h2 id="project-results-heading" class="sj-subheading" tabindex="-1" @ref="_favoriteResultsFocus">@(_favoritesOnly ? "Favorite projects" : "Projects")</h2>
                     <p class="sj-muted" role="status">@ProjectRangeLabel</p>
                 </div>
-                @if (FilteredProjectCount == 0)
+                @if (_favoritesOnly && _favoritesLoadFailed)
                 {
                     <div class="panel-card sk-empty-state">
-                        <h3 class="sk-empty-state__heading">No projects match “@_projectSearchText”</h3>
-                        <p class="sk-empty-state__body">Try another name or show all your projects.</p>
-                        <button class="sk-button sk-button--secondary" type="button" @onclick="ShowProjects">Show my projects</button>
+                        <h3 class="sk-empty-state__heading">Favorites could not be loaded</h3>
+                        <p class="sk-empty-state__body">Try loading your saved favorites again.</p>
+                        <button class="sk-button sk-button--secondary" type="button" @onclick="ShowFavorites">Try again</button>
+                    </div>
+                }
+                else if (_favoritesOnly && _favoriteProjectIds.Count == 0)
+                {
+                    <div class="panel-card sk-empty-state">
+                        <h3 class="sk-empty-state__heading">No favorite projects yet</h3>
+                        <p class="sk-empty-state__body">Choose Favorite beside a project to save it here. Favorites are private to your account.</p>
+                        <button class="sk-button sk-button--secondary" type="button" @onclick="ShowProjects">Browse my projects</button>
+                    </div>
+                }
+                else if (FilteredProjectCount == 0)
+                {
+                    <div class="panel-card sk-empty-state">
+                        <h3 class="sk-empty-state__heading">No @(_favoritesOnly ? "favorite projects" : "projects") match “@_projectSearchText”</h3>
+                        <p class="sk-empty-state__body">Try another name or clear the search.</p>
+                        <button class="sk-button sk-button--secondary" type="button" @onclick="ClearProjectSearch">Clear search</button>
                     </div>
                 }
                 else
@@ -237,7 +280,8 @@ else
                         @foreach (var item in VisibleProjects)
                         {
                             <li @key="item.ProjectId">
-                                <a class="sj-result-card project-directory-card" href="@ProjectsUrl(item.ProjectId)">
+                                <article class="sj-result-card project-directory-card">
+                                <a class="project-directory-link" href="@ProjectsUrl(item.ProjectId)">
                                     <div class="sj-result-card__body">
                                         <h3 class="sj-result-card__title">@item.Name</h3>
                                         <span class="sj-result-card__meta">@item.Code</span>
@@ -245,6 +289,9 @@ else
                                     </div>
                                     <span class="project-open-label">Open journal <svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-arrow-right" /></svg></span>
                                 </a>
+                                <ProjectFavoriteButton ProjectName="@item.Name" IsFavorite="@_favoriteProjectIds.Contains(item.ProjectId)"
+                                                       Disabled="@_favoritesLoadFailed" OnToggle="() => ToggleFavorite(item)" />
+                                </article>
                             </li>
                         }
                     </ul>
@@ -276,6 +323,7 @@ else
     [SupplyParameterFromQuery(Name = "saved")] public string? SavedEntryQuery { get; set; }
     [SupplyParameterFromQuery(Name = "q")] public string? ProjectQuery { get; set; }
     [SupplyParameterFromQuery(Name = "browse")] public string? BrowseQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "favorites")] public string? FavoritesQuery { get; set; }
     [SupplyParameterFromQuery(Name = "projectPage")] public string? ProjectPageQuery { get; set; }
     [SupplyParameterFromQuery(Name = "projectSize")] public string? ProjectSizeQuery { get; set; }
     [SupplyParameterFromQuery(Name = "entryQuery")] public string? EntryQuery { get; set; }
@@ -284,10 +332,12 @@ else
     [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
     [SupplyParameterFromQuery(Name = "deleted")] public string? IncludeDeletedQuery { get; set; }
     [SupplyParameterFromQuery(Name = "view")] public string? ReadingViewQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "entryId")] public string? ReaderEntryQuery { get; set; }
 
     private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
     private Guid? SavedEntryId => Guid.TryParse(SavedEntryQuery, out var id) ? id : null;
     private bool Browse => bool.TryParse(BrowseQuery, out var value) && value;
+    private bool FavoritesOnly => bool.TryParse(FavoritesQuery, out var value) && value;
     private bool IncludeDeleted => bool.TryParse(IncludeDeletedQuery, out var value) && value;
     private int? ProjectPage => ParseNumber(ProjectPageQuery);
     private int? ProjectSize => ParseNumber(ProjectSizeQuery);
@@ -308,7 +358,21 @@ else
     private bool _entriesLoadFailed;
     private bool _includeSoftDeleted;
     private bool _showProjects;
+    private bool _favoritesOnly;
+    private HashSet<Guid> _favoriteProjectIds = [];
+    private bool _favoritesLoadFailed;
+    private string? _favoritesError;
+    private string? _favoriteStatus;
+    private bool _focusFavoriteResults;
+    private ElementReference _favoriteResultsFocus;
     private bool _quickRead;
+    private Guid? _selectedReaderEntryId;
+    private Guid? _readerEntryToFocus;
+    private readonly Dictionary<Guid, ElementReference> _readerEntryButtons = new();
+    private ElementReference _readerListFocus;
+    private ElementReference _readerDetailFocus;
+    private bool _focusReaderDetail;
+    private bool _focusReaderList;
     private string _searchText = string.Empty;
     private string _entrySearchInput = string.Empty;
     private string _projectSearchText = string.Empty;
@@ -328,7 +392,8 @@ else
     private bool _parametersLoaded;
 
     private ProjectOverview? SelectedProject => _projects.FirstOrDefault(p => p.ProjectId == _selectedProjectId);
-    private IEnumerable<ProjectOverview> FilteredProjects => _projects.Where(p => string.IsNullOrWhiteSpace(_projectSearchText) || p.Code.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Name.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Description.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<ProjectOverview> FilteredProjects => _projects.Where(p => !_favoritesOnly || _favoriteProjectIds.Contains(p.ProjectId))
+        .Where(p => string.IsNullOrWhiteSpace(_projectSearchText) || p.Code.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Name.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase) || p.Description.Contains(_projectSearchText, StringComparison.OrdinalIgnoreCase));
     private int FilteredProjectCount => FilteredProjects.Count();
     private int ProjectListTotalPages => Math.Max(1, (int)Math.Ceiling(FilteredProjectCount / (double)_projectListPageSize));
     private IEnumerable<ProjectOverview> VisibleProjects => FilteredProjects.Skip((_projectListPage - 1) * _projectListPageSize).Take(_projectListPageSize);
@@ -336,6 +401,8 @@ else
     private int FilteredEntryCount => FilteredEntries.Count();
     private IEnumerable<JournalEntryView> SortedEntries => _dateSortOrder == DateSortOldest ? FilteredEntries.OrderBy(e => e.CreatedAtUtc) : FilteredEntries.OrderByDescending(e => e.CreatedAtUtc);
     private IEnumerable<JournalEntryView> VisibleEntries => SortedEntries.Skip((_currentPage - 1) * _pageSize).Take(_pageSize);
+    private JournalEntryView? SelectedReaderEntry => _quickRead ? VisibleEntries.FirstOrDefault(entry => entry.RecordId == _selectedReaderEntryId) : null;
+    private bool HasEntryPager => TotalPages > 1 || FilteredEntryCount > _pageSizeOptions[0];
     private int TotalPages => Math.Max(1, (int)Math.Ceiling(FilteredEntryCount / (double)_pageSize));
     private string ProjectRangeLabel => RangeLabel(_projectListPage, _projectListPageSize, FilteredProjectCount, "project", "projects");
     private string EntryRangeLabel => RangeLabel(_currentPage, _pageSize, FilteredEntryCount, "entry", "entries");
@@ -348,15 +415,18 @@ else
         _currentUser = await JournalApp.GetCurrentUserAsync();
         if (_currentUser.Role == AppRole.Auditor) { Navigation.NavigateTo("/audit", replace: true); return; }
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
+        LoadFavorites();
     }
 
     protected override void OnParametersSet()
     {
         if (_currentUser is null || _currentUser.Role == AppRole.Auditor) return;
         var previousProject = _selectedProjectId;
+        var previousReaderEntry = _selectedReaderEntryId;
         _selectedProjectId = ProjectId is { } id && _projects.Any(p => p.ProjectId == id) ? id : null;
         _projectSearchInput = _projectSearchText = ProjectQuery?.Trim() ?? string.Empty;
-        _showProjects = Browse || !string.IsNullOrWhiteSpace(_projectSearchText);
+        _favoritesOnly = FavoritesOnly;
+        _showProjects = Browse || _favoritesOnly || !string.IsNullOrWhiteSpace(_projectSearchText);
         _projectListPageSize = ProjectSize is { } ps && _projectListPageSizeOptions.Contains(ps) ? ps : 20;
         _projectListPage = Math.Clamp(ProjectPage ?? 1, 1, ProjectListTotalPages);
         _entrySearchInput = _searchText = EntryQuery?.Trim() ?? string.Empty;
@@ -367,10 +437,19 @@ else
         _currentPage = Math.Max(1, EntryPage ?? 1);
         if (_selectedProjectId != _entriesProjectId || _includeSoftDeleted != _entriesIncludeDeleted) RefreshSelectedProjectEntries();
         _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+        _selectedReaderEntryId = _quickRead && Guid.TryParse(ReaderEntryQuery, out var readerId)
+            && VisibleEntries.Any(entry => entry.RecordId == readerId) ? readerId : null;
+        if (_parametersLoaded && previousReaderEntry != _selectedReaderEntryId && _quickRead)
+        {
+            _focusReaderDetail = _selectedReaderEntryId.HasValue;
+            _focusReaderList = !_selectedReaderEntryId.HasValue && previousReaderEntry.HasValue;
+            _readerEntryToFocus = previousReaderEntry;
+        }
         if (previousProject != _selectedProjectId)
         {
             _message = null;
             _focusChangedView = _parametersLoaded;
+            _focusReaderDetail = _focusReaderList = false;
         }
         _parametersLoaded = true;
         _projectSelectionError = !string.IsNullOrWhiteSpace(ProjectIdQuery) && SelectedProject is null
@@ -385,10 +464,32 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_focusChangedView) return;
-        _focusChangedView = false;
-        if (_selectedProjectId.HasValue) await _workspaceFocus.FocusAsync();
-        else await _directorySearch.FocusAsync();
+        if (_focusFavoriteResults && _selectedProjectId is null)
+        {
+            _focusFavoriteResults = false;
+            await _favoriteResultsFocus.FocusAsync();
+        }
+        var visibleReaderIds = _quickRead ? VisibleEntries.Select(entry => entry.RecordId).ToHashSet() : new HashSet<Guid>();
+        foreach (var id in _readerEntryButtons.Keys.Where(id => !visibleReaderIds.Contains(id)).ToArray()) _readerEntryButtons.Remove(id);
+        if (_focusChangedView)
+        {
+            _focusChangedView = false;
+            if (_selectedProjectId.HasValue) await _workspaceFocus.FocusAsync();
+            else await _directorySearch.FocusAsync();
+            return;
+        }
+        if (_focusReaderDetail && SelectedReaderEntry is not null)
+        {
+            _focusReaderDetail = false;
+            await _readerDetailFocus.FocusAsync();
+        }
+        else if (_focusReaderList && _quickRead && FilteredEntryCount > 0)
+        {
+            _focusReaderList = false;
+            if (_readerEntryToFocus is { } id && VisibleEntries.Any(entry => entry.RecordId == id)
+                && _readerEntryButtons.TryGetValue(id, out var button)) await button.FocusAsync();
+            else await _readerListFocus.FocusAsync();
+        }
     }
 
     private string ProjectsUrl(Guid? projectId, bool includeEntryState = false)
@@ -398,6 +499,7 @@ else
             ["projectId"] = projectId?.ToString("D"),
             ["q"] = string.IsNullOrWhiteSpace(_projectSearchText) ? null : _projectSearchText,
             ["browse"] = _showProjects ? "true" : null,
+            ["favorites"] = _favoritesOnly ? "true" : null,
             ["projectPage"] = _projectListPage > 1 ? _projectListPage.ToString() : null,
             ["projectSize"] = _projectListPageSize != 20 ? _projectListPageSize.ToString() : null,
             ["entryQuery"] = includeEntryState && !string.IsNullOrWhiteSpace(_searchText) ? _searchText : null,
@@ -405,7 +507,8 @@ else
             ["size"] = includeEntryState && _pageSize != 20 ? _pageSize.ToString() : null,
             ["sort"] = includeEntryState && _dateSortOrder == DateSortOldest ? DateSortOldest : null,
             ["deleted"] = includeEntryState && _includeSoftDeleted ? "true" : null,
-            ["view"] = includeEntryState && _quickRead ? "quick" : null
+            ["view"] = includeEntryState && _quickRead ? "quick" : null,
+            ["entryId"] = includeEntryState && _quickRead ? _selectedReaderEntryId?.ToString("D") : null
         };
         var query = string.Join("&", values.Where(p => p.Value is not null).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value!)}"));
         return string.IsNullOrEmpty(query) ? "/projects" : $"/projects?{query}";
@@ -413,18 +516,76 @@ else
 
     private void NavigateState() => Navigation.NavigateTo(ProjectsUrl(_selectedProjectId, includeEntryState: _selectedProjectId.HasValue));
     private void SearchProjects() { _projectSearchText = _projectSearchInput.Trim(); _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
-    private void ShowProjects() { _projectSearchText = _projectSearchInput = string.Empty; _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
-    private void SetReadingView(bool quickRead) { _quickRead = quickRead; NavigateState(); }
-    private void SearchEntries() { _searchText = _entrySearchInput.Trim(); _currentPage = 1; NavigateState(); }
-    private void ClearEntrySearch() { _searchText = _entrySearchInput = string.Empty; _currentPage = 1; NavigateState(); }
-    private void PreviousPage() { if (_currentPage > 1) { _currentPage--; NavigateState(); } }
-    private void NextPage() { if (_currentPage < TotalPages) { _currentPage++; NavigateState(); } }
+    private void ShowProjects() { _favoritesOnly = false; _projectSearchText = _projectSearchInput = string.Empty; _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
+    private void ShowFavorites() { LoadFavorites(); _favoritesOnly = true; _projectSearchText = _projectSearchInput = string.Empty; _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
+    private void ClearProjectSearch() { _projectSearchText = _projectSearchInput = string.Empty; _projectListPage = 1; NavigateState(); }
+    private void ClearFavoriteFilter() { _favoritesOnly = false; _projectListPage = 1; NavigateState(); }
+
+    private void LoadFavorites()
+    {
+        try
+        {
+            _favoriteProjectIds = JournalApp.GetFavoriteProjectIds().ToHashSet();
+            _favoritesLoadFailed = false;
+            _favoritesError = null;
+        }
+        catch (Exception)
+        {
+            _favoritesLoadFailed = true;
+            _favoritesError = "Your favorites could not be loaded. Try Show favorites again.";
+        }
+    }
+
+    private void ToggleFavorite(ProjectOverview project)
+    {
+        if (_favoritesLoadFailed) return;
+        _favoritesError = null;
+        try
+        {
+            var isFavorite = JournalApp.SetProjectFavorite(project.ProjectId, !_favoriteProjectIds.Contains(project.ProjectId));
+            if (isFavorite) _favoriteProjectIds.Add(project.ProjectId);
+            else _favoriteProjectIds.Remove(project.ProjectId);
+            _favoriteStatus = isFavorite ? $"{project.Name} added to favorites." : $"{project.Name} removed from favorites.";
+            if (!isFavorite && _favoritesOnly && _selectedProjectId is null)
+            {
+                _projectListPage = Math.Clamp(_projectListPage, 1, ProjectListTotalPages);
+                _focusFavoriteResults = true;
+                NavigateState();
+            }
+        }
+        catch (Exception)
+        {
+            _favoritesError = "Your favorites could not be updated. Please try again.";
+        }
+    }
+    private void SetReadingView(bool quickRead) { _quickRead = quickRead; _selectedReaderEntryId = null; NavigateState(); }
+    private void SelectReaderEntry(Guid entryId)
+    {
+        if (!_quickRead || !VisibleEntries.Any(entry => entry.RecordId == entryId)) return;
+        _selectedReaderEntryId = entryId;
+        _focusReaderDetail = true;
+        _focusReaderList = false;
+        NavigateState();
+    }
+    private void ClearReaderSelection()
+    {
+        _readerEntryToFocus = _selectedReaderEntryId;
+        _selectedReaderEntryId = null;
+        _focusReaderList = true;
+        _focusReaderDetail = false;
+        NavigateState();
+    }
+    private void ClearReaderForListChange() { _selectedReaderEntryId = null; _focusReaderDetail = false; }
+    private void SearchEntries() { ClearReaderForListChange(); _searchText = _entrySearchInput.Trim(); _currentPage = 1; NavigateState(); }
+    private void ClearEntrySearch() { ClearReaderForListChange(); _searchText = _entrySearchInput = string.Empty; _currentPage = 1; NavigateState(); }
+    private void PreviousPage() { if (_currentPage > 1) { ClearReaderForListChange(); _currentPage--; NavigateState(); } }
+    private void NextPage() { if (_currentPage < TotalPages) { ClearReaderForListChange(); _currentPage++; NavigateState(); } }
     private void GoToPreviousProjectListPage() { if (_projectListPage > 1) { _projectListPage--; NavigateState(); } }
     private void GoToNextProjectListPage() { if (_projectListPage < ProjectListTotalPages) { _projectListPage++; NavigateState(); } }
-    private void OnPageSizeChanged(ChangeEventArgs args) { if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size)) { _pageSize = size; _currentPage = 1; NavigateState(); } }
+    private void OnPageSizeChanged(ChangeEventArgs args) { if (int.TryParse(args.Value?.ToString(), out var size) && _pageSizeOptions.Contains(size)) { ClearReaderForListChange(); _pageSize = size; _currentPage = 1; NavigateState(); } }
     private void OnProjectListPageSizeChanged(ChangeEventArgs args) { if (int.TryParse(args.Value?.ToString(), out var size) && _projectListPageSizeOptions.Contains(size)) { _projectListPageSize = size; _projectListPage = 1; NavigateState(); } }
-    private void OnSortOrderChanged(ChangeEventArgs args) { _dateSortOrder = args.Value?.ToString() == DateSortOldest ? DateSortOldest : DateSortNewest; _currentPage = 1; NavigateState(); }
-    private void OnIncludeSoftDeletedChanged(ChangeEventArgs args) { _includeSoftDeleted = args.Value is true; _currentPage = 1; NavigateState(); }
+    private void OnSortOrderChanged(ChangeEventArgs args) { ClearReaderForListChange(); _dateSortOrder = args.Value?.ToString() == DateSortOldest ? DateSortOldest : DateSortNewest; _currentPage = 1; NavigateState(); }
+    private void OnIncludeSoftDeletedChanged(ChangeEventArgs args) { ClearReaderForListChange(); _includeSoftDeleted = args.Value is true; _currentPage = 1; NavigateState(); }
 
     private void RefreshSelectedProjectEntries()
     {
@@ -465,6 +626,21 @@ else
         }
         catch (Exception ex) { _error = ex.Message; }
     }
+
+    private RenderFragment EntryPager() => @<nav class="pager-bar" aria-label="Journal entry pages">
+        @if (TotalPages > 1)
+        {
+            <p class="sj-muted">Page @_currentPage of @TotalPages</p>
+            <div class="sj-result-card__actions">
+                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_currentPage >= TotalPages)" @onclick="NextPage">Next</button>
+            </div>
+        }
+        <div class="project-page-size">
+            <label for="projectJournalPageSize">Per page</label>
+            <div class="sk-select-wrapper"><select id="projectJournalPageSize" class="sk-select sk-select--sm" value="@_pageSize" @onchange="OnPageSizeChanged">@foreach (var size in _pageSizeOptions) { <option value="@size">@size</option> }</select></div>
+        </div>
+    </nav>;
 
     private RenderFragment EntryActions(JournalEntryView entry) => @<div class="project-entry-actions">
         @if (!entry.IsSoftDeleted)

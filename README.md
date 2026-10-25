@@ -27,6 +27,7 @@ It is designed for:
 - Admins can reset passwords for local users from `Manage user` (selected-user context)
 - View `My Projects` and browse journal entries per project
 - Search and page the `My Projects` project list
+- Favorite projects privately and use `Show favorites` to return to them quickly
 - Search project journal entries by partial text in `Subject`, `Description`, and `Notes`
 - Sort project journal entries by date (`Newest first` / `Oldest first`)
 - Open a dedicated journal entry details page from `My Projects` and return to the selected project context
@@ -66,9 +67,10 @@ The repository also keeps legacy fallback paths (prototype store/auth toggles) f
 Recent UI behavior highlights:
 
 - My projects, People, Groups, and Manage projects begin with Search or Show all, followed by paged results and a focused record card.
-- The body no longer has a separate directory column. Centered workspaces preserve search and paging when returning from a record.
+- Centered workspaces preserve search and paging when returning from a record. Quick read has a dedicated entry list and reader pane.
+- Favorite buttons on project cards and headers save preferences per account. Show favorites supports search and paging without changing project permissions.
 - Audit search shows Date, Project, Who, Status, Action, and Message in compact rows; View details exposes evidence and integrity checks.
-- Entries show date, author, and subject in a compact row. Show entry expands the full description, notes, and files inline. Quick read displays complete entries for the current page and preserves filters/paging.
+- Entries show date, author, and subject in a compact row. Show entry expands the full description, notes, and files inline. Quick read uses a paged entry list on the left and one selected full entry on the right; selection and filters survive return navigation. On phones, Back to entries returns to the list.
 - Adding an entry from a project fixes that project in the composer, including through primary navigation. New entries open their saved detail page. Draft text and files survive a canceled navigation.
 - Layouts follow Sekura Design MCP 3.2.1 and support narrow screens, light/dark themes, keyboard use, and enlarged text.
 
@@ -135,8 +137,16 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: [0.23.0](docs/release_notes/v0.23.0.md)
+- Release notes: [0.24.0](docs/release_notes/v0.24.0.md)
 - Sanitized config templates:
+
+---
+
+## 0.24.0 Release
+
+Quick read now uses two panes: choose an entry on the left to read it on the
+right. Project favorites are saved per user, with Show favorites beside Show my
+projects. See the [release and upgrade notes](docs/release_notes/v0.24.0.md).
 
 ---
 

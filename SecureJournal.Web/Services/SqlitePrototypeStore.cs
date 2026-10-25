@@ -210,6 +210,7 @@ public sealed partial class SqlitePrototypeStore : IPrototypeDataStore
             EnsureGroupColumns(connection);
             EnsureJournalEntrySchema(connection);
             EnsureAttachmentSchema(connection);
+            EnsureFavoriteSchema(connection);
 
             _initialized = true;
         }

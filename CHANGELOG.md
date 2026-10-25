@@ -1,3 +1,14 @@
+# 0.24.0 - 2026-10-25
+
+## Highlights
+- Replace expanded Quick read lists with a paged entry list on the left and one selected reader pane on the right; phones use list/detail navigation.
+- Preserve selected entry, filters, page, and reading view in return links; reset reader scroll when switching entries.
+- Add per-user project favorites, separate Favorite buttons on project cards/headers, and Show favorites beside Show my projects.
+- Keep favorite filters searchable and pageable, with clear empty states and safe focus after removing a result.
+- Persist favorites with current-session/project-access checks, composite uniqueness, and user/project deletion cleanup across all supported database providers.
+- Validation: 185 automated tests, browser workflow/accessibility checks, and live PostgreSQL/SQL Server schema, isolation, cascade, and concurrency checks passed.
+- Full notes: [0.24.0](docs/release_notes/v0.24.0.md).
+
 # 0.23.0 - 2026-10-25
 
 ## Highlights

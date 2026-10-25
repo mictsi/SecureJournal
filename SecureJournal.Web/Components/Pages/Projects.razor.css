@@ -15,6 +15,25 @@
 
 .project-directory-card {
     align-items: center;
+    gap: var(--sk-space-16);
+}
+
+.project-directory-link {
+    display: flex;
+    flex: 1 1 22rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-12) var(--sk-space-24);
+    min-inline-size: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.project-directory-link .sj-result-card__body { flex: 1 1 14rem; }
+.project-directory-link:hover .sj-result-card__title { color: var(--sk-color-text-link); }
+.project-directory-link:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: var(--sk-focus-ring-offset);
 }
 
 .project-open-label {
@@ -190,3 +209,162 @@ summary.project-entry-summary:focus-visible {
 /* This region receives focus after opening a project so keyboard focus is not
    left on a removed result link. Its visible controls retain their own rings. */
 .sj-workspace:focus { outline: none; }
+
+/* Quick read is a list and one reader, not a stack of expanded entries. */
+.project-entry-results { container-type: inline-size; }
+
+.quick-reader {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+    align-items: start;
+    gap: var(--sk-space-20);
+    min-inline-size: 0;
+}
+
+.quick-reader-list,
+.quick-reader-detail {
+    min-inline-size: 0;
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-lg);
+    background: var(--sk-color-surface-raised);
+}
+
+.quick-reader-list:focus,
+.quick-reader-detail:focus { outline: none; }
+
+.quick-reader-list-heading {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--sk-space-8);
+    padding: var(--sk-space-16);
+    border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.quick-reader-list-heading h3 {
+    margin: 0;
+    font-size: var(--sk-font-size-body-md);
+    font-weight: var(--sk-font-weight-semibold);
+}
+
+.quick-reader-list-heading > span { font-size: var(--sk-font-size-body-sm); }
+
+.quick-reader-list-items {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+    max-block-size: min(60dvh, 36rem);
+    overflow-y: auto;
+    overscroll-behavior-block: contain;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.quick-reader-list-items > li + li {
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.quick-reader-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sk-space-8);
+    inline-size: 100%;
+    min-inline-size: 0;
+    padding: var(--sk-space-12) var(--sk-space-16);
+    border: 0;
+    border-inline-start: var(--sk-border-width-thick) solid transparent;
+    background: transparent;
+    color: var(--sk-color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.quick-reader-item:hover { background: var(--sk-color-surface-hover); }
+.quick-reader-item.is-selected {
+    background: var(--sk-color-surface-selected);
+    border-inline-start-color: var(--sk-color-border-brand);
+}
+.quick-reader-item:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: calc(-1 * var(--sk-focus-ring-width));
+}
+.quick-reader-item > strong { font-size: var(--sk-font-size-body-md); font-weight: var(--sk-font-weight-semibold); }
+
+.quick-reader-item-meta,
+.quick-reader-entry-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--sk-space-4) var(--sk-space-12);
+    min-inline-size: 0;
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-body-sm);
+    overflow-wrap: anywhere;
+}
+
+.quick-reader-list ::deep .pager-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sk-space-12);
+    margin: 0;
+    padding: var(--sk-space-16);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+.quick-reader-list ::deep .pager-bar > p { margin: 0; }
+.quick-reader-list ::deep .pager-bar .sj-result-card__actions { justify-content: space-between; }
+.quick-reader-list ::deep .project-page-size { margin-inline-start: 0; justify-content: space-between; }
+
+.quick-reader-detail {
+    max-block-size: min(80dvh, 56rem);
+    overflow-y: auto;
+    overscroll-behavior-block: contain;
+}
+
+.quick-reader-detail-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sk-space-12);
+    padding: var(--sk-space-20);
+    border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.quick-reader-detail-heading h3 {
+    margin: 0;
+    color: var(--sk-color-text-primary);
+    font-size: var(--sk-font-size-heading-sm);
+    font-weight: var(--sk-font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.quick-reader-back { margin-inline-start: calc(-1 * var(--sk-space-8)); }
+.quick-reader-content { min-inline-size: 0; padding: var(--sk-space-20); }
+
+.quick-reader-empty {
+    display: flex;
+    min-block-size: 20rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sk-space-12);
+    padding: var(--sk-space-32);
+    text-align: center;
+}
+.quick-reader-empty h3 { margin: 0; font-size: var(--sk-font-size-heading-xs); }
+.quick-reader-empty p { margin: 0; max-inline-size: 30rem; color: var(--sk-color-text-secondary); }
+
+@container (max-width: 47.999rem) {
+    .quick-reader { display: block; }
+    .quick-reader:not(.has-selection) .quick-reader-detail,
+    .quick-reader.has-selection .quick-reader-list { display: none; }
+    .quick-reader-list-items,
+    .quick-reader-detail { max-block-size: none; overflow: visible; }
+    .quick-reader-detail-heading,
+    .quick-reader-content { padding: var(--sk-space-16); }
+    .quick-reader-list ::deep .pager-bar { flex-direction: row; align-items: center; }
+}

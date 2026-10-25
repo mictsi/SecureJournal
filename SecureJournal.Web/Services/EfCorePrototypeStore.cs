@@ -40,6 +40,7 @@ public sealed partial class EfCorePrototypeStore : IPrototypeDataStore
             EnsureGroupColumns(db);
             EnsureUserRolesTable(db);
             EnsureAttachmentSchema(db);
+            EnsureFavoriteSchema(db);
             EnsureQueryIndexes(db);
             _initialized = true;
         }

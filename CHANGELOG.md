@@ -1,3 +1,10 @@
+# 0.24.1 - 2026-10-25
+
+## Release
+- Bump the application version to 0.24.1 following the Quick read and project favorites release.
+- No application behavior, dependency, configuration, or database schema changes since 0.24.0.
+- Full notes: [0.24.1](docs/release_notes/v0.24.1.md).
+
 # 0.24.0 - 2026-10-25
 
 ## Highlights

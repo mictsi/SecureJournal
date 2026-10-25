@@ -137,10 +137,15 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: [0.24.0](docs/release_notes/v0.24.0.md)
+- Release notes: [0.24.1](docs/release_notes/v0.24.1.md)
 - Sanitized config templates:
 
 ---
+
+## 0.24.1 Release
+
+Version-only patch release following the Quick read and project favorites redesign.
+See the [release notes](docs/release_notes/v0.24.1.md).
 
 ## 0.24.0 Release
 

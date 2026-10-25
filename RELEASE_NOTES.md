@@ -4,6 +4,7 @@
 
 | Version | Release Notes |
 | ------- | ------------- |
+| 0.21.1 | [docs/release_notes/v0.21.1.md](docs/release_notes/v0.21.1.md) |
 | 0.21.0 | [docs/release_notes/v0.21.0.md](docs/release_notes/v0.21.0.md) |
 | v0.10.2 | [docs/release_notes/v0.10.2.md](docs/release_notes/v0.10.2.md) |
 | v0.10.1 | [docs/release_notes/v0.10.1.md](docs/release_notes/v0.10.1.md) |

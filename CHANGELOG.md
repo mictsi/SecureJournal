@@ -1,3 +1,9 @@
+# 0.21.1 - 2026-10-25
+
+## Fixes
+- Keep journal action labels on one line in desktop tables; phone layouts can still wrap whole buttons when needed.
+- Full notes: [0.21.1](docs/release_notes/v0.21.1.md).
+
 # 0.21.0 - 2026-10-25
 
 ## Highlights

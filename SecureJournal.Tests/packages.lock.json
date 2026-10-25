@@ -258,7 +258,7 @@
           "Microsoft.EntityFrameworkCore.Sqlite": "[10.0.13, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
-          "SecureJournal.Core": "[0.21.0, )",
+          "SecureJournal.Core": "[0.21.1, )",
           "TinyMCE": "[8.10.0, )"
         }
       },

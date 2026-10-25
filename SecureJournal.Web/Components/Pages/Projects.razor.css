@@ -481,6 +481,13 @@
     justify-content: flex-end;
 }
 
+/* Action labels keep their intrinsic width while the subject takes the remaining
+   space. On phones the surrounding cluster can still wrap whole buttons. */
+.entry-col-actions .sk-button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
 /* A soft-deleted row is still readable — the badge carries the meaning, so this
    is a supporting signal rather than the only one. */
 .entry-list tr.is-soft-deleted td,

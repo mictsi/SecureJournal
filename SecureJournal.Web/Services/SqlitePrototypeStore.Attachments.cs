@@ -1,27 +1,14 @@
 using Microsoft.Data.Sqlite;
 using SecureJournal.Core.Domain;
+using SecureJournal.Web.Infrastructure.Persistence;
 
 namespace SecureJournal.Web.Services;
 
 public sealed partial class SqlitePrototypeStore
 {
-    // This additive, idempotent upgrade also runs for databases created by older versions.
+    // Shared with EF SQLite so both paths safely upgrade existing file limits.
     private static void EnsureAttachmentSchema(SqliteConnection connection)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS journal_attachments (
-                attachment_id TEXT NOT NULL PRIMARY KEY,
-                entry_id TEXT NOT NULL REFERENCES journal_entries(record_id) ON DELETE CASCADE,
-                file_name_ciphertext TEXT NOT NULL,
-                size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 5242880),
-                sha256 TEXT NOT NULL,
-                content_ciphertext TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS ix_journal_attachments_entry_id ON journal_attachments(entry_id);
-            """;
-        command.ExecuteNonQuery();
-    }
+        => JournalAttachmentSchema.EnsureSqlite(connection);
 
     public IReadOnlyList<JournalAttachmentRecord> LoadJournalAttachmentMetadata(Guid entryId)
         => LoadJournalAttachmentMetadata(new[] { entryId });

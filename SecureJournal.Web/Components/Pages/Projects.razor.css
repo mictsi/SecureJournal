@@ -70,20 +70,121 @@
     min-inline-size: 0;
 }
 
-.project-entry-card .sj-result-card__body {
-    flex-basis: 24rem;
+.project-entry-list {
+    gap: var(--sk-space-8);
 }
 
-.project-entry-card .sj-result-card__actions {
-    margin-block-start: var(--sk-space-4);
+.project-entry-view {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sk-space-4);
+    margin-inline-start: auto;
 }
 
-.project-entry-card .sk-button {
+.project-entry-view .sk-button {
+    flex: 0 0 auto;
     white-space: nowrap;
 }
 
-.project-entry-card .sj-result-card__title {
-    line-height: var(--sk-line-height-body-lg);
+.project-reading-hint {
+    margin: 0;
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-body-sm);
+}
+
+.project-entry-card {
+    min-inline-size: 0;
+    border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    border-radius: var(--sk-radius-md);
+    background: var(--sk-color-surface-raised);
+}
+
+.project-entry-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 12rem) minmax(0, 8rem) minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--sk-space-8) var(--sk-space-16);
+    padding: var(--sk-space-12) var(--sk-space-16);
+    min-inline-size: 0;
+    list-style: none;
+}
+
+summary.project-entry-summary {
+    cursor: pointer;
+    border-radius: inherit;
+}
+
+summary.project-entry-summary::-webkit-details-marker { display: none; }
+summary.project-entry-summary:hover { background: var(--sk-color-surface-hover); }
+summary.project-entry-summary:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: calc(-1 * var(--sk-focus-ring-width));
+}
+
+.project-entry-date,
+.project-entry-author {
+    color: var(--sk-color-text-secondary);
+    font-size: var(--sk-font-size-body-sm);
+    line-height: var(--sk-line-height-body-sm);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.project-entry-subject {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--sk-space-8);
+    min-inline-size: 0;
+}
+
+.project-entry-title {
+    min-inline-size: 0;
+    margin: 0;
+    color: var(--sk-color-text-primary);
+    font-size: var(--sk-font-size-body-md);
+    line-height: var(--sk-line-height-body-md);
+    font-weight: var(--sk-font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.project-entry-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sk-space-4);
+    color: var(--sk-color-text-link);
+    font-size: var(--sk-font-size-body-sm);
+    font-weight: var(--sk-font-weight-medium);
+    white-space: nowrap;
+}
+
+.project-entry-toggle svg { flex: 0 0 auto; }
+.entry-hide-label { display: none; }
+.project-entry-disclosure[open] .entry-show-label { display: none; }
+.project-entry-disclosure[open] .entry-hide-label { display: inline; }
+.project-entry-disclosure[open] .project-entry-toggle svg { transform: rotate(180deg); }
+
+.project-entry-expanded {
+    min-inline-size: 0;
+    padding: var(--sk-space-20) var(--sk-space-16) var(--sk-space-16);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.project-entry-reading-header { grid-template-columns: minmax(0, 12rem) minmax(0, 8rem) minmax(0, 1fr) auto; }
+.project-entry-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sk-space-8); margin-block-start: var(--sk-space-16); }
+.project-entry-actions .sk-button { flex: 0 1 auto; min-inline-size: 0; }
+
+@media (max-width: 47.999rem) {
+    .project-entry-summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--sk-space-8) var(--sk-space-12);
+    }
+    .project-entry-date { grid-column: 1; }
+    .project-entry-author { grid-column: 1; }
+    .project-entry-subject,
+    .project-entry-reading-header .project-entry-title { grid-column: 1 / -1; }
+    .project-entry-toggle { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+    .project-entry-reading-header .sk-badge { grid-column: 2; grid-row: 1 / 3; align-self: center; }
 }
 
 /* This region receives focus after opening a project so keyboard focus is not

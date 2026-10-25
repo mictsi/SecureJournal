@@ -18,7 +18,7 @@
             </NavLink>
         </li>
         <li>
-            <NavLink class="sk-side-nav__item" href="journal" Match="NavLinkMatch.All">
+            <NavLink class="sk-side-nav__item" href="@ProjectReturnUrl.NewEntryUrl(Navigation.ToAbsoluteUri(Navigation.Uri))" Match="NavLinkMatch.All">
                 <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-book" /></svg>
                 <span class="sk-side-nav__label">New journal entry</span>
             </NavLink>

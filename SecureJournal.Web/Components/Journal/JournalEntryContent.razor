@@ -1,0 +1,91 @@
+@using SecureJournal.Web.Components.Forms
+@using Microsoft.AspNetCore.WebUtilities
+
+@if (!QuickRead)
+{
+    <dl class="entry-metadata">
+        <div><dt>Project</dt><dd>@Entry.ProjectCode · @Entry.ProjectName</dd></div>
+        <div><dt>Status</dt><dd><span class="sk-badge @(Entry.IsSoftDeleted ? "sk-badge--warning" : "sk-badge--success")">@(Entry.IsSoftDeleted ? "Deleted" : "Saved")</span></dd></div>
+        @if (ShowCreatedMetadata)
+        {
+            <div><dt>Created (UTC)</dt><dd><time datetime="@Entry.CreatedAtUtc.ToString("o")">@Entry.CreatedAtUtc.ToString("dd MMM yyyy, HH:mm")</time></dd></div>
+            <div><dt>Author</dt><dd>@Entry.CreatedBy</dd></div>
+        }
+    </dl>
+}
+@if (Entry.IsSoftDeleted)
+{
+    <p class="entry-deletion"><strong>Deleted</strong> @Entry.DeletedAtUtc?.ToString("dd MMM yyyy, HH:mm") UTC by @Entry.DeletedBy</p>
+}
+<div class="entry-content">
+    <section aria-labelledby="@(_id + "-description")">
+        @Heading("Description", "description")
+        <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(Entry.Description)</div>
+    </section>
+    @if (!string.IsNullOrWhiteSpace(Entry.Notes))
+    {
+        <section aria-labelledby="@(_id + "-notes")">
+            @Heading("Notes", "notes")
+            <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(Entry.Notes)</div>
+        </section>
+    }
+    @if (Entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(Entry.DeleteReason))
+    {
+        <section aria-labelledby="@(_id + "-deletion")">
+            @Heading("Delete reason", "deletion")
+            <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(Entry.DeleteReason)</div>
+        </section>
+    }
+</div>
+@if (!QuickRead || Entry.Attachments.Count > 0)
+{
+    <section class="entry-files" aria-labelledby="@(_id + "-files")">
+        @Heading($"Files ({Entry.Attachments.Count})", "files")
+        @if (Entry.Attachments.Count == 0)
+        {
+            <p class="sj-muted">No files were attached to this entry.</p>
+        }
+        else
+        {
+            <ul class="entry-file-list">
+                @foreach (var file in Entry.Attachments)
+                {
+                    <li @key="file.AttachmentId">
+                        <div class="entry-file-copy"><strong>@file.FileName</strong><span>@AttachmentPicker.FormatSize(file.SizeBytes)</span></div>
+                        <a href="@($"/attachments/{file.AttachmentId:D}")" class="sk-button sk-button--secondary sk-button--sm"
+                           download="@file.FileName" aria-label="@($"Download {file.FileName}")">Download</a>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+@if (!QuickRead)
+{
+    <footer class="entry-detail-footer">
+        <p>Saved entries and their files cannot be edited. Use a follow-up entry to add more information.</p>
+        @if (!Entry.IsSoftDeleted)
+        {
+            <a href="@QueryHelpers.AddQueryString($"/journal?projectId={Entry.ProjectId:D}", "returnUrl", ReturnUrl)" class="sk-button sk-button--secondary sk-button--sm">Add a follow-up entry</a>
+        }
+    </footer>
+}
+
+@code {
+    [Parameter, EditorRequired] public JournalEntryView Entry { get; set; } = default!;
+    [Parameter] public string ReturnUrl { get; set; } = "/projects";
+    [Parameter] public int HeadingLevel { get; set; } = 3;
+    [Parameter] public bool ShowCreatedMetadata { get; set; } = true;
+    [Parameter] public bool QuickRead { get; set; }
+
+    private readonly string _id = $"entry-content-{Guid.NewGuid():N}";
+
+    private RenderFragment Heading(string text, string suffix) => builder =>
+    {
+        builder.OpenElement(0, $"h{Math.Clamp(HeadingLevel, 2, 4)}");
+        builder.AddAttribute(1, "id", $"{_id}-{suffix}");
+        builder.AddAttribute(2, "class", "entry-content-heading");
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+}

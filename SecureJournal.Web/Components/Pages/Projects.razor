@@ -3,6 +3,7 @@
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@using SecureJournal.Web.Components.Journal
 
 <PageTitle>@(SelectedProject?.Name ?? "My projects")</PageTitle>
 
@@ -68,6 +69,10 @@
         <section aria-labelledby="project-entries-heading" class="project-entry-results">
             <div class="sj-results-summary">
                 <h2 id="project-entries-heading" class="sj-subheading">Journal entries</h2>
+                <div class="project-entry-view" role="group" aria-label="Entry reading view">
+                    <button type="button" class="sk-button sk-button--sm @(!_quickRead ? "sk-button--primary" : "sk-button--secondary")" aria-pressed="@(!_quickRead ? "true" : "false")" @onclick="() => SetReadingView(false)">Compact list</button>
+                    <button type="button" class="sk-button sk-button--sm @(_quickRead ? "sk-button--primary" : "sk-button--secondary")" aria-pressed="@(_quickRead ? "true" : "false")" @onclick="() => SetReadingView(true)">Quick read</button>
+                </div>
                 <p class="sj-muted" role="status">@EntryRangeLabel</p>
             </div>
             @if (_entriesLoadFailed)
@@ -96,34 +101,46 @@
             }
             else
             {
-                <ul class="sj-directory-results project-entry-list" aria-label="Journal entries">
+                @if (_quickRead)
+                {
+                    <p class="project-reading-hint">Read the full description and notes for every entry on this page.</p>
+                }
+                <ul class="sj-directory-results project-entry-list @(_quickRead ? "is-quick-read" : null)" aria-label="Journal entries">
                     @foreach (var entry in VisibleEntries)
                     {
-                        <li @key="entry.RecordId">
-                            <article class="sj-result-card project-entry-card">
-                                <div class="sj-result-card__body">
-                                    <h3 class="sj-result-card__title"><a class="sk-link" href="@GetEntryDetailsUrl(entry)">@entry.Subject</a></h3>
-                                    <div class="sj-result-card__meta">
-                                        <time datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy · HH:mm") UTC</time>
-                                        <span>by @entry.CreatedBy</span>
-                                        @if (entry.IsSoftDeleted)
-                                        {
-                                            <span class="sk-badge sk-badge--warning">Deleted</span>
-                                        }
+                        <li @key="(entry.RecordId, _quickRead)">
+                            @if (_quickRead)
+                            {
+                                <article class="project-entry-card project-entry-quickread" aria-labelledby="@($"entry-title-{entry.RecordId:N}")">
+                                    <header class="project-entry-summary project-entry-reading-header">
+                                        <time class="project-entry-date" datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time>
+                                        <span class="project-entry-author">by @entry.CreatedBy</span>
+                                        <h3 class="project-entry-title" id="@($"entry-title-{entry.RecordId:N}")">@entry.Subject</h3>
+                                        @if (entry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }
+                                    </header>
+                                    <div class="project-entry-expanded">
+                                        <JournalEntryContent Entry="entry" ReturnUrl="@ProjectsUrl(_selectedProjectId, includeEntryState: true)" HeadingLevel="4" ShowCreatedMetadata="false" QuickRead="true" />
                                     </div>
-                                </div>
-                                <div class="sj-result-card__actions">
-                                    <a href="@GetEntryDetailsUrl(entry)" class="sk-button sk-button--secondary sk-button--sm">Open entry<span class="sk-visually-hidden">: @entry.Subject</span></a>
-                                    @if (!entry.IsSoftDeleted)
-                                    {
-                                        <button type="button" class="sk-button sk-button--ghost sk-button--sm" @onclick="() => SoftDeleteAsync(entry)">Delete<span class="sk-visually-hidden">: @entry.Subject</span></button>
-                                    }
-                                    else if (_currentUser?.Role == AppRole.Administrator)
-                                    {
-                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => Restore(entry.RecordId)">Restore<span class="sk-visually-hidden">: @entry.Subject</span></button>
-                                    }
-                                </div>
-                            </article>
+                                </article>
+                            }
+                            else
+                            {
+                                <details class="project-entry-card project-entry-disclosure">
+                                    <summary class="project-entry-summary">
+                                        <time class="project-entry-date" datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</time>
+                                        <span class="project-entry-author">by @entry.CreatedBy</span>
+                                        <span class="project-entry-subject">
+                                            <strong class="project-entry-title">@entry.Subject</strong>
+                                            @if (entry.IsSoftDeleted) { <span class="sk-badge sk-badge--warning">Deleted</span> }
+                                        </span>
+                                        <span class="project-entry-toggle"><span class="entry-show-label">Show entry</span><span class="entry-hide-label">Hide entry</span><svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-down" /></svg></span>
+                                    </summary>
+                                    <div class="project-entry-expanded">
+                                        <JournalEntryContent Entry="entry" ReturnUrl="@ProjectsUrl(_selectedProjectId, includeEntryState: true)" HeadingLevel="3" ShowCreatedMetadata="false" />
+                                        @EntryActions(entry)
+                                    </div>
+                                </details>
+                            }
                         </li>
                     }
                 </ul>
@@ -266,6 +283,7 @@ else
     [SupplyParameterFromQuery(Name = "size")] public string? EntrySizeQuery { get; set; }
     [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
     [SupplyParameterFromQuery(Name = "deleted")] public string? IncludeDeletedQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "view")] public string? ReadingViewQuery { get; set; }
 
     private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
     private Guid? SavedEntryId => Guid.TryParse(SavedEntryQuery, out var id) ? id : null;
@@ -290,6 +308,7 @@ else
     private bool _entriesLoadFailed;
     private bool _includeSoftDeleted;
     private bool _showProjects;
+    private bool _quickRead;
     private string _searchText = string.Empty;
     private string _entrySearchInput = string.Empty;
     private string _projectSearchText = string.Empty;
@@ -322,7 +341,6 @@ else
     private string EntryRangeLabel => RangeLabel(_currentPage, _pageSize, FilteredEntryCount, "entry", "entries");
     private string WorkspaceReturnUrl => Uri.EscapeDataString(ProjectsUrl(_selectedProjectId, includeEntryState: true));
     private string NewEntryUrl => $"/journal?projectId={_selectedProjectId:D}&returnUrl={WorkspaceReturnUrl}";
-    private string GetEntryDetailsUrl(JournalEntryView entry) => $"/projects/entry/{entry.RecordId:D}?projectId={entry.ProjectId:D}&returnUrl={WorkspaceReturnUrl}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -344,6 +362,7 @@ else
         _entrySearchInput = _searchText = EntryQuery?.Trim() ?? string.Empty;
         _pageSize = EntrySize is { } es && _pageSizeOptions.Contains(es) ? es : 20;
         _dateSortOrder = Sort == DateSortOldest ? DateSortOldest : DateSortNewest;
+        _quickRead = ReadingViewQuery == "quick";
         _includeSoftDeleted = IncludeDeleted && _currentUser.Role == AppRole.Administrator;
         _currentPage = Math.Max(1, EntryPage ?? 1);
         if (_selectedProjectId != _entriesProjectId || _includeSoftDeleted != _entriesIncludeDeleted) RefreshSelectedProjectEntries();
@@ -385,7 +404,8 @@ else
             ["page"] = includeEntryState && _currentPage > 1 ? _currentPage.ToString() : null,
             ["size"] = includeEntryState && _pageSize != 20 ? _pageSize.ToString() : null,
             ["sort"] = includeEntryState && _dateSortOrder == DateSortOldest ? DateSortOldest : null,
-            ["deleted"] = includeEntryState && _includeSoftDeleted ? "true" : null
+            ["deleted"] = includeEntryState && _includeSoftDeleted ? "true" : null,
+            ["view"] = includeEntryState && _quickRead ? "quick" : null
         };
         var query = string.Join("&", values.Where(p => p.Value is not null).Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value!)}"));
         return string.IsNullOrEmpty(query) ? "/projects" : $"/projects?{query}";
@@ -394,6 +414,7 @@ else
     private void NavigateState() => Navigation.NavigateTo(ProjectsUrl(_selectedProjectId, includeEntryState: _selectedProjectId.HasValue));
     private void SearchProjects() { _projectSearchText = _projectSearchInput.Trim(); _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
     private void ShowProjects() { _projectSearchText = _projectSearchInput = string.Empty; _showProjects = true; _projectListPage = 1; _error = null; NavigateState(); }
+    private void SetReadingView(bool quickRead) { _quickRead = quickRead; NavigateState(); }
     private void SearchEntries() { _searchText = _entrySearchInput.Trim(); _currentPage = 1; NavigateState(); }
     private void ClearEntrySearch() { _searchText = _entrySearchInput = string.Empty; _currentPage = 1; NavigateState(); }
     private void PreviousPage() { if (_currentPage > 1) { _currentPage--; NavigateState(); } }
@@ -444,6 +465,17 @@ else
         }
         catch (Exception ex) { _error = ex.Message; }
     }
+
+    private RenderFragment EntryActions(JournalEntryView entry) => @<div class="project-entry-actions">
+        @if (!entry.IsSoftDeleted)
+        {
+            <button type="button" class="sk-button sk-button--ghost sk-button--sm" @onclick="() => SoftDeleteAsync(entry)">Delete<span class="sk-visually-hidden">: @entry.Subject</span></button>
+        }
+        else if (_currentUser?.Role == AppRole.Administrator)
+        {
+            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => Restore(entry.RecordId)">Restore<span class="sk-visually-hidden">: @entry.Subject</span></button>
+        }
+    </div>;
 
     private static string RangeLabel(int page, int size, int count, string singular, string plural)
         => count == 0 ? $"0 {plural}" : count <= size ? $"{count} {(count == 1 ? singular : plural)}" : $"{(page - 1) * size + 1}–{Math.Min(page * size, count)} of {count} {plural}";

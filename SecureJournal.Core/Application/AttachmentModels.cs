@@ -3,7 +3,7 @@ namespace SecureJournal.Core.Application;
 public static class AttachmentLimits
 {
     public const int MaxFilesPerEntry = 10;
-    public const long MaxFileBytes = 5 * 1024 * 1024;
+    public const long MaxFileBytes = 10 * 1024 * 1024;
     public const long MaxTotalBytes = 20 * 1024 * 1024;
     public const long MaxExportBytes = 50 * 1024 * 1024;
     public const int MaxExportFiles = 1000;

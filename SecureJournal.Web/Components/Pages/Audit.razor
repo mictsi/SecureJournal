@@ -119,29 +119,48 @@
             }
             else
             {
-                <ul class="sj-directory-results" aria-label="Audit events">
+                <div class="audit-activity-list">
+                    <div class="audit-column-headings audit-event-columns" aria-hidden="true">
+                        <span>Date (UTC)</span><span>Project</span><span>Who</span><span>Status</span><span>Action</span><span>Message</span><span></span>
+                    </div>
+                    <ul class="audit-event-list" aria-label="Audit events">
                     @foreach (var row in PagedRows)
                     {
                         <li @key="row.AuditId">
                             <details class="audit-event">
-                                <summary class="audit-event-summary">
-                                    <span class="audit-event-summary-body">
-                                        <span class="audit-event-heading">
-                                            <span class="audit-event-title">@Humanize(row.Action.ToString()) · @Humanize(row.EntityType.ToString())</span>
-                                            <span class="sk-status @OutcomeStatusClass(row.Outcome)"><span class="sk-status__dot" aria-hidden="true"></span><span class="sk-status__label">@row.Outcome</span></span>
-                                        </span>
-                                        <span class="sj-result-card__meta">
-                                            <time datetime="@row.TimestampUtc.ToString("o")">@row.TimestampUtc.ToString("dd MMM yyyy · HH:mm:ss") UTC</time>
-                                            <span>by @row.ActorUsername</span>
-                                            @if (!string.IsNullOrWhiteSpace(row.ProjectCode)) { <span>Project: @row.ProjectCode</span> }
-                                        </span>
-                                        <span class="audit-event-description">@row.Details</span>
+                                <summary class="audit-event-summary audit-event-columns">
+                                    <span class="audit-event-cell audit-event-date">
+                                        <span class="audit-cell-label">Date (UTC)</span>
+                                        <time datetime="@row.TimestampUtc.ToString("o")">@row.TimestampUtc.ToString("yyyy-MM-dd HH:mm:ss")</time>
+                                    </span>
+                                    <span class="audit-event-cell audit-event-project">
+                                        <span class="audit-cell-label">Project</span>
+                                        <span title="@ProjectDescription(row)">@ProjectLabel(row)</span>
+                                    </span>
+                                    <span class="audit-event-cell audit-event-actor">
+                                        <span class="audit-cell-label">Who</span><span>@row.ActorUsername</span>
+                                    </span>
+                                    <span class="audit-event-cell audit-event-status">
+                                        <span class="audit-cell-label">Status</span>
+                                        <span class="sk-status @OutcomeStatusClass(row.Outcome)"><span class="sk-status__dot" aria-hidden="true"></span><span class="sk-status__label">@row.Outcome</span></span>
+                                    </span>
+                                    <span class="audit-event-cell audit-event-action">
+                                        <span class="audit-cell-label">Action</span><span>@Humanize(row.Action.ToString())</span>
+                                    </span>
+                                    <span class="audit-event-cell audit-event-message">
+                                        <span class="audit-cell-label">Message</span><span class="audit-event-description">@row.Details</span>
                                     </span>
                                     <span class="audit-event-toggle"><span class="audit-event-open-label">View details</span><span class="audit-event-close-label">Close details</span><svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-down" /></svg></span>
                                 </summary>
                                 <div class="audit-event-content">
+                                    <section class="audit-full-message" aria-label="Full activity message">
+                                        <h3 class="sj-subheading">Message</h3>
+                                        <p>@row.Details</p>
+                                    </section>
                                     <dl class="audit-identifiers">
                                         <div><dt>Event ID</dt><dd>@row.AuditId</dd></div>
+                                        <div><dt>Record type</dt><dd>@Humanize(row.EntityType.ToString())</dd></div>
+                                        @if (!string.IsNullOrWhiteSpace(row.ProjectCode)) { <div><dt>Project</dt><dd>@ProjectDescription(row)</dd></div> }
                                         @if (!string.IsNullOrWhiteSpace(row.EntityId)) { <div><dt>@Humanize(row.EntityType.ToString()) ID</dt><dd>@row.EntityId</dd></div> }
                                     </dl>
                                     <section class="audit-integrity" aria-label="Record integrity">
@@ -174,7 +193,8 @@
                             </details>
                         </li>
                     }
-                </ul>
+                    </ul>
+                </div>
                 @if (TotalPages > 1 || _rows.Count > _pageSizeOptions[0])
                 {
                     <nav class="pager-bar" aria-label="Audit event pages">
@@ -364,6 +384,11 @@
         };
         return haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
     }
+
+    private string ProjectLabel(AuditLogView row) => string.IsNullOrWhiteSpace(row.ProjectCode) ? "No project"
+        : _projects.FirstOrDefault(project => project.Code == row.ProjectCode)?.Name ?? row.ProjectCode;
+    private string ProjectDescription(AuditLogView row) => string.IsNullOrWhiteSpace(row.ProjectCode) ? "No project"
+        : ProjectLabel(row) == row.ProjectCode ? row.ProjectCode : $"{row.ProjectCode} · {ProjectLabel(row)}";
 
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static DateTime? ParseFromDate(string? value) => DateTime.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date) ? DateTime.SpecifyKind(date.Date, DateTimeKind.Utc) : null;

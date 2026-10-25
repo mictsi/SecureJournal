@@ -177,6 +177,125 @@ public sealed class JournalAttachmentTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void FiveMiBSchema_UpgradesExistingFilesAndAcceptsTenMiBWithoutLosingConstraints(bool ef)
+    {
+        using var ctx = new AttachmentContext(ef);
+        var project = ctx.App.CreateProject(new CreateProjectRequest { Name = "File size upgrade" });
+        var oldEntry = ctx.Save(project.ProjectId, new JournalAttachmentUpload { FileName = "before.txt", Content = "existing encrypted file"u8.ToArray() });
+        var oldFile = oldEntry.Attachments.Single();
+        var before = ctx.Store.LoadJournalAttachment(oldFile.AttachmentId);
+        CreateLegacyFiveMiBSchema(ctx, ef);
+
+        var upgraded = ctx.CreateApp();
+        Assert.True(upgraded.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.Equal(before, ctx.Store.LoadJournalAttachment(oldFile.AttachmentId));
+        Assert.Equal("existing encrypted file"u8.ToArray(), upgraded.DownloadJournalAttachment(oldFile.AttachmentId).Content);
+
+        var tenMiB = new byte[10 * 1024 * 1024];
+        tenMiB[0] = 27;
+        tenMiB[^1] = 91;
+        var entry = upgraded.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = project.ProjectId, Subject = "Ten MiB", Description = "New file limit",
+            Attachments = [new JournalAttachmentUpload { FileName = "ten-mib.bin", Content = tenMiB }]
+        });
+        Assert.Equal(10 * 1024 * 1024, entry.Attachments.Single().SizeBytes);
+        Assert.Equal(tenMiB, upgraded.DownloadJournalAttachment(entry.Attachments.Single().AttachmentId).Content);
+        var error = Assert.Throws<ValidationException>(() => upgraded.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = project.ProjectId, Subject = "Too large", Description = "Must not save",
+            Attachments = [new JournalAttachmentUpload { FileName = "too-large.bin", Content = new byte[10 * 1024 * 1024 + 1] }]
+        }));
+        Assert.Contains("10 MiB", error.Message);
+        Assert.Equal(2, upgraded.GetJournalEntries(project.ProjectId).Count);
+
+        using (var connection = ctx.OpenConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name IN ('ix_journal_attachments_entry_id', 'attachment_sha_index', 'attachment_update_guard')";
+            Assert.Equal(3L, command.ExecuteScalar());
+            // The database boundary remains enforced independently of service validation.
+            command.CommandText = "UPDATE journal_attachments SET size_bytes = 10485761";
+            Assert.Throws<SqliteException>(() => command.ExecuteNonQuery());
+            command.CommandText = "PRAGMA foreign_key_check(journal_attachments)";
+            using var reader = command.ExecuteReader();
+            Assert.False(reader.Read());
+        }
+
+        var restarted = ctx.CreateApp();
+        Assert.True(restarted.TryLocalLogin("admin", "AdminPass123!").Success);
+        Assert.Equal(before, ctx.Store.LoadJournalAttachment(oldFile.AttachmentId));
+        Assert.Equal(2, restarted.GetJournalEntries(project.ProjectId).Count);
+        ctx.Store.RemoveProject(project.ProjectId);
+        Assert.Null(ctx.Store.LoadJournalAttachment(oldFile.AttachmentId));
+        Assert.Null(ctx.Store.LoadJournalAttachment(entry.Attachments.Single().AttachmentId));
+    }
+
+    [Fact]
+    public void FileSizeUpgrade_RollsBackAndRestoresForeignKeysOnFailure()
+    {
+        using var ctx = new AttachmentContext(false);
+        var project = ctx.App.CreateProject(new CreateProjectRequest { Name = "Interrupted file size upgrade" });
+        var entry = ctx.Save(project.ProjectId, new JournalAttachmentUpload { FileName = "before.txt", Content = new byte[] { 8, 13, 21 } });
+        var id = entry.Attachments.Single().AttachmentId;
+        var original = ctx.Store.LoadJournalAttachment(id);
+        CreateLegacyFiveMiBSchema(ctx, false);
+        using var connection = ctx.OpenConnection();
+        using var command = connection.CreateCommand();
+        // Force the final index creation to fail, after the replacement table has
+        // been populated. The original table and encrypted data must roll back.
+        command.CommandText = "DROP INDEX ix_journal_attachments_entry_id; CREATE TABLE ix_journal_attachments_entry_id (id INTEGER);";
+        command.ExecuteNonQuery();
+        Assert.Throws<SqliteException>(() => JournalAttachmentSchema.EnsureSqlite(connection));
+        command.CommandText = "PRAGMA foreign_keys";
+        Assert.Equal(1L, command.ExecuteScalar());
+        command.CommandText = "SELECT sql FROM sqlite_master WHERE name = 'journal_attachments'";
+        Assert.Contains("5242880", (string)command.ExecuteScalar()!);
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'journal_attachments_size_upgrade'";
+        Assert.Equal(0L, command.ExecuteScalar());
+        Assert.Equal(original, ctx.Store.LoadJournalAttachment(id));
+
+        command.CommandText = "DROP TABLE ix_journal_attachments_entry_id";
+        command.ExecuteNonQuery();
+        JournalAttachmentSchema.EnsureSqlite(connection);
+        command.CommandText = "PRAGMA foreign_keys";
+        Assert.Equal(1L, command.ExecuteScalar());
+        Assert.Equal(original, ctx.Store.LoadJournalAttachment(id));
+    }
+
+    private static void CreateLegacyFiveMiBSchema(AttachmentContext ctx, bool tableConstraint)
+    {
+        using var connection = ctx.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var columnCheck = tableConstraint ? "" : "CHECK (size_bytes >= 0 AND size_bytes <= 5242880)";
+        var namedCheck = tableConstraint ? ", CONSTRAINT CK_journal_attachments_size CHECK (size_bytes >= 0 AND size_bytes <= 5242880)" : "";
+        command.CommandText = $"""
+            ALTER TABLE journal_attachments RENAME TO attachments_new_limit;
+            CREATE TABLE journal_attachments (
+                attachment_id TEXT NOT NULL PRIMARY KEY,
+                entry_id TEXT NOT NULL REFERENCES journal_entries(record_id) ON DELETE CASCADE,
+                file_name_ciphertext TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL {columnCheck},
+                sha256 TEXT NOT NULL,
+                content_ciphertext TEXT NOT NULL
+                {namedCheck}
+            );
+            INSERT INTO journal_attachments SELECT * FROM attachments_new_limit;
+            DROP TABLE attachments_new_limit;
+            CREATE INDEX ix_journal_attachments_entry_id ON journal_attachments(entry_id);
+            CREATE INDEX attachment_sha_index ON journal_attachments(sha256);
+            CREATE TRIGGER attachment_update_guard BEFORE UPDATE OF size_bytes ON journal_attachments
+                WHEN NEW.size_bytes < 0 BEGIN SELECT RAISE(ABORT, 'File sizes cannot be negative'); END;
+            """;
+        command.ExecuteNonQuery();
+        transaction.Commit();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void PermanentlyRemovingAProject_RemovesItsEncryptedFiles(bool ef)
     {
         using var ctx = new AttachmentContext(ef);

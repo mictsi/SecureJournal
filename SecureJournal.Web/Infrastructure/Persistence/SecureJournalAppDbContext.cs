@@ -101,7 +101,7 @@ public sealed class SecureJournalAppDbContext : DbContext
 
         builder.Entity<JournalAttachmentEntity>(entity =>
         {
-            entity.ToTable("journal_attachments", table => table.HasCheckConstraint("CK_journal_attachments_size", "size_bytes >= 0 AND size_bytes <= 5242880"));
+            entity.ToTable("journal_attachments", table => table.HasCheckConstraint("CK_journal_attachments_size", $"size_bytes >= 0 AND size_bytes <= {SecureJournal.Core.Application.AttachmentLimits.MaxFileBytes}"));
             entity.HasKey(x => x.AttachmentId);
             entity.Property(x => x.AttachmentId).HasColumnName("attachment_id");
             entity.Property(x => x.EntryId).HasColumnName("entry_id");

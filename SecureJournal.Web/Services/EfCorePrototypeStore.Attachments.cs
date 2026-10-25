@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SecureJournal.Core.Application;
 using SecureJournal.Core.Domain;
 using SecureJournal.Web.Infrastructure.Persistence;
 
@@ -8,53 +9,87 @@ public sealed partial class EfCorePrototypeStore
 {
     private static void EnsureAttachmentSchema(SecureJournalAppDbContext db)
     {
-        // EnsureCreated does not add tables to an existing database. Apply this
-        // additive upgrade on all supported relational providers explicitly.
+        // EnsureCreated does not update existing tables. Keep the old encrypted
+        // rows intact while raising the database-enforced per-file limit.
         if (db.Database.IsSqlServer())
         {
-            db.Database.ExecuteSqlRaw("""
+            // Only the compiled numeric size limit is interpolated into this DDL.
+            var upgradeSql = $"""
+                SET XACT_ABORT ON;
+                BEGIN TRY
+                BEGIN TRANSACTION;
                 IF OBJECT_ID('journal_attachments', 'U') IS NULL
                 BEGIN
                     CREATE TABLE journal_attachments (
                         attachment_id uniqueidentifier NOT NULL PRIMARY KEY,
                         entry_id uniqueidentifier NOT NULL REFERENCES journal_entries(record_id) ON DELETE CASCADE,
                         file_name_ciphertext nvarchar(max) NOT NULL,
-                        size_bytes bigint NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 5242880),
+                        size_bytes bigint NOT NULL CONSTRAINT CK_journal_attachments_size CHECK (size_bytes >= 0 AND size_bytes <= {AttachmentLimits.MaxFileBytes}),
                         sha256 nvarchar(64) NOT NULL,
                         content_ciphertext nvarchar(max) NOT NULL
                     );
                 END
+                DECLARE @constraintName sysname, @definition nvarchar(max), @sql nvarchar(max);
+                DECLARE legacyAttachmentLimits CURSOR LOCAL FAST_FORWARD FOR
+                    SELECT name, definition FROM sys.check_constraints
+                    WHERE parent_object_id = OBJECT_ID('journal_attachments')
+                      AND definition LIKE '%size_bytes%' AND definition LIKE '%5242880%';
+                OPEN legacyAttachmentLimits;
+                FETCH NEXT FROM legacyAttachmentLimits INTO @constraintName, @definition;
+                WHILE @@FETCH_STATUS = 0
+                BEGIN
+                    SET @sql = N'ALTER TABLE journal_attachments DROP CONSTRAINT ' + QUOTENAME(@constraintName)
+                        + N'; ALTER TABLE journal_attachments WITH CHECK ADD CONSTRAINT ' + QUOTENAME(@constraintName)
+                        + N' CHECK ' + REPLACE(@definition, '5242880', '{AttachmentLimits.MaxFileBytes}') + N';';
+                    EXEC sp_executesql @sql;
+                    FETCH NEXT FROM legacyAttachmentLimits INTO @constraintName, @definition;
+                END
+                CLOSE legacyAttachmentLimits;
+                DEALLOCATE legacyAttachmentLimits;
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_journal_attachments_entry_id' AND object_id = OBJECT_ID('journal_attachments'))
                     CREATE INDEX ix_journal_attachments_entry_id ON journal_attachments(entry_id);
-                """);
+                COMMIT TRANSACTION;
+                END TRY
+                BEGIN CATCH
+                    IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                    THROW;
+                END CATCH;
+                """;
+            db.Database.ExecuteSqlRaw(upgradeSql);
         }
         else if (db.Database.IsNpgsql())
         {
-            db.Database.ExecuteSqlRaw("""
+            // Only the compiled numeric size limit is interpolated into this DDL.
+            var upgradeSql = $"""
+                DO $attachment_upgrade$
+                DECLARE legacy_limit record;
+                BEGIN
                 CREATE TABLE IF NOT EXISTS journal_attachments (
                     attachment_id uuid NOT NULL PRIMARY KEY,
                     entry_id uuid NOT NULL REFERENCES journal_entries(record_id) ON DELETE CASCADE,
                     file_name_ciphertext text NOT NULL,
-                    size_bytes bigint NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 5242880),
+                    size_bytes bigint NOT NULL CONSTRAINT "CK_journal_attachments_size" CHECK (size_bytes >= 0 AND size_bytes <= {AttachmentLimits.MaxFileBytes}),
                     sha256 varchar(64) NOT NULL,
                     content_ciphertext text NOT NULL
                 );
+                FOR legacy_limit IN
+                    SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
+                    WHERE conrelid = 'journal_attachments'::regclass AND contype = 'c'
+                      AND pg_get_constraintdef(oid) LIKE '%size_bytes%' AND pg_get_constraintdef(oid) LIKE '%5242880%'
+                LOOP
+                    EXECUTE format('ALTER TABLE journal_attachments DROP CONSTRAINT %I', legacy_limit.conname);
+                    EXECUTE format('ALTER TABLE journal_attachments ADD CONSTRAINT %I %s', legacy_limit.conname,
+                        replace(legacy_limit.definition, '5242880', '{AttachmentLimits.MaxFileBytes}'));
+                END LOOP;
                 CREATE INDEX IF NOT EXISTS ix_journal_attachments_entry_id ON journal_attachments(entry_id);
-                """);
+                END;
+                $attachment_upgrade$;
+                """;
+            db.Database.ExecuteSqlRaw(upgradeSql);
         }
         else if (db.Database.IsSqlite())
         {
-            db.Database.ExecuteSqlRaw("""
-                CREATE TABLE IF NOT EXISTS journal_attachments (
-                    attachment_id TEXT NOT NULL PRIMARY KEY,
-                    entry_id TEXT NOT NULL REFERENCES journal_entries(record_id) ON DELETE CASCADE,
-                    file_name_ciphertext TEXT NOT NULL,
-                    size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0 AND size_bytes <= 5242880),
-                    sha256 TEXT NOT NULL,
-                    content_ciphertext TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS ix_journal_attachments_entry_id ON journal_attachments(entry_id);
-                """);
+            JournalAttachmentSchema.EnsureSqlite(db.Database.GetDbConnection());
         }
     }
 

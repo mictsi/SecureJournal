@@ -36,6 +36,14 @@
     {
         <p>Auditors can access audit logs only and cannot create or read journal entries.</p>
     }
+    else if (HasProjectContext && ContextProject is null)
+    {
+        <div class="sk-empty-state">
+            <h3 class="sk-empty-state__heading">Choose an available project</h3>
+            <p class="sk-empty-state__body">This project link is invalid or the project is unavailable to your account.</p>
+            <a href="/projects?browse=true" class="sk-button sk-button--primary">Show my projects</a>
+        </div>
+    }
     else
     {
         <EditForm Model="DraftModel" OnValidSubmit="CreateEntryAsync" FormName="journal-create-entry">
@@ -46,6 +54,15 @@
             <p class="journal-persistence-note" id="journal-save-guidance">Entries cannot be edited after saving. Check the project and content before you save.</p>
 
             <div class="sk-stack sk-stack--gap-24" aria-busy="@(_isSubmitting ? "true" : "false")">
+                @if (ContextProject is { } fixedProject)
+                {
+                    <div class="journal-project-context" role="group" aria-label="Project">
+                        <span class="sk-field__label">Project</span>
+                        <p><strong>@fixedProject.Name</strong><span>@fixedProject.Code</span></p>
+                    </div>
+                }
+                else
+                {
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectSelect">Project</label>
                     <div class="sk-select-wrapper">
@@ -58,6 +75,7 @@
                         </InputSelect>
                     </div>
                 </div>
+                }
 
                 <div class="sk-field">
                     <label class="sk-field__label" for="subjectInput">Subject</label>
@@ -120,6 +138,10 @@
     [SupplyParameterFromQuery(Name = "projectId")]
     public string? ProjectIdQuery { get; set; }
     private Guid? ProjectId => Guid.TryParse(ProjectIdQuery, out var id) ? id : null;
+    private bool HasProjectContext => !string.IsNullOrWhiteSpace(ProjectIdQuery);
+    private ProjectOverview? ContextProject => ProjectId is { } id
+        ? _projects.FirstOrDefault(project => project.ProjectId == id)
+        : null;
 
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrl { get; set; }
@@ -155,7 +177,8 @@
     private readonly string[] _editorIds = ["descriptionInput"];
 
     private bool CanUseRichEditor
-        => _projects.Count > 0 && _currentUser?.Role != AppRole.Auditor;
+        => _projects.Count > 0 && _currentUser?.Role != AppRole.Auditor
+            && (!HasProjectContext || ContextProject is not null);
 
     protected override async Task OnInitializedAsync()
     {
@@ -258,6 +281,17 @@
 
         _message = null;
         _error = null;
+        if (HasProjectContext)
+        {
+            if (ContextProject is not { } fixedProject)
+            {
+                _error = "This project is unavailable. Return to My projects to choose an available project.";
+                return;
+            }
+            // Bind the save to the opened journal, including static form posts.
+            // A posted draft must never override the fixed project context.
+            DraftModel.ProjectId = fixedProject.ProjectId;
+        }
         if (!_projects.Any(project => project.ProjectId == DraftModel.ProjectId))
         {
             _error = "Choose a project before saving this entry.";

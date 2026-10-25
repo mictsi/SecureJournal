@@ -21,7 +21,7 @@ public sealed partial class SecureJournalAppService
         foreach (var upload in uploads)
         {
             if (upload?.Content is null || upload.Content.LongLength > AttachmentLimits.MaxFileBytes)
-                throw new ValidationException("Each file must be 5 MiB or smaller.");
+                throw new ValidationException($"Each file must be {AttachmentLimits.MaxFileBytes / (1024 * 1024)} MiB or smaller.");
             total += upload.Content.LongLength;
         }
         if (total > AttachmentLimits.MaxTotalBytes)

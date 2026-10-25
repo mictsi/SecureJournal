@@ -2,8 +2,7 @@
 @attribute [Authorize]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
-@using SecureJournal.Web.Components.Forms
-@using Microsoft.AspNetCore.WebUtilities
+@using SecureJournal.Web.Components.Journal
 
 <PageTitle>Journal entry · Secure Journal</PageTitle>
 
@@ -20,62 +19,7 @@
     else if (_entry is not null)
     {
         <article class="panel-card entry-detail-card">
-            <dl class="entry-metadata">
-                <div><dt>Status</dt><dd><span class="sk-badge @(_entry.IsSoftDeleted ? "sk-badge--warning" : "sk-badge--success")">@(_entry.IsSoftDeleted ? "Deleted" : "Saved")</span></dd></div>
-                <div><dt>Created (UTC)</dt><dd><time datetime="@_entry.CreatedAtUtc.ToString("o")">@_entry.CreatedAtUtc.ToString("dd MMM yyyy, HH:mm")</time></dd></div>
-                <div><dt>Author</dt><dd>@_entry.CreatedBy</dd></div>
-                @if (_entry.IsSoftDeleted)
-                {
-                    <div><dt>Deleted (UTC)</dt><dd>@_entry.DeletedAtUtc?.ToString("dd MMM yyyy, HH:mm") by @_entry.DeletedBy</dd></div>
-                }
-            </dl>
-            <div class="entry-content">
-                <section aria-labelledby="entry-description-title">
-                    <h2 id="entry-description-title">Description</h2>
-                    <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.Description)</div>
-                </section>
-                @if (!string.IsNullOrWhiteSpace(_entry.Notes))
-                {
-                    <section aria-labelledby="entry-notes-title">
-                        <h2 id="entry-notes-title">Notes</h2>
-                        <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.Notes)</div>
-                    </section>
-                }
-                @if (_entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(_entry.DeleteReason))
-                {
-                    <section aria-labelledby="entry-deletion-title">
-                        <h2 id="entry-deletion-title">Delete reason</h2>
-                        <div class="rich-content entry-prose">@SimpleMarkupPreview.Render(_entry.DeleteReason)</div>
-                    </section>
-                }
-            </div>
-            <section class="entry-files" aria-labelledby="entry-files-title">
-                <h2 id="entry-files-title">Files <span class="sk-badge sk-badge--neutral">@_entry.Attachments.Count</span></h2>
-                @if (_entry.Attachments.Count == 0)
-                {
-                    <p class="sj-muted">No files were attached to this entry.</p>
-                }
-                else
-                {
-                    <ul class="entry-file-list">
-                        @foreach (var file in _entry.Attachments)
-                        {
-                            <li>
-                                <div class="entry-file-copy"><strong>@file.FileName</strong><span>@AttachmentPicker.FormatSize(file.SizeBytes)</span></div>
-                                <a href="@($"/attachments/{file.AttachmentId:D}")" class="sk-button sk-button--secondary sk-button--sm"
-                                   download="@file.FileName" aria-label="@($"Download {file.FileName}")">Download</a>
-                            </li>
-                        }
-                    </ul>
-                }
-            </section>
-            <footer class="entry-detail-footer">
-                <p>Saved entries and their files cannot be edited. Use a follow-up entry to add more information.</p>
-                @if (!_entry.IsSoftDeleted)
-                {
-                    <a href="@QueryHelpers.AddQueryString($"/journal?projectId={_entry.ProjectId:D}", "returnUrl", BackUrl)" class="sk-button sk-button--primary">Add a follow-up entry</a>
-                }
-            </footer>
+            <JournalEntryContent Entry="_entry" ReturnUrl="@BackUrl" HeadingLevel="2" />
         </article>
     }
 </div>

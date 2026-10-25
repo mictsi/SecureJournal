@@ -67,13 +67,14 @@ Recent UI behavior highlights:
 
 - My projects, People, Groups, and Manage projects begin with Search or Show all, followed by paged results and a focused record card.
 - The body no longer has a separate directory column. Centered workspaces preserve search and paging when returning from a record.
-- Audit search keeps actions aligned, with evidence and integrity checks available inside each result.
-- New entries open their saved detail page, including file downloads. Draft text and prepared files survive a canceled navigation.
+- Audit search shows Date, Project, Who, Status, Action, and Message in compact rows; View details exposes evidence and integrity checks.
+- Entries show date, author, and subject in a compact row. Show entry expands the full description, notes, and files inline. Quick read displays complete entries for the current page and preserves filters/paging.
+- Adding an entry from a project fixes that project in the composer, including through primary navigation. New entries open their saved detail page. Draft text and files survive a canceled navigation.
 - Layouts follow Sekura Design MCP 3.2.1 and support narrow screens, light/dark themes, keyboard use, and enlarged text.
 
 ### File attachments and exports
 
-Choose multiple files or drag them into a new journal entry. Each entry supports up to **10 files**, **5 MiB per file**, and **20 MiB total**. Files are saved atomically with the entry and cannot be changed afterward. Cancel, retry, and remove controls help resolve upload errors before saving.
+Choose multiple files or drag them into a new journal entry. Each entry supports up to **10 files**, **10 MiB per file**, and **20 MiB total**. Files are saved atomically with the entry and cannot be changed afterward. Cancel, retry, and remove controls help resolve upload errors before saving.
 
 File downloads require current access to the entry and use download-only responses. Names and contents are encrypted at rest. Files are not previewed or executed by the application; uploaded content is not malware-scanned.
 
@@ -134,8 +135,17 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: [0.22.0](docs/release_notes/v0.22.0.md)
+- Release notes: [0.23.0](docs/release_notes/v0.23.0.md)
 - Sanitized config templates:
+
+---
+
+## 0.23.0 Release
+
+Compact journal rows expand inline; Quick read provides pageable full content.
+Project context is fixed when adding entries from a journal. Individual files
+can be up to 10 MiB, and audit activity uses aligned scanning columns.
+See the [release and upgrade notes](docs/release_notes/v0.23.0.md).
 
 ---
 

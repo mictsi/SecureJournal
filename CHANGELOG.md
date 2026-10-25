@@ -1,3 +1,14 @@
+# 0.23.0 - 2026-10-25
+
+## Highlights
+- Fix the project when adding an entry from its journal, including the primary navigation link; posted drafts cannot change that project.
+- Keep entry date, author, and subject on a compact desktop row. Show entry expands full details and files inline.
+- Add a pageable Quick read mode with full descriptions, notes, and downloads; preserve reading mode, filters, and page in return links.
+- Arrange audit results as Date, Project, Who, Status, Action, and Message, retaining View details and integrity checks.
+- Increase the per-file limit to 10 MiB and safely upgrade existing database constraints. Total remains 20 MiB per entry and up to 10 files.
+- Validation: 171 automated tests, browser workflow/layout checks, and live PostgreSQL/SQL Server schema upgrade checks passed.
+- Full notes: [0.23.0](docs/release_notes/v0.23.0.md).
+
 # 0.22.0 - 2026-10-25
 
 ## Highlights

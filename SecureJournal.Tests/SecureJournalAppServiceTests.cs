@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using SecureJournal.Web.Infrastructure.Identity;
 using SecureJournal.Core.Application;
 using SecureJournal.Core.Domain;
 using SecureJournal.Core.Security;
@@ -13,6 +15,121 @@ namespace SecureJournal.Tests;
 
 public sealed class SecureJournalAppServiceTests
 {
+    [Fact]
+    public void JournalCreation_DoesNotCopyEncryptedContentIntoPlaintextAuditDetails()
+    {
+        using var ctx = TestAppContext.Create();
+        ctx.LoginAsAdmin();
+        var project = ctx.App.CreateProject(new CreateProjectRequest { Name = "Confidential project" });
+        var entry = ctx.App.CreateJournalEntry(new CreateJournalEntryRequest
+        {
+            ProjectId = project.ProjectId,
+            Subject = "Confidential subject",
+            Description = "Confidential description",
+            Notes = "Confidential notes"
+        });
+
+        var audit = Assert.Single(ctx.App.SearchAuditLogs(new AuditSearchFilter
+        {
+            ProjectId = project.ProjectId,
+            Action = AuditActionType.Create,
+            EntityType = AuditEntityType.JournalEntry
+        }));
+        Assert.Equal(entry.RecordId.ToString(), audit.EntityId);
+        Assert.DoesNotContain(entry.Subject, audit.Details, StringComparison.Ordinal);
+        Assert.DoesNotContain(entry.Description, audit.Details, StringComparison.Ordinal);
+        Assert.DoesNotContain(entry.Notes, audit.Details, StringComparison.Ordinal);
+        Assert.Equal(entry.Subject, audit.RelatedJournalEntry?.Subject);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CachedIdentitySession_CannotReadOrMutateAfterRevocationOrExpiry(bool expire)
+    {
+        var dbPath = BuildUniqueDatabasePath("cached-identity-session");
+        try
+        {
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.Name, "admin"),
+                new Claim(ClaimTypes.Role, nameof(AppRole.Administrator))
+            }, "Identity.Application"));
+            var tickets = new InMemoryAuthenticationTicketStore();
+            var ticket = new AuthenticationTicket(principal, new AuthenticationProperties
+            {
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1)
+            }, "Identity.Application");
+            var sessionId = await tickets.StoreAsync(ticket);
+            var configuration = BuildConfiguration(dbPath, enableAspNetIdentity: true, enableOidc: false);
+            var accessor = new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = principal } };
+            var app = CreateService(configuration, new SqlitePrototypeStore(configuration), new PrototypeSharedState(),
+                NullLogger<SecureJournalAppService>.Instance, accessor, authenticationTickets: tickets);
+
+            Assert.Equal(AppRole.Administrator, (await app.GetCurrentUserAsync()).Role);
+            Assert.True(app.HasCurrentUser());
+
+            if (expire)
+            {
+                ticket.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddSeconds(-1);
+                await tickets.RenewAsync(sessionId, ticket);
+            }
+            else
+            {
+                await tickets.RemoveAsync(sessionId);
+            }
+
+            // The same service models an already-open Blazor circuit whose
+            // principal and cached application user survive an HTTP logout.
+            Assert.False(app.HasCurrentUser());
+            Assert.False(await app.HasCurrentUserAsync());
+            Assert.Throws<UnauthorizedAccessException>(() => app.GetJournalEntries());
+            Assert.Throws<UnauthorizedAccessException>(() => app.CreateProject(new CreateProjectRequest { Name = "Forbidden" }));
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => app.GetCurrentUserAsync());
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
+    [Fact]
+    public void LocalPrincipal_StaleAdministratorClaim_CannotRestoreRevokedRole()
+    {
+        var dbPath = BuildUniqueDatabasePath("local-stale-role");
+        try
+        {
+            using (var seed = TestAppContext.Create(existingDatabasePath: dbPath, deleteOnDispose: false))
+            {
+                seed.LoginAsAdmin();
+                var target = seed.App.CreateUser(new CreateUserRequest
+                {
+                    Username = "demoted-admin",
+                    DisplayName = "Former Administrator",
+                    Role = AppRole.Administrator,
+                    IsLocalAccount = true,
+                    LocalPassword = "DemotedPass123!"
+                });
+                seed.App.AddUserToRole(new UserRoleMembershipRequest { UserId = target.UserId, Role = AppRole.ProjectUser });
+                seed.App.RemoveUserFromRole(new UserRoleMembershipRequest { UserId = target.UserId, Role = AppRole.Administrator });
+            }
+
+            var stalePrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.Name, "demoted-admin"),
+                new Claim(ClaimTypes.Role, nameof(AppRole.Administrator))
+            }, "Identity.Application"));
+            var app = CreateOidcService(dbPath, stalePrincipal);
+
+            Assert.Equal(AppRole.ProjectUser, app.GetCurrentUser().Role);
+            Assert.Throws<UnauthorizedAccessException>(() => app.CreateProject(new CreateProjectRequest { Name = "Forbidden" }));
+        }
+        finally
+        {
+            DeleteFileQuietly(dbPath);
+        }
+    }
+
     [Fact]
     public void BootstrapState_StartsUnauthenticated_AndAdminCanLogin()
     {
@@ -1627,7 +1744,8 @@ public sealed class SecureJournalAppServiceTests
         PrototypeSharedState shared,
         NullLogger<SecureJournalAppService> logger,
         HttpContextAccessor? accessor = null,
-        PrototypeSessionRegistry? sessions = null)
+        PrototypeSessionRegistry? sessions = null,
+        InMemoryAuthenticationTicketStore? authenticationTickets = null)
     {
         var checksum = new Sha256ChecksumService();
         var journalEncryptor = new JournalFieldEncryptor(
@@ -1646,7 +1764,8 @@ public sealed class SecureJournalAppServiceTests
             configuration,
             logger,
             accessor,
-            sessions);
+            sessions,
+            authenticationTickets: authenticationTickets);
     }
 
     private static SecureJournalAppService CreateOidcService(string dbPath, ClaimsPrincipal principal)

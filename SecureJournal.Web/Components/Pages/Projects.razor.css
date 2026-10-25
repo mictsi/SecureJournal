@@ -21,9 +21,19 @@
    subtitle without cutting either. A 20rem basis truncated both, so the ideal
    width is larger and the cap is looser. */
 .my-project-directory-card {
-    flex: 1 1 24rem;
+    flex: 1 1 19rem;
     min-inline-size: 0;
-    max-inline-size: 32rem;
+    max-inline-size: 25rem;
+}
+
+.my-project-picker-summary {
+    display: none;
+}
+
+.my-project-picker-current {
+    flex: 1 1 9rem;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
 }
 
 .my-project-detail-column {
@@ -90,7 +100,9 @@
 }
 
 .my-project-directory-item {
-    display: block;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sk-space-12);
     inline-size: 100%;
     min-inline-size: 0;
     padding: var(--sk-space-12);
@@ -113,9 +125,69 @@
 }
 
 .my-project-directory-item.is-selected,
+.my-project-directory-item.is-active,
+.my-project-directory-item[aria-pressed="true"],
 .my-project-directory-item[aria-current="true"] {
     background-color: var(--sk-color-surface-selected);
     border-color: var(--sk-color-border-brand);
+}
+
+.my-project-journal-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--sk-space-12);
+    padding-block: var(--sk-space-16);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+}
+
+.my-project-journal-toolbar > .sk-field {
+    flex: 1 1 8rem;
+    min-inline-size: 0;
+}
+
+.my-project-journal-toolbar > .my-project-journal-search {
+    flex: 4 1 16rem;
+}
+
+.my-project-journal-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sk-space-12);
+    margin-block-end: var(--sk-space-16);
+}
+
+.my-project-journal-tools p {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--sk-font-size-body-sm);
+}
+
+@media (max-width: 48rem) {
+    .my-project-directory-card {
+        flex-basis: 100%;
+        max-inline-size: none;
+    }
+
+    .my-project-picker-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sk-space-12);
+    }
+
+    .my-project-picker-content:not(.is-open) {
+        display: none;
+    }
+
+    .my-project-picker-summary + .my-project-picker-content.is-open {
+        margin-block-start: var(--sk-space-16);
+        padding-block-start: var(--sk-space-16);
+        border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    }
+
+    .my-project-directory-list { max-block-size: 16rem; }
 }
 
 .my-project-directory-item-body {
@@ -384,6 +456,10 @@
     color: var(--sk-color-text-tertiary);
 }
 
+.entry-mobile-zone {
+    display: none;
+}
+
 /* Subject absorbs the slack; the other three size to their content. */
 .entry-col-subject {
     inline-size: 100%;
@@ -411,4 +487,90 @@
 .entry-list tr.is-soft-deleted th {
     background-color: var(--sk-color-surface-sunken);
     color: var(--sk-color-text-secondary);
+}
+
+/* On phones each record gets the full reading width. Keep one table and its
+   column headers in the accessibility tree; explicit roles preserve the table
+   relationships in browsers that otherwise flatten restyled table elements. */
+@media (max-width: 40rem) {
+    .entry-list {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+    }
+
+    .entry-list table,
+    .entry-list tbody {
+        display: block;
+    }
+
+    .entry-list thead {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .entry-list tbody tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sk-space-8) var(--sk-space-12);
+        padding: var(--sk-space-12);
+        border: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+        border-radius: var(--sk-radius-md);
+        background-color: var(--sk-color-surface-base);
+    }
+
+    .entry-list tbody tr + tr {
+        margin-block-start: var(--sk-space-12);
+    }
+
+    .entry-list tbody :is(td, th) {
+        display: block;
+        min-inline-size: 0;
+        padding: 0;
+        white-space: normal;
+    }
+
+    .entry-list .entry-col-created,
+    .entry-list .entry-col-subject {
+        flex: 1 1 100%;
+        inline-size: auto;
+    }
+
+    .entry-col-created {
+        color: var(--sk-color-text-secondary);
+        font-size: var(--sk-font-size-body-xs);
+        overflow-wrap: anywhere;
+    }
+
+    .entry-mobile-zone {
+        display: inline;
+    }
+
+    .entry-list .entry-col-subject {
+        padding-block-end: var(--sk-space-4);
+        font-size: var(--sk-font-size-body-md);
+        font-weight: var(--sk-font-weight-semibold);
+        line-height: var(--sk-line-height-body-md);
+    }
+
+    .entry-col-status {
+        flex: 1 1 auto;
+    }
+
+    .entry-col-actions {
+        flex: 0 1 auto;
+    }
+
+    .entry-col-actions .sk-cluster {
+        flex-wrap: wrap;
+    }
+
+    .entry-list tbody tr.is-soft-deleted {
+        background-color: var(--sk-color-surface-sunken);
+    }
 }

@@ -28,6 +28,23 @@
     margin-block-start: var(--sk-space-24);
 }
 
+/* Keep the task and its first controls in view. These workspace titles use the
+   same scale as sign-in; the larger display scale belongs to marketing pages. */
+.sk-page-header__title {
+    font-size: var(--sk-font-size-heading-lg);
+    line-height: var(--sk-line-height-heading-lg);
+}
+
+.sk-page-header__actions {
+    flex-shrink: 1;
+    min-inline-size: 0;
+}
+
+/* Success and error feedback must not touch the form or list that follows it. */
+.sk-app-shell__content > .sk-alert {
+    margin-block-end: var(--sk-space-16);
+}
+
 /* A two-region page: a list beside its detail. Wraps on its own when the
    detail region would become too narrow — no media query needed. */
 .sj-split {
@@ -198,6 +215,18 @@
 
 .panel-card-header > :first-child { flex: 1 1 auto; min-inline-size: 0; }
 
+/* Sekura's reset removes browser heading styles. Give product panels the same
+   hierarchy as sk-card without increasing their padding or adding decoration. */
+.panel-card > :is(h2, h3),
+.panel-card-header :is(h2, h3) {
+    margin: 0;
+    font-size: var(--sk-font-size-heading-sm);
+    line-height: var(--sk-line-height-heading-sm);
+    font-weight: var(--sk-font-weight-semibold);
+    color: var(--sk-color-text-primary);
+    overflow-wrap: anywhere;
+}
+
 .panel-card-header-actions {
     display: flex;
     flex-wrap: wrap;
@@ -259,4 +288,39 @@
 /* The action row that closes a form, separated from the last field. */
 .sj-form-actions {
     margin-block-start: var(--sk-space-24);
+}
+
+/* Blazor adds these classes rather than Sekura's data-invalid attribute. */
+.validation-message,
+.validation-errors {
+    color: var(--sk-color-status-danger-text);
+    font-size: var(--sk-font-size-body-sm);
+    line-height: var(--sk-line-height-body-sm);
+    overflow-wrap: anywhere;
+}
+
+.validation-errors {
+    padding-inline-start: var(--sk-space-24);
+    margin-block: 0 var(--sk-space-16);
+    list-style: disc;
+}
+
+.sk-input.invalid,
+.sk-select.invalid,
+.sk-textarea.invalid {
+    border-color: var(--sk-color-field-border-error);
+    box-shadow: inset 0 0 0 1px var(--sk-color-field-border-error);
+}
+
+/* Keep absolutely positioned accessible labels inside each table's scroll
+   region, rather than letting them increase the page width on small screens. */
+.sk-table {
+    position: relative;
+}
+
+@media (max-width: 47.999rem) and (pointer: coarse) {
+    .sk-app-shell__content .sk-button--sm,
+    .sk-side-nav__item {
+        min-block-size: var(--sk-control-height-lg);
+    }
 }

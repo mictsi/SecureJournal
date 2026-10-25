@@ -45,6 +45,7 @@ public static class ProductionInfrastructureRegistration
                 ? Math.Max(1, parsedHours)
                 : 8;
             var cookieTicketStore = new InMemoryAuthenticationTicketStore(TimeSpan.FromHours(cookieHours));
+            services.AddSingleton(cookieTicketStore);
 
             services.AddDbContext<SecureJournalIdentityDbContext>(options =>
                 ConfigureProvider(options, persistenceOptions.Provider, persistenceOptions.IdentityConnectionString));

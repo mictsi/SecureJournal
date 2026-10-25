@@ -30,7 +30,9 @@ public static partial class SimpleMarkupPreview
             return new MarkupString(string.IsNullOrWhiteSpace(sanitized) ? "<em>No content</em>" : sanitized);
         }
 
-        var html = Markdown.ToHtml(normalized, PreviewPipeline);
+        // Disabling raw HTML in Markdown does not reject dangerous link schemes.
+        // Apply the same allow-list to both editor HTML and generated Markdown.
+        var html = HtmlSanitizer.Sanitize(Markdown.ToHtml(normalized, PreviewPipeline));
         return new MarkupString(html);
     }
 
@@ -74,6 +76,14 @@ public static partial class SimpleMarkupPreview
         sanitizer.PostProcessDom += (_, args) =>
         {
             var document = args.Document;
+
+            foreach (var link in document.QuerySelectorAll("a[target]"))
+            {
+                if (string.Equals(link.GetAttribute("target"), "_blank", StringComparison.OrdinalIgnoreCase))
+                {
+                    link.SetAttribute("rel", "noopener noreferrer");
+                }
+            }
 
             foreach (var table in document.QuerySelectorAll("table").ToList())
             {

@@ -1,0 +1,61 @@
+name: Build and security checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SECUREJOURNAL_IMAGE: securejournal:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      # Directory.Build.props makes advisories and unavailable audit feeds fail restore.
+      - name: Restore locked dependencies and audit all severities
+        run: dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj --locked-mode
+      - name: Audit frontend maintenance dependencies
+        run: npm --prefix scripts/frontend audit --audit-level=low
+      - name: Test browser sanitizer regressions
+        working-directory: scripts/frontend
+        run: |
+          npm ci --ignore-scripts
+          npm exec -- playwright install --with-deps chromium
+          npm run test:sanitizer
+      - name: Verify bundled frontend versions and integrity
+        run: python3 scripts/verify-frontend-assets.py
+      - name: Test
+        run: dotnet test SecureJournal.Tests/SecureJournal.Tests.csproj --no-restore -m:1 --logger "console;verbosity=minimal"
+      - name: Build final Docker image
+        run: docker build --pull -t "$SECUREJOURNAL_IMAGE" .
+      - name: Scan final image for all known vulnerabilities
+        env:
+          TRIVY_VERSION: "0.76.1"
+          TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+        run: |
+          set -euo pipefail
+          trivy_dir="$(mktemp -d "$RUNNER_TEMP/trivy.XXXXXX")"
+          trivy_archive="$trivy_dir/trivy.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$trivy_archive"
+          printf '%s  %s\n' "$TRIVY_SHA256" "$trivy_archive" | sha256sum --check --strict
+          tar -xzf "$trivy_archive" -C "$trivy_dir" trivy
+          "$trivy_dir/trivy" image --config /dev/null --cache-dir "$trivy_dir/cache" \
+            --image-src docker --scanners vuln --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+            --ignorefile '' --ignore-unfixed=false --exit-code 1 --timeout 10m --no-progress \
+            "$SECUREJOURNAL_IMAGE"
+      - name: Publish
+        run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release --no-restore -o .artifacts/publish/web

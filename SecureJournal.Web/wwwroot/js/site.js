@@ -242,7 +242,7 @@ window.secureJournalEditors = (() => {
 
     function syncEditor(editor) {
         const target = editor?.targetElm;
-        if (!target) {
+        if (!target || !editor.initialized || editor.removed) {
             return;
         }
 
@@ -326,7 +326,7 @@ window.secureJournalEditors = (() => {
         for (const id of expectedIds) {
             const target = document.getElementById(id);
             const existing = window.tinymce.get(id);
-            if (existing && !target) {
+            if (existing && (!target || existing.targetElm !== target)) {
                 existing.remove();
             }
         }
@@ -347,6 +347,11 @@ window.secureJournalEditors = (() => {
 
             const existing = window.tinymce.get(config.id);
             if (existing) {
+                // Blazor can render again while TinyMCE is still loading its
+                // skin and serializer. Reading it before init loses the editor.
+                if (!existing.initialized || existing.removed) {
+                    continue;
+                }
                 const nextValue = config.value ?? "";
                 if (existing.getContent({ format: "html" }) !== nextValue) {
                     existing.setContent(nextValue);
@@ -355,20 +360,37 @@ window.secureJournalEditors = (() => {
                 continue;
             }
 
-            await window.tinymce.init({
-                ...defaults,
-                target,
-                min_height: config.minHeight ?? 260,
-                setup(editor) {
-                    editor.on("init", () => {
-                        editor.setContent(config.value ?? "");
-                        syncEditor(editor);
-                        hideDecorativeIcons(editor);
-                    });
+            try {
+                const created = await window.tinymce.init({
+                    ...defaults,
+                    target,
+                    min_height: config.minHeight ?? 260,
+                    setup(editor) {
+                        editor.on("init", () => {
+                            editor.setContent(config.value ?? "");
+                            syncEditor(editor);
+                            hideDecorativeIcons(editor);
+                        });
 
-                    editor.on("change input keyup undo redo SetContent", () => syncEditor(editor));
+                        editor.on("change input keyup undo redo SetContent", () => syncEditor(editor));
+                    }
+                });
+                // Navigation can replace the source element while init is awaiting
+                // assets. Do not leave an editor attached to the old page.
+                if (!target.isConnected) {
+                    for (const editor of created) {
+                        editor.remove();
+                    }
                 }
-            });
+            } catch {
+                const failedEditor = window.tinymce.get(config.id);
+                if (failedEditor?.targetElm === target) {
+                    failedEditor.remove();
+                }
+                target.style.removeProperty("display");
+                target.style.removeProperty("visibility");
+                // The source textarea remains a usable, unsaved form field.
+            }
         }
     }
 
@@ -380,7 +402,7 @@ window.secureJournalEditors = (() => {
         }
 
         const snapshot = window.tinymce.editors
-            .filter((editor) => editor?.targetElm?.id)
+            .filter((editor) => editor?.initialized && !editor.removed && editor.targetElm?.id)
             .map((editor) => ({
                 id: editor.targetElm.id,
                 value: editor.getContent({ format: "html" }),

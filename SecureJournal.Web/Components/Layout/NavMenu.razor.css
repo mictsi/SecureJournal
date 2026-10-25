@@ -1,6 +1,4 @@
-/* The rail's own styling is entirely Sekura's. What the design system leaves
-   open is the narrow-viewport behaviour: below 64rem it makes the rail fixed
-   but does not define open and closed, because that is application state. */
+/* Blazor owns drawer state and focus; Sekura supplies its responsive geometry. */
 
 .sk-side-nav {
     padding-block-end: var(--sk-space-24);
@@ -8,10 +6,11 @@
 
 @media (max-width: 63.999rem) {
     .sk-side-nav {
-        inset-block: 3.5rem 0;
+        inset-block: var(--sk-layout-header-height) 0;
         inset-inline-start: 0;
-        inline-size: 16rem;
+        inline-size: var(--sk-layout-nav-width);
         max-inline-size: 82vw;
+        translate: none;
         box-shadow: var(--sk-elevation-3);
         transform: translateX(-100%);
         transition: transform var(--sk-duration-normal) var(--sk-easing-entrance);

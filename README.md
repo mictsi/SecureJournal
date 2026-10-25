@@ -132,8 +132,22 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: `docs/release_notes/v0.10.1.md`
+- Release notes: [0.21.0](docs/release_notes/v0.21.0.md)
 - Sanitized config templates:
+
+---
+
+## 0.21.0 Release
+
+This release simplifies project journals, project creation, exports, and account
+administration. Drafts survive filtering and navigation within a workflow, and
+phone layouts keep journal subjects and actions readable. Security fixes cover
+markup sanitization, redirects, permissions, sessions, trusted proxies, and
+sensitive logging. Dependencies and container tooling are updated, with locked
+restores and automated vulnerability checks.
+
+Builds require .NET SDK 10.0.402. See the
+[upgrade notes](docs/release_notes/v0.21.0.md#upgrade-notes) before deployment.
 
 ---
 

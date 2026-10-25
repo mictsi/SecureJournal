@@ -7,14 +7,17 @@
 <PageTitle>Exports</PageTitle>
 
 <PageHeader Title="Exports"
-            Description="Generate CSV and JSON exports of journal entries and audit events." />
+            Description="Choose the records you need, review the scope, then download a copy." />
 
 <PageAlerts Message="@_message" Error="@_error" />
 
-<section class="panel-card">
+<div class="export-layout">
+<section class="panel-card export-main" aria-busy="@(_isGenerating ? "true" : "false")">
         <div class="panel-card-header">
-            <h3>Export Configuration</h3>
-            <span class="sj-muted">@_currentUser?.Role</span>
+            <div>
+                <p class="export-step">@(_isReviewing ? "Step 2 of 2" : "Step 1 of 2")</p>
+                <h2>@(_isReviewing ? "Review your export" : "Choose your records")</h2>
+            </div>
         </div>
 
         @if (_currentUser is null)
@@ -25,11 +28,40 @@
         {
             @if (!CanExportAnything)
             {
-                <p>The current role does not have export permissions. Project users cannot export data in this prototype.</p>
+                <p>Exports are available to administrators and auditors. Your account cannot export records.</p>
+            }
+            else if (_isReviewing)
+            {
+                <dl class="export-summary">
+                    <dt>Records</dt><dd>@DatasetLabel</dd>
+                    <dt>File format</dt><dd>@_selectedFormat</dd>
+                    <dt>Project scope</dt><dd>@ProjectScopeLabel</dd>
+                    <dt>From (UTC)</dt><dd>@(_fromDateText ?? "Beginning of records")</dd>
+                    <dt>To (UTC)</dt><dd>@(_toDateText ?? "Latest record")</dd>
+                    @if (_selectedDataset == ExportDatasetKind.JournalEntries)
+                    {
+                        <dt>Deleted entries</dt><dd>@(_includeSoftDeleted ? "Included" : "Excluded")</dd>
+                    }
+                    else
+                    {
+                        <dt>Username contains</dt><dd>@FilterLabel(_auditActorUsername)</dd>
+                        <dt>Outcome</dt><dd>@FilterLabel(_auditOutcomeValue)</dd>
+                        <dt>Action</dt><dd>@FilterLabel(_auditActionValue)</dd>
+                        <dt>Entity type</dt><dd>@FilterLabel(_auditEntityValue)</dd>
+                    }
+                </dl>
+                <div class="export-notice">
+                    <strong>This download contains readable, unencrypted records.</strong>
+                    <p>Keep it in an approved location and share it only with people authorized to view these records. Access controls in Secure Journal do not protect downloaded files.</p>
+                </div>
+                <div class="sk-cluster sj-form-actions">
+                    <button type="button" class="sk-button sk-button--primary" disabled="@_isGenerating" @onclick="GenerateExportAsync">@(_isGenerating ? "Preparing download…" : "Download export")</button>
+                    <button type="button" class="sk-button sk-button--secondary" disabled="@_isGenerating" @onclick="EditConfiguration">Back to configuration</button>
+                </div>
             }
             else
             {
-                <div class="sk-stack sk-stack--gap-16">
+                <div class="export-fields">
                     <div class="sk-field">
                         <label class="sk-field__label" for="datasetKind">Dataset</label>
                         <div class="sk-select-wrapper">
@@ -60,8 +92,8 @@
                         <label class="sk-field__label" for="projectScope">Project Scope</label>
                         <div class="sk-select-wrapper">
                             <select id="projectScope" class="sk-select" @bind="_projectExportScope" @bind:after="OnProjectScopeChanged">
-                            <option value="@ProjectExportScope.AllProjects">All Projects</option>
                             <option value="@ProjectExportScope.SpecificProject">Specific Project</option>
+                            <option value="@ProjectExportScope.AllProjects">All Projects</option>
                         </select>
                         </div>
                     </div>
@@ -91,9 +123,11 @@
                         <input id="toDate" class="sk-input" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
                     </div>
 
+                    <p class="sk-field__hint export-full-width">Leave dates empty for all dates. Both selected dates are included, using UTC.</p>
+
                     @if (_selectedDataset == ExportDatasetKind.JournalEntries)
                     {
-                        <div>
+                        <div class="export-full-width">
                             <label class="sk-checkbox">
                                     <input id="includeSoftDeleted" class="sk-checkbox__input" type="checkbox" @bind="_includeSoftDeleted" />
                                 <span class="sk-checkbox__box" aria-hidden="true"></span>
@@ -151,17 +185,33 @@
                     }
                 </div>
 
-                <div class="sk-cluster">
-                    <button type="button" class="sk-button sk-button--primary" @onclick="GenerateExportAsync">Generate & Download</button>
-                    <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear Filters</button>
+                <div class="sk-cluster sj-form-actions">
+                    <button type="button" class="sk-button sk-button--primary" disabled="@_isGenerating" @onclick="ReviewExport">Review export</button>
+                    <button type="button" class="sk-button sk-button--secondary" disabled="@_isGenerating" @onclick="ClearFilters">Reset filters</button>
                     @if (_exportResult is not null)
                     {
-                        <button type="button" class="sk-button sk-button--secondary" @onclick="DownloadExport">Download</button>
+                        <button type="button" class="sk-button sk-button--secondary" disabled="@_isGenerating" @onclick="DownloadAgainAsync">Download previous file again</button>
                     }
                 </div>
             }
         }
 </section>
+<aside class="panel-card export-guide" aria-label="Export guidance">
+    <h2>Before you export</h2>
+    <ol>
+        <li><strong>Keep the scope focused.</strong><span>Select a project and date range for the records you need.</span></li>
+        <li><strong>Choose a useful format.</strong><span>CSV works with spreadsheets. JSON preserves the record structure for other tools.</span></li>
+        <li><strong>Check before downloading.</strong><span>Review the scope and how you will store the file.</span></li>
+    </ol>
+    @if (_exportResult is not null)
+    {
+        <div class="export-last-file" role="status">
+            <strong>Last prepared file</strong>
+            <p>@_exportResult.FileName</p>
+        </div>
+    }
+</aside>
+</div>
 
 @code {
     private enum ExportDatasetKind
@@ -185,7 +235,7 @@
 
     private ExportDatasetKind _selectedDataset = ExportDatasetKind.JournalEntries;
     private ExportFormat _selectedFormat = ExportFormat.Json;
-    private ProjectExportScope _projectExportScope = ProjectExportScope.AllProjects;
+    private ProjectExportScope _projectExportScope = ProjectExportScope.SpecificProject;
 
     private string? _projectFilterValue;
     private string? _fromDateText;
@@ -200,6 +250,17 @@
     private ExportFileResult? _exportResult;
     private string? _error;
     private string? _message;
+    private bool _isReviewing;
+    private bool _isGenerating;
+
+    private string DatasetLabel => _selectedDataset == ExportDatasetKind.JournalEntries ? "Journal entries" : "Audit events";
+    private string ProjectScopeLabel => _projectExportScope == ProjectExportScope.AllProjects
+        ? "All projects"
+        : _projects.FirstOrDefault(candidate => candidate.ProjectId == SelectedProjectIdForExport()) is { } project
+            ? $"{project.Code} — {project.Name}"
+            : "No project selected";
+
+    private static string FilterLabel(string? value) => string.IsNullOrWhiteSpace(value) ? "Any" : value;
 
     private bool CanExportJournal => _currentUser?.Role == AppRole.Administrator;
     private bool CanExportAudit => _currentUser?.Role is AppRole.Administrator or AppRole.Auditor;
@@ -224,20 +285,53 @@
         OnProjectScopeChanged();
     }
 
-    private async Task GenerateExportAsync()
+    private void ReviewExport()
     {
+        if (_isGenerating) return;
         _error = null;
         _message = null;
+        if (!ValidateSelection())
+        {
+            return;
+        }
+
+        _exportResult = null;
+        _isReviewing = true;
+    }
+
+    private bool ValidateSelection()
+    {
+        if (_projectExportScope == ProjectExportScope.SpecificProject && SelectedProjectIdForExport() is null)
+        {
+            _error = "Choose a project, or explicitly select All Projects.";
+            return false;
+        }
+
+        if (ParseFromDate(_fromDateText) is { } from && ParseToDate(_toDateText) is { } to && from > to)
+        {
+            _error = "The end date must be on or after the start date.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void EditConfiguration()
+    {
+        if (_isGenerating) return;
+        _isReviewing = false;
+        _error = null;
+    }
+
+    private async Task GenerateExportAsync()
+    {
+        if (_isGenerating || !_isReviewing || !ValidateSelection()) return;
+        _error = null;
+        _message = null;
+        _isGenerating = true;
 
         try
         {
-            if (_projectExportScope == ProjectExportScope.SpecificProject && SelectedProjectIdForExport() is null)
-            {
-                _exportResult = null;
-                _error = "Select a project or change scope to All Projects.";
-                return;
-            }
-
             _exportResult = _selectedDataset switch
             {
                 ExportDatasetKind.JournalEntries => JournalApp.ExportJournalEntries(new JournalExportRequest
@@ -268,13 +362,38 @@
                 _ => throw new InvalidOperationException("Unsupported export dataset.")
             };
 
-            _message = _exportResult.Summary;
             await DownloadExport();
+            _message = $"{_exportResult.Summary} Download started. Check your browser's downloads.";
+            _isReviewing = false;
         }
         catch (Exception ex)
         {
             _exportResult = null;
             _error = ex.Message;
+        }
+        finally
+        {
+            _isGenerating = false;
+        }
+    }
+
+    private async Task DownloadAgainAsync()
+    {
+        if (_isGenerating || _exportResult is null) return;
+        _isGenerating = true;
+        _error = null;
+        try
+        {
+            await DownloadExport();
+            _message = "Download started. Check your browser's downloads.";
+        }
+        catch (Exception)
+        {
+            _error = "The download could not start. Try downloading the file again.";
+        }
+        finally
+        {
+            _isGenerating = false;
         }
     }
 
@@ -294,8 +413,9 @@
 
     private void ClearFilters()
     {
+        if (_isGenerating) return;
         _projectFilterValue = null;
-        _projectExportScope = ProjectExportScope.AllProjects;
+        _projectExportScope = ProjectExportScope.SpecificProject;
         _fromDateText = null;
         _toDateText = null;
         _includeSoftDeleted = false;
@@ -306,23 +426,20 @@
         _error = null;
         _message = null;
         _exportResult = null;
+        _isReviewing = false;
     }
 
-    private void OnFromDateChanged(ChangeEventArgs args) => _fromDateText = args.Value?.ToString();
+    private void OnFromDateChanged(ChangeEventArgs args) => _fromDateText = EmptyToNull(args.Value?.ToString());
 
-    private void OnToDateChanged(ChangeEventArgs args) => _toDateText = args.Value?.ToString();
+    private void OnToDateChanged(ChangeEventArgs args) => _toDateText = EmptyToNull(args.Value?.ToString());
+
+    private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private void OnProjectScopeChanged()
     {
         if (_projectExportScope != ProjectExportScope.SpecificProject)
         {
             _projectFilterValue = null;
-            return;
-        }
-
-        if (!Guid.TryParse(_projectFilterValue, out _))
-        {
-            _projectFilterValue = _projects.FirstOrDefault()?.ProjectId.ToString();
         }
     }
 
@@ -351,7 +468,9 @@
             return null;
         }
 
-        var endOfDay = parsed.Date.AddDays(1).AddTicks(-1);
+        var endOfDay = parsed.Date == DateTime.MaxValue.Date
+            ? DateTime.MaxValue
+            : parsed.Date.AddDays(1).AddTicks(-1);
         return DateTime.SpecifyKind(endOfDay, DateTimeKind.Utc);
     }
 }

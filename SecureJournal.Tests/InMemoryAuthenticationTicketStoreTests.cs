@@ -11,6 +11,70 @@ namespace SecureJournal.Tests;
 public sealed class InMemoryAuthenticationTicketStoreTests
 {
     [Fact]
+    public async Task ReplacedPrincipal_DoesNotAuthorizeThePreviousUsersCircuit()
+    {
+        var store = new InMemoryAuthenticationTicketStore();
+        var previous = CreateTicket("previous-user", DateTimeOffset.UtcNow.AddMinutes(30));
+        var replacement = CreateTicket("new-user", DateTimeOffset.UtcNow.AddMinutes(30));
+        var key = await store.StoreAsync(previous);
+
+        await store.RenewAsync(key, replacement);
+
+        Assert.False(store.IsActive(previous.Principal));
+        Assert.True(store.IsActive(replacement.Principal));
+    }
+
+    [Fact]
+    public async Task ExpiredSession_CannotBeRenewedBeforePeriodicCleanup()
+    {
+        var store = new InMemoryAuthenticationTicketStore(cleanupInterval: TimeSpan.FromHours(1));
+        var expired = CreateTicket("user", DateTimeOffset.UtcNow.AddSeconds(-1));
+        var key = await store.StoreAsync(expired);
+        var replacement = CreateTicket("user", DateTimeOffset.UtcNow.AddMinutes(30));
+
+        await store.RenewAsync(key, replacement);
+
+        Assert.Null(await store.RetrieveAsync(key));
+        Assert.False(store.IsActive(replacement.Principal));
+    }
+
+    [Fact]
+    public async Task RevokeUserSessions_RemovesOnlyTargetUsersOtherSessions()
+    {
+        var store = new InMemoryAuthenticationTicketStore();
+        var current = CreateTicket("target", DateTimeOffset.UtcNow.AddMinutes(30));
+        var other = CreateTicket("target", DateTimeOffset.UtcNow.AddMinutes(30));
+        var unrelated = CreateTicket("different", DateTimeOffset.UtcNow.AddMinutes(30));
+        var currentKey = await store.StoreAsync(current);
+        await store.StoreAsync(other);
+        await store.StoreAsync(unrelated);
+
+        store.RevokeUserSessions("target", currentKey);
+
+        Assert.True(store.IsActive(current.Principal));
+        Assert.False(store.IsActive(other.Principal));
+        Assert.True(store.IsActive(unrelated.Principal));
+
+        store.RevokeUserSessions("target");
+        Assert.False(store.IsActive(current.Principal));
+    }
+
+    [Fact]
+    public async Task RemovedSession_CannotBeResurrectedByAnInFlightRenewal()
+    {
+        var store = new InMemoryAuthenticationTicketStore();
+        var ticket = CreateTicket("user", DateTimeOffset.UtcNow.AddMinutes(30));
+        var key = await store.StoreAsync(ticket);
+        Assert.True(store.IsActive(ticket.Principal));
+
+        await store.RemoveAsync(key);
+        await store.RenewAsync(key, ticket);
+
+        Assert.False(store.IsActive(ticket.Principal));
+        Assert.Null(await store.RetrieveAsync(key));
+    }
+
+    [Fact]
     public async Task StoreAsync_GeneratesDistinctUrlSafeKeys()
     {
         var store = new InMemoryAuthenticationTicketStore();
@@ -47,7 +111,7 @@ public sealed class InMemoryAuthenticationTicketStoreTests
     private static AuthenticationTicket CreateTicket(string username, DateTimeOffset? expiresUtc)
     {
         var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.Name, username)],
+            [new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.NameIdentifier, username)],
             CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         var properties = new AuthenticationProperties

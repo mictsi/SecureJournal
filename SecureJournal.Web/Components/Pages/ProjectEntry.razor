@@ -4,14 +4,14 @@
 @inject NavigationManager Navigation
 @using SecureJournal.Web.Utilities
 
-<PageTitle>Journal Entry Details</PageTitle>
+<PageTitle>Journal entry · Secure Journal</PageTitle>
 
-<PageHeader Title="Entry details"
-            Description="Review full information for a single project journal entry.">
+<PageHeader Title="Journal entry"
+            Description="A saved record in your project's history.">
     <Actions>
         <a href="@BackUrl" class="sk-button sk-button--secondary">
             <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-left" /></svg>
-            Back to my projects
+            Back to project
         </a>
     </Actions>
 </PageHeader>
@@ -20,46 +20,60 @@
 
 @if (_entry is not null)
 {
-    <section class="panel-card">
+    <section class="panel-card entry-detail-card">
         <div class="panel-card-header">
-            <h3>@_entry.Subject</h3>
-            <span class="sj-muted">@_entry.ProjectCode - @_entry.ProjectName</span>
+            <div>
+                <p class="entry-project-label">@_entry.ProjectCode · @_entry.ProjectName</p>
+                <h2>@_entry.Subject</h2>
+            </div>
+            <span class="sk-badge @(_entry.IsSoftDeleted ? "sk-badge--warning" : "sk-badge--success")">@(_entry.IsSoftDeleted ? "Deleted" : "Saved")</span>
         </div>
 
         <dl class="meta-list">
             <dt>Created (UTC)</dt>
-            <dd>@_entry.CreatedAtUtc.ToString("yyyy-MM-dd") by @_entry.CreatedBy</dd>
-            <dt>Status</dt>
-            <dd>@(_entry.IsSoftDeleted ? "Soft-deleted" : "Active")</dd>
+            <dd><time datetime="@_entry.CreatedAtUtc.ToString("o")">@_entry.CreatedAtUtc.ToString("dd MMM yyyy, HH:mm:ss")</time></dd>
+            <dt>Author</dt>
+            <dd>@_entry.CreatedBy</dd>
             @if (_entry.IsSoftDeleted)
             {
                 <dt>Deleted (UTC)</dt>
-                <dd>@_entry.DeletedAtUtc?.ToString("yyyy-MM-dd") by @_entry.DeletedBy</dd>
+                <dd>@_entry.DeletedAtUtc?.ToString("dd MMM yyyy, HH:mm:ss") by @_entry.DeletedBy</dd>
             }
         </dl>
     </section>
 
-    <section class="panel-card">
+    <section class="panel-card entry-detail-card">
         <div class="entry-view-grid">
             <div class="entry-view-block">
-                <h4>Description</h4>
+                <h3>Description</h3>
                 <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.Description)</div>
             </div>
             <div class="entry-view-block">
-                <h4>Notes</h4>
-                <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.Notes)</div>
+                <h3>Notes</h3>
+                @if (string.IsNullOrWhiteSpace(_entry.Notes))
+                {
+                    <p class="sj-muted">No additional notes.</p>
+                }
+                else
+                {
+                    <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.Notes)</div>
+                }
             </div>
             @if (_entry.IsSoftDeleted && !string.IsNullOrWhiteSpace(_entry.DeleteReason))
             {
                 <div class="entry-view-block entry-view-block-full">
-                    <h4>Delete reason</h4>
+                    <h3>Delete reason</h3>
                     <div class="entry-view-text rich-content">@SimpleMarkupPreview.Render(_entry.DeleteReason)</div>
                 </div>
             }
         </div>
 
-        <div>
-            <a href="@BackUrl" class="sk-button sk-button--secondary">Back to My Projects</a>
+        <div class="entry-detail-footer">
+            <p class="sj-muted">Saved entries cannot be edited. Create a follow-up entry to add new information.</p>
+            @if (!_entry.IsSoftDeleted)
+            {
+                <a href="@($"/journal?projectId={_entry.ProjectId:D}")" class="sk-button sk-button--primary">New entry in this project</a>
+            }
         </div>
     </section>
 }

@@ -8,19 +8,32 @@
 <PageTitle>New Journal Entry</PageTitle>
 
 <PageHeader Title="New journal entry"
-            Description="Create append-only project event records." />
+            Description="Capture a decision, update, or event for your project.">
+    <Actions>
+        <a href="@BackUrl" class="sk-button sk-button--secondary">
+            <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-chevron-left" /></svg>
+            Back to project
+        </a>
+    </Actions>
+</PageHeader>
+
+<NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmNavigationAsync" />
 
 <PageAlerts Message="@_message" Error="@_error" />
 
-<section class="panel-card">
+<section class="panel-card journal-compose-card">
     <div class="panel-card-header">
-        <h3>Create journal entry</h3>
-        <span class="sj-muted">@(_currentUser?.Role.ToString() ?? "Unknown role")</span>
+        <h2>Entry information</h2>
+        <span class="sk-badge sk-badge--neutral">Unsaved draft</span>
     </div>
 
     @if (_projects.Count == 0)
     {
-        <p>No accessible projects are available for the current user.</p>
+        <div class="sk-empty-state">
+            <h3 class="sk-empty-state__heading">A project is needed first</h3>
+            <p class="sk-empty-state__body">Ask an administrator for project access, then return to create an entry.</p>
+            <a href="/projects" class="sk-button sk-button--secondary">View projects</a>
+        </div>
     }
     else if (_currentUser?.Role == AppRole.Auditor)
     {
@@ -33,11 +46,14 @@
             <DataAnnotationsValidator />
             <ValidationSummary />
 
-            <div class="sk-stack sk-stack--gap-24">
+            <p class="journal-persistence-note" id="journal-save-guidance">Entries cannot be edited after saving. Check the project and content before you save.</p>
+
+            <div class="sk-stack sk-stack--gap-24" aria-busy="@(_isSubmitting ? "true" : "false")">
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectSelect">Project</label>
                     <div class="sk-select-wrapper">
-                        <InputSelect id="projectSelect" class="sk-select" TValue="Guid" @bind-Value="DraftModel.ProjectId">
+                        <InputSelect id="projectSelect" class="sk-select" TValue="Guid" @bind-Value="DraftModel.ProjectId" disabled="@_isSubmitting">
+                            <option value="@Guid.Empty">Choose a project</option>
                             @foreach (var project in _projects)
                             {
                                 <option value="@project.ProjectId">@project.Code - @project.Name</option>
@@ -48,21 +64,23 @@
 
                 <div class="sk-field">
                     <label class="sk-field__label" for="subjectInput">Subject</label>
-                    <p class="sk-field__hint" id="subjectInput-hint">One line, up to @FieldLimits.SubjectMax characters.</p>
-                    <InputText id="subjectInput" class="sk-input" maxlength="@FieldLimits.SubjectMax" aria-describedby="subjectInput-hint" @bind-Value="DraftModel.Subject" />
+                    <p class="sk-field__hint" id="subjectInput-hint">A short, specific title that will be easy to find later.</p>
+                    <InputText id="subjectInput" class="sk-input" maxlength="@FieldLimits.SubjectMax" aria-describedby="subjectInput-hint" @bind-Value="DraftModel.Subject" @oninput="OnSubjectInput" disabled="@_isSubmitting" />
+                    <ValidationMessage For="@(() => DraftModel.Subject)" />
                 </div>
 
                 <div class="sk-field">
                     <label class="sk-field__label" for="descriptionInput">Description</label>
-                    <p class="sk-field__hint" id="descriptionInput-hint">Use the editor toolbar for headings, lists, tables, links and emphasis.</p>
+                    <p class="sk-field__hint" id="descriptionInput-hint">What happened, why it matters, and any next steps.</p>
                     <div class="journal-editor-shell">
                         <InputTextArea id="descriptionInput"
                                        class="sk-input journal-rich-editor-source"
                                        maxlength="@FieldLimits.DescriptionMax"
                                        rows="8"
                                        aria-describedby="descriptionInput-hint"
-                                       @bind-Value="DraftModel.Description" />
+                                       @bind-Value="DraftModel.Description" @oninput="OnDescriptionInput" />
                     </div>
+                    <ValidationMessage For="@(() => DraftModel.Description)" />
                 </div>
 
                 <div class="sk-field">
@@ -70,27 +88,33 @@
                         Notes
                         <span class="sk-field__optional">Optional</span>
                     </label>
-                    <p class="sk-field__hint" id="notesInput-hint">Supports the same rich formatting as the description.</p>
+                    <p class="sk-field__hint" id="notesInput-hint">Add supporting details or references. Visible to everyone who can read this entry.</p>
                     <div class="journal-editor-shell">
                         <InputTextArea id="notesInput"
                                        class="sk-input journal-rich-editor-source"
                                        maxlength="@FieldLimits.NotesMax"
-                                       rows="10"
+                                       rows="4"
                                        aria-describedby="notesInput-hint"
-                                       @bind-Value="DraftModel.Notes" />
+                                       @bind-Value="DraftModel.Notes" @oninput="OnNotesInput" />
                     </div>
                 </div>
             </div>
 
-            <div class="sk-cluster sk-cluster--gap-8 sj-form-actions">
-                <button type="submit" class="sk-button sk-button--primary">Create entry</button>
-                <button type="button" class="sk-button sk-button--secondary" @onclick="ResetDraft">Reset form</button>
+            <div class="journal-compose-actions sj-form-actions">
+                <div class="sk-cluster sk-cluster--gap-8">
+                    <button type="submit" class="sk-button sk-button--primary" disabled="@_isSubmitting" aria-describedby="journal-save-guidance">@(_isSubmitting ? "Saving…" : "Save entry")</button>
+                    <a href="@BackUrl" class="sk-button sk-button--secondary">Cancel</a>
+                </div>
+                <button type="button" class="sk-button sk-button--secondary" disabled="@(_isSubmitting || !HasUnsavedChanges)" @onclick="ResetDraftAsync">Clear draft</button>
             </div>
         </EditForm>
     }
 </section>
 
 @code {
+    [SupplyParameterFromQuery(Name = "projectId")]
+    public Guid? ProjectId { get; set; }
+
     [SupplyParameterFromForm(FormName = "journal-create-entry")]
     private CreateJournalEntryRequest? PostedDraftModel { get; set; }
     private CreateJournalEntryRequest DraftModel => PostedDraftModel ??= new();
@@ -99,6 +123,18 @@
     private List<ProjectOverview> _projects = new();
     private string? _message;
     private string? _error;
+    private bool _isSubmitting;
+    private bool _isSaved;
+    private bool _hasAppliedProjectQuery;
+    private Guid? _lastProjectQuery;
+    private bool _discardDraftOnNavigation;
+    private bool HasUnsavedChanges => !_isSaved &&
+        (!string.IsNullOrWhiteSpace(DraftModel.Subject) ||
+         !string.IsNullOrWhiteSpace(DraftModel.Description) ||
+         !string.IsNullOrWhiteSpace(DraftModel.Notes));
+    private string BackUrl => DraftModel.ProjectId != Guid.Empty
+        ? $"/projects?projectId={DraftModel.ProjectId:D}"
+        : "/projects";
     // JavaScript interop is only legal once the component has rendered
     // interactively. A form POST re-renders the page statically, and the editor
     // calls made during that pass threw "JavaScript interop calls cannot be issued
@@ -119,6 +155,31 @@
         }
 
         await LoadDataAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_currentUser is null || (_hasAppliedProjectQuery && ProjectId == _lastProjectQuery))
+        {
+            return;
+        }
+
+        if (_discardDraftOnNavigation)
+        {
+            ClearDraft();
+            _discardDraftOnNavigation = false;
+        }
+
+        // A posted form already contains the user's explicit project choice.
+        // A draft is only discarded after NavigationLock receives confirmation.
+        if (!HasUnsavedChanges && !_isSubmitting && !_isSaved &&
+            (_hasAppliedProjectQuery || DraftModel.ProjectId == Guid.Empty))
+        {
+            ApplyProjectQuery();
+        }
+
+        _lastProjectQuery = ProjectId;
+        _hasAppliedProjectQuery = true;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -142,7 +203,7 @@
             {
                 id = "notesInput",
                 value = DraftModel.Notes ?? string.Empty,
-                minHeight = 300
+                minHeight = 180
             }
         }, _editorIds);
     }
@@ -151,17 +212,49 @@
     {
         _currentUser = await JournalApp.GetCurrentUserAsync();
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
+    }
 
-        if (DraftModel.ProjectId == Guid.Empty && _projects.Count > 0)
+    private void ApplyProjectQuery()
+    {
+        DraftModel.ProjectId = Guid.Empty;
+        _error = null;
+        if (ProjectId is { } requestedId)
+        {
+            if (_projects.Any(project => project.ProjectId == requestedId))
+            {
+                DraftModel.ProjectId = requestedId;
+            }
+            else
+            {
+                _error = "That project is unavailable to your account. Choose an accessible project to continue.";
+            }
+        }
+        else if (_projects.Count == 1)
         {
             DraftModel.ProjectId = _projects[0].ProjectId;
         }
     }
 
+    private void OnSubjectInput(ChangeEventArgs args) => DraftModel.Subject = args.Value?.ToString() ?? string.Empty;
+    private void OnDescriptionInput(ChangeEventArgs args) => DraftModel.Description = args.Value?.ToString() ?? string.Empty;
+    private void OnNotesInput(ChangeEventArgs args) => DraftModel.Notes = args.Value?.ToString() ?? string.Empty;
+
     private async Task CreateEntryAsync()
     {
+        if (_isSubmitting || _isSaved)
+        {
+            return;
+        }
+
         _message = null;
         _error = null;
+        if (!_projects.Any(project => project.ProjectId == DraftModel.ProjectId))
+        {
+            _error = "Choose a project before saving this entry.";
+            return;
+        }
+
+        _isSubmitting = true;
 
         try
         {
@@ -171,25 +264,51 @@
             }
 
             var selectedProject = DraftModel.ProjectId;
-            JournalApp.CreateJournalEntry(DraftModel);
-            Navigation.NavigateTo($"/projects?projectId={selectedProject:D}");
+            var savedEntry = JournalApp.CreateJournalEntry(DraftModel);
+            _isSaved = true;
+            Navigation.NavigateTo($"/projects?projectId={selectedProject:D}&saved={savedEntry.RecordId:D}");
         }
         catch (Exception ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 
-    private void ResetDraft()
+    private async Task ResetDraftAsync()
     {
-        var selectedProject = DraftModel.ProjectId;
+        if (!await JS.InvokeAsync<bool>("confirm", "Clear this draft? The subject, description, and notes will be discarded."))
+        {
+            return;
+        }
+
+        ClearDraft();
+    }
+
+    private void ClearDraft()
+    {
         DraftModel.Subject = string.Empty;
         DraftModel.Description = string.Empty;
         DraftModel.Notes = string.Empty;
-        DraftModel.ProjectId = selectedProject;
         _message = null;
         _error = null;
-        StateHasChanged();
+    }
+
+    private async Task ConfirmNavigationAsync(LocationChangingContext context)
+    {
+        if (HasUnsavedChanges)
+        {
+            if (!await JS.InvokeAsync<bool>("confirm", "Leave without saving? Your journal entry draft will be discarded."))
+            {
+                context.PreventNavigation();
+                return;
+            }
+
+            _discardDraftOnNavigation = true;
+        }
     }
 
     public async ValueTask DisposeAsync()

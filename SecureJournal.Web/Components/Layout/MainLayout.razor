@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @using SecureJournal.Core.Domain
+@using Microsoft.AspNetCore.Components.Routing
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 
@@ -23,6 +25,7 @@ else
 
     <header class="sk-top-bar sk-top-bar--sticky sk-app-shell__header">
         <button type="button"
+                @ref="_navTrigger"
                 class="sk-icon-button sk-top-bar__nav-trigger"
                 aria-expanded="@(_navOpen ? "true" : "false")"
                 aria-controls="primary-nav"
@@ -31,7 +34,7 @@ else
             <span class="sk-visually-hidden">@(_navOpen ? "Close navigation" : "Open navigation")</span>
         </button>
 
-        <a class="sk-top-bar__identity" href="/projects">
+        <a class="sk-top-bar__identity" href="@(_currentUser?.Role == AppRole.Auditor ? "/audit" : "/projects")">
             <img class="sk-top-bar__logo" src="/images/logo_125_by_125.png" alt="" width="24" height="24" />
             <span class="sk-top-bar__product">Secure Journal</span>
         </a>
@@ -78,8 +81,12 @@ else
         </div>
     </header>
 
-    <div class="sk-app-shell__body">
-        <NavMenu IsOpen="_navOpen" OnNavigate="() => _navOpen = false" />
+    <div class="sk-app-shell__body" @onkeydown="HandleNavigationKey">
+        @if (_navOpen)
+        {
+            <button type="button" class="sj-nav-backdrop" aria-label="Close navigation" @onclick="CloseNavigationAsync"></button>
+        }
+        <NavMenu IsOpen="_navOpen" />
 
         <main class="sk-app-shell__main" id="main" tabindex="-1">
             <div class="sk-app-shell__content">
@@ -108,6 +115,40 @@ else
     private bool _isAuthenticated;
     private bool _navOpen;
     private UserContext? _currentUser;
+    private ElementReference _navTrigger;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        _ = InvokeAsync(() =>
+        {
+            _navOpen = false;
+            StateHasChanged();
+        });
+    }
+
+    private async Task CloseNavigationAsync()
+    {
+        _navOpen = false;
+        await _navTrigger.FocusAsync();
+    }
+
+    private async Task HandleNavigationKey(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape" && _navOpen)
+        {
+            await CloseNavigationAsync();
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {

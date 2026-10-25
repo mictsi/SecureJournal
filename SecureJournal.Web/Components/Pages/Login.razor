@@ -5,7 +5,7 @@
 
 <PageTitle>My Settings</PageTitle>
 
-<PageHeader Title="My settings" Description="Review your account details and update the password for your current local account." />
+<PageHeader Title="My settings" Description="Review your account and manage your password." />
 
 <PageAlerts Message="@_message" Error="@_error" />
 
@@ -26,10 +26,10 @@
         </section>
 
         <section class="panel-card">
-            <h3>Change Password</h3>
+            <h3>Change password</h3>
             <p class="sj-muted">
-                Changes the password for the current local account. Non-local accounts cannot use this form.
-                Minimum password length: @_passwordMinLength. Password complexity requires uppercase, lowercase, digit, and special character (configurable in appsettings).
+                For accounts that sign in with a Secure Journal password. If you sign in through your organization, manage your password there.
+                Use at least @_passwordMinLength characters and follow your organization's password requirements.
             </p>
             <EditForm Model="PasswordChangeModel" OnValidSubmit="ChangePasswordAsync" FormName="change-password-form">
                 <AntiforgeryToken />
@@ -39,27 +39,26 @@
                 <div class="sk-stack sk-stack--gap-16">
                     <div class="sk-field">
                         <label class="sk-field__label" for="currentPassword">Current Password</label>
-                        <InputText id="currentPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.CurrentPassword" />
+                        <InputText id="currentPassword" class="sk-input" type="password" autocomplete="current-password" @bind-Value="PasswordChangeModel.CurrentPassword" />
                     </div>
                     <div class="sk-field">
                         <label class="sk-field__label" for="newPassword">New Password</label>
-                        <InputText id="newPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.NewPassword" />
+                        <InputText id="newPassword" class="sk-input" type="password" autocomplete="new-password" @bind-Value="PasswordChangeModel.NewPassword" />
                     </div>
                     <div class="sk-field">
                         <label class="sk-field__label" for="confirmPassword">Confirm New Password</label>
-                        <InputText id="confirmPassword" class="sk-input" type="password" @bind-Value="PasswordChangeModel.ConfirmPassword" />
+                        <InputText id="confirmPassword" class="sk-input" type="password" autocomplete="new-password" @bind-Value="PasswordChangeModel.ConfirmPassword" />
                     </div>
                 </div>
 
-                <div class="sk-cluster">
-                    <button type="submit" class="sk-button sk-button--primary">Change Password</button>
-                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetPasswordChange">Reset</button>
+                <div class="sk-cluster sj-form-actions">
+                    <button type="submit" class="sk-button sk-button--primary">Change password</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetPasswordChange">Clear fields</button>
                 </div>
             </EditForm>
         </section>
     </div>
 
-    <div class="settings-column settings-column-right"></div>
 </div>
 
 @code {

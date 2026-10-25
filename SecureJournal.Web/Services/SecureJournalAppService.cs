@@ -32,6 +32,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     private readonly AuthenticationStateProvider? _authenticationStateProvider;
     private readonly SignInManager<SecureJournalIdentityUser>? _identitySignInManager;
     private readonly UserManager<SecureJournalIdentityUser>? _identityUserManager;
+    private readonly InMemoryAuthenticationTicketStore? _authenticationTickets;
+    private ClaimsPrincipal? _authenticatedPrincipal;
     private readonly bool _enableAspNetIdentity;
     private readonly bool _enableOidc;
     private readonly bool _logOidcClaimsWhenIssuerSubjectMissing;
@@ -73,7 +75,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         PrototypeSessionRegistry? sessionRegistry = null,
         AuthenticationStateProvider? authenticationStateProvider = null,
         SignInManager<SecureJournalIdentityUser>? identitySignInManager = null,
-        UserManager<SecureJournalIdentityUser>? identityUserManager = null)
+        UserManager<SecureJournalIdentityUser>? identityUserManager = null,
+        InMemoryAuthenticationTicketStore? authenticationTickets = null)
     {
         _checksumService = checksumService;
         _auditEncryptor = auditEncryptor;
@@ -91,6 +94,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         _authenticationStateProvider = authenticationStateProvider;
         _identitySignInManager = identitySignInManager;
         _identityUserManager = identityUserManager;
+        _authenticationTickets = authenticationTickets;
         _enableAspNetIdentity = bool.TryParse(configuration["Authentication:EnableAspNetIdentity"], out var enableIdentity) && enableIdentity;
         _enableOidc = bool.TryParse(configuration["Authentication:EnableOidc"], out var enableOidc) && enableOidc;
         _logOidcClaimsWhenIssuerSubjectMissing = bool.TryParse(
@@ -114,6 +118,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     public bool HasCurrentUser()
     {
+        if (!IsIdentitySessionActive()) return false;
+
         lock (_sync)
         {
             RefreshSharedStateFromStore();
@@ -148,6 +154,11 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     public async Task<bool> HasCurrentUserAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (_enableAspNetIdentity && _authenticationTickets is not null
+            && !IsIdentitySessionActive(await GetCurrentPrincipalAsync(cancellationToken)))
+        {
+            return false;
+        }
 
         lock (_sync)
         {
@@ -186,6 +197,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     public UserContext GetCurrentUser()
     {
+        RequireActiveIdentitySession();
+
         lock (_sync)
         {
             RefreshSharedStateFromStore();
@@ -229,6 +242,11 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     public async Task<UserContext> GetCurrentUserAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (_enableAspNetIdentity && _authenticationTickets is not null
+            && !IsIdentitySessionActive(await GetCurrentPrincipalAsync(cancellationToken)))
+        {
+            throw new UnauthorizedAccessException("Your session has ended. Please sign in again.");
+        }
 
         lock (_sync)
         {
@@ -548,7 +566,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             userName: normalizedUsername,
             password: password ?? string.Empty,
             isPersistent: false,
-            lockoutOnFailure: false);
+            lockoutOnFailure: true);
 
         if (!signInResult.Succeeded)
         {
@@ -2695,7 +2713,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 entityId: record.RecordId.ToString(),
                 projectId: project.ProjectId,
                 AuditOutcome.Success,
-                $"Journal entry created in project '{project.Code}' with subject '{subject}'.");
+                $"Journal entry created in project '{project.Code}'.");
 
             return _recordViewMapper.MapJournalEntry(record, _projects);
         }
@@ -3357,6 +3375,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private AppUser RequireAdmin()
     {
+        RequireActiveIdentitySession();
         RefreshSharedStateFromStore();
 
         AppUser? actor = null;
@@ -3418,6 +3437,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
 
     private AppUser GetCurrentUserInternal()
     {
+        RequireActiveIdentitySession();
         RefreshSharedStateFromStore();
 
         if (_currentUserId != Guid.Empty)
@@ -3613,6 +3633,9 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
                 : error);
         }
 
+        _authenticationTickets?.RevokeUserSessions(identityUser.Id,
+            _authenticatedPrincipal?.FindFirstValue(InMemoryAuthenticationTicketStore.SessionIdClaimType));
+
         lock (_sync)
         {
             _sqliteStore.UpsertUser(ToStoredUserRow(actor, passwordHash: null));
@@ -3650,6 +3673,8 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var error = string.Join("; ", result.Errors.Select(e => e.Description));
             return new PasswordChangeResult(false, error);
         }
+
+        _authenticationTickets?.RevokeUserSessions(identityUser.Id);
 
         lock (_sync)
         {
@@ -3757,6 +3782,32 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         }
     }
 
+    private bool IsIdentitySessionActive(ClaimsPrincipal? principal = null)
+    {
+        if (!_enableAspNetIdentity || _authenticationTickets is null) return true;
+
+        principal ??= _httpContextAccessor?.HttpContext?.User.Identity?.IsAuthenticated == true
+            ? _httpContextAccessor.HttpContext.User
+            : _authenticatedPrincipal;
+        if (_authenticationTickets.IsActive(principal))
+        {
+            _authenticatedPrincipal = principal;
+            return true;
+        }
+
+        _currentUserId = Guid.Empty;
+        _authenticatedPrincipal = null;
+        return false;
+    }
+
+    private void RequireActiveIdentitySession()
+    {
+        if (!IsIdentitySessionActive())
+        {
+            throw new UnauthorizedAccessException("Your session has ended. Please sign in again.");
+        }
+    }
+
     private bool TryGetCurrentPrincipal(out ClaimsPrincipal principal)
     {
         var httpContextUser = _httpContextAccessor?.HttpContext?.User;
@@ -3802,6 +3853,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
     private bool TryResolveOrProvisionUserFromPrincipal(ClaimsPrincipal principal, out AppUser user)
     {
         user = default!;
+        if (!IsIdentitySessionActive(principal)) return false;
         var username = OidcPrincipalHelpers.GetNormalizedPrincipalUsername(principal);
         if (string.IsNullOrWhiteSpace(username))
         {
@@ -3814,7 +3866,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         string? externalIssuer = null;
         string? externalSubject = null;
 
-        if (!isExternalOidcPrincipal && existingByUsername is null)
+        if (!isExternalOidcPrincipal && (existingByUsername is null || !existingByUsername.IsLocalAccount))
         {
             _logger.LogWarning(
                 "Rejected local principal because username {Username} is not a known application user",
@@ -3951,6 +4003,16 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             return false;
         }
 
+        // A local cookie proves identity, not current authorization. Persisted
+        // memberships are authoritative; stale role claims must never undo an
+        // administrator's revocation or replace the user's other memberships.
+        if (!isExternalOidcPrincipal)
+        {
+            _currentUserId = existing!.UserId;
+            user = existing;
+            return true;
+        }
+
         AppRole mappedRole;
         if (isExternalOidcPrincipal)
         {
@@ -4044,47 +4106,41 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
         return true;
     }
 
-    private async Task SyncAppUserMetadataFromIdentityAsync(SecureJournalIdentityUser identityUser, CancellationToken cancellationToken)
+    private Task SyncAppUserMetadataFromIdentityAsync(SecureJournalIdentityUser identityUser, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_identityUserManager is null)
         {
-            return;
+            return Task.CompletedTask;
         }
-
-        var roles = await _identityUserManager.GetRolesAsync(identityUser);
-        var resolvedRole = roles.Any(r => string.Equals(r, nameof(AppRole.Administrator), StringComparison.OrdinalIgnoreCase))
-            ? AppRole.Administrator
-            : roles.Any(r => string.Equals(r, nameof(AppRole.Auditor), StringComparison.OrdinalIgnoreCase))
-                ? AppRole.Auditor
-                : AppRole.ProjectUser;
 
         lock (_sync)
         {
             var appUser = _users.FirstOrDefault(u => string.Equals(u.Username, identityUser.UserName, StringComparison.OrdinalIgnoreCase));
             if (appUser is null)
             {
-                return;
+                return Task.CompletedTask;
             }
 
             var displayName = string.IsNullOrWhiteSpace(identityUser.DisplayName) ? appUser.DisplayName : identityUser.DisplayName;
-            if (appUser.Role == resolvedRole && string.Equals(appUser.DisplayName, displayName, StringComparison.Ordinal))
+            if (string.Equals(appUser.DisplayName, displayName, StringComparison.Ordinal))
             {
-                return;
+                return Task.CompletedTask;
             }
 
-            var updated = appUser with { Role = resolvedRole, DisplayName = displayName };
+            var updated = appUser with { DisplayName = displayName };
             var index = _users.FindIndex(u => u.UserId == appUser.UserId);
             if (index >= 0)
             {
                 _users[index] = updated;
             }
 
-            ReplaceUserRoles(updated.UserId, [resolvedRole]);
             _sqliteStore.UpsertUser(ToStoredUserRow(updated, passwordHash: null));
             InvalidateUsersCache();
         }
+
+        return Task.CompletedTask;
     }
 
     private string GetOidcTokensForDiagnostics()
@@ -4101,9 +4157,9 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             var authProperties = authFeature?.AuthenticateResult?.Properties;
             if (authProperties is not null)
             {
-                var idToken = authProperties.GetTokenValue("id_token") ?? "(none)";
-                var accessToken = authProperties.GetTokenValue("access_token") ?? "(none)";
-                var refreshToken = authProperties.GetTokenValue("refresh_token") ?? "(none)";
+                var idToken = OidcPrincipalHelpers.DescribeTokenForDiagnostics(authProperties.GetTokenValue("id_token"));
+                var accessToken = OidcPrincipalHelpers.DescribeTokenForDiagnostics(authProperties.GetTokenValue("access_token"));
+                var refreshToken = OidcPrincipalHelpers.DescribeTokenForDiagnostics(authProperties.GetTokenValue("refresh_token"));
                 return $"scheme=(feature); id_token={idToken}; access_token={accessToken}; refresh_token={refreshToken}";
             }
             return "(no-token-properties-found-in-feature)";
@@ -4337,6 +4393,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var result = await _identityUserManager.DeleteAsync(identityUser);
+            _authenticationTickets?.RevokeUserSessions(identityUser.Id);
             if (!result.Succeeded)
             {
                 var errors = string.Join("; ", result.Errors.Select(e => $"{e.Code}:{e.Description}"));
@@ -4379,6 +4436,7 @@ public sealed class SecureJournalAppService : ISecureJournalAppService
             }
 
             var lockoutResult = await _identityUserManager.SetLockoutEndDateAsync(identityUser, DateTimeOffset.MaxValue);
+            _authenticationTickets?.RevokeUserSessions(identityUser.Id);
             if (!lockoutResult.Succeeded)
             {
                 var lockoutErrors = string.Join("; ", lockoutResult.Errors.Select(e => $"{e.Code}:{e.Description}"));

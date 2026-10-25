@@ -1,3 +1,18 @@
+# 0.21.0 - 2026-10-25
+
+## Highlights
+- Simplified project journals, navigation, export review, and administrative workflows.
+- Preserved drafts across filtering and wizard navigation, added explicit confirmations, and improved phone layouts.
+- Fixed identified markup sanitization, redirect, session, permission, proxy-trust, and sensitive-logging issues.
+- Updated dependencies, frontend assets, .NET tooling, and the container runtime to current compatible releases.
+
+## Release and upgrade
+- Added a canonical application version, dependency lockfiles, automated update proposals, and CI vulnerability gates.
+- Builds require .NET SDK 10.0.402. Docker Compose requires explicit encryption and administrator secrets; preserve an existing installation's encryption key.
+- Configure trusted reverse proxies explicitly when TLS terminates outside the application.
+- Validation: 118 automated tests, browser workflow and mobile checks, sanitizer regressions, and container startup checks passed. NuGet, npm, and final-image scans reported no known vulnerabilities.
+- Full notes: [0.21.0](docs/release_notes/v0.21.0.md).
+
 # v0.10.2 - 2026-03-06
 
 ## Highlights

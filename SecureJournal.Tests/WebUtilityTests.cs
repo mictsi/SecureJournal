@@ -4,11 +4,72 @@ using SecureJournal.Core.Domain;
 using SecureJournal.Web.Services;
 using SecureJournal.Web.Utilities;
 using Xunit;
+using System.Net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using SecureJournal.Web.Infrastructure;
 
 namespace SecureJournal.Tests;
 
+public sealed class TrustedProxyConfigurationTests
+{
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ForwardedHeaders_OnlyHonorExplicitlyTrustedProxies(bool trustProxy)
+    {
+        var values = new Dictionary<string, string?>();
+        if (trustProxy) values["ForwardedHeaders:KnownProxies:0"] = "203.0.113.10";
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var options = new ForwardedHeadersOptions();
+        TrustedProxyConfiguration.Apply(options, configuration);
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        context.Request.Scheme = "http";
+        context.Request.Headers["X-Forwarded-Proto"] = "https";
+        context.Request.Headers["X-Forwarded-For"] = "198.51.100.20";
+
+        var middleware = new ForwardedHeadersMiddleware(_ => Task.CompletedTask, NullLoggerFactory.Instance, Options.Create(options));
+        await middleware.Invoke(context);
+
+        Assert.Equal(trustProxy ? "https" : "http", context.Request.Scheme);
+        Assert.Equal(IPAddress.Parse(trustProxy ? "198.51.100.20" : "203.0.113.10"), context.Connection.RemoteIpAddress);
+    }
+
+    [Fact]
+    public void TokenDiagnostics_NeverReturnTokenContents()
+    {
+        const string secretToken = "sensitive-access-token";
+        Assert.Equal("<redacted>", OidcPrincipalHelpers.DescribeTokenForDiagnostics(secretToken));
+        Assert.Equal("(none)", OidcPrincipalHelpers.DescribeTokenForDiagnostics(null));
+    }
+}
+
 public sealed class SimpleMarkupPreviewTests
 {
+    [Theory]
+    [InlineData("[Open](javascript:alert%281%29)")]
+    [InlineData("[Open](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)")]
+    public void Render_SanitizesMarkdownLinkSchemes(string markdown)
+    {
+        var result = SimpleMarkupPreview.Render(markdown).Value;
+
+        Assert.DoesNotContain("href=\"javascript:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("href=\"data:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Open", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_IsolatesLinksOpenedInNewTabs()
+    {
+        var result = SimpleMarkupPreview.Render("<a href=\"https://example.com\" target=\"_blank\">Open</a>").Value;
+
+        Assert.Contains("rel=\"noopener noreferrer\"", result, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Render_ReturnsPlaceholderForBlankInput()
     {

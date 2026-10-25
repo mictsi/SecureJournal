@@ -113,6 +113,8 @@
 }
 
 .project-directory-item.is-selected,
+.project-directory-item.is-active,
+.project-directory-item[aria-pressed="true"],
 .project-directory-item[aria-current="true"] {
     background-color: var(--sk-color-surface-selected);
     border-color: var(--sk-color-border-brand);

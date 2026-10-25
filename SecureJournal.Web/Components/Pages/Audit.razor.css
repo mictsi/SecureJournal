@@ -81,3 +81,22 @@
 .sj-table-toolbar {
     margin-block-end: var(--sk-space-12);
 }
+
+.sj-advanced-filters {
+    margin-block-start: var(--sk-space-16);
+    border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
+    padding-block-start: var(--sk-space-12);
+}
+
+.sj-advanced-filters summary {
+    cursor: pointer;
+    color: var(--sk-color-text-primary);
+    font-weight: var(--sk-font-weight-medium);
+    padding-block: var(--sk-space-4);
+}
+
+.sj-advanced-filters[open] summary { margin-block-end: var(--sk-space-16); }
+.sj-advanced-filters summary:focus-visible {
+    outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
+    outline-offset: 4px;
+}

@@ -8,7 +8,7 @@
 <PageTitle>Create User</PageTitle>
 
 <PageHeader Title="Create user"
-            Description="Add a local account and assign its role and group memberships." />
+            Description="Add an account and choose what it can do." />
 
 <PageAlerts Error="@_error" />
 
@@ -49,16 +49,20 @@ else
                 </div>
             </div>
 
-            <div class="user-create-toggle sk-checkbox">
+            <label class="user-create-toggle sk-checkbox" for="createLocalAccount">
                 <InputCheckbox id="createLocalAccount" class="sk-checkbox__input" @bind-Value="_createUserDraft.IsLocalAccount" />
-                <label class="sk-checkbox__label" for="createLocalAccount">Local account</label>
-            </div>
+                <span class="sk-checkbox__box" aria-hidden="true"></span>
+                <span class="sk-checkbox__content">
+                    <span class="sk-checkbox__label">Use a Secure Journal password</span>
+                    <span class="sk-checkbox__description">Leave unchecked for an account that signs in through your organization.</span>
+                </span>
+            </label>
 
             @if (_createUserDraft.IsLocalAccount)
             {
                 <div class="sk-field">
                     <label class="sk-field__label" for="createLocalPassword">Local Password</label>
-                    <InputText id="createLocalPassword" type="password" class="sk-input" @bind-Value="_createUserDraft.LocalPassword" />
+                    <InputText id="createLocalPassword" type="password" autocomplete="new-password" class="sk-input" @bind-Value="_createUserDraft.LocalPassword" />
                     <div class="sk-field__hint">Required for local accounts. Minimum length @_localPasswordMinLength.</div>
                 </div>
             }
@@ -73,6 +77,7 @@ else
                                    type="checkbox"
                                    checked="@_createUserRoles.Contains(role)"
                                    @onchange="args => ToggleCreateRole(role, args)" />
+                            <span class="sk-checkbox__box" aria-hidden="true"></span>
                             <span class="user-role-option-body">
                                 <span class="user-role-option-title">@RoleLabel(role)</span>
                                 <span class="user-role-option-description">@RoleDescription(role)</span>
@@ -230,8 +235,8 @@ else
         => role switch
         {
             AppRole.Administrator => "Full system access and administrative control.",
-            AppRole.ProjectUser => "Create and edit journal content for assigned projects.",
-            AppRole.Auditor => "Review records, history, and auditing activity.",
+            AppRole.ProjectUser => "Create and read journal entries in assigned projects.",
+            AppRole.Auditor => "Search audit activity and review linked journal evidence.",
             _ => string.Empty
         };
 

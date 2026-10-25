@@ -1,0 +1,16 @@
+{
+  "name": "securejournal-frontend-maintenance",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned tooling for rebuilding the vendored TinyMCE sanitizer module",
+  "type": "module",
+  "scripts": {
+    "build": "node rebuild-tinymce.mjs",
+    "test:sanitizer": "node test-sanitizer.mjs"
+  },
+  "devDependencies": {
+    "dompurify": "3.4.17",
+    "esbuild": "0.28.2",
+    "playwright": "1.64.1"
+  }
+}

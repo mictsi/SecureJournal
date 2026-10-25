@@ -3,6 +3,7 @@
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 @inject ILogger<GroupManagement> Logger
+@inject IJSRuntime JS
 
 <PageTitle>Group Management</PageTitle>
 
@@ -20,6 +21,7 @@
 </PageHeader>
 
 <PageAlerts Message="@_message" Error="@_error" />
+<NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
 
 @if (_currentUser is null)
 {
@@ -53,11 +55,11 @@ else
                 <div class="sk-stack sk-stack--gap-16">
                     <div class="sk-field">
                         <label class="sk-field__label" for="groupName">Group Name</label>
-                        <InputText id="groupName" class="sk-input" maxlength="100" @bind-Value="GroupDraft.Name" />
+                        <InputText id="groupName" class="sk-input" maxlength="100" @bind-Value="GroupDraft.Name" @oninput="args => GroupDraft.Name = args.Value?.ToString() ?? string.Empty" />
                     </div>
                     <div class="sk-field">
                         <label class="sk-field__label" for="groupDescription">Description</label>
-                        <InputTextArea id="groupDescription" class="sk-input" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" />
+                        <InputTextArea id="groupDescription" class="sk-input" rows="3" maxlength="500" @bind-Value="GroupDraft.Description" @oninput="args => GroupDraft.Description = args.Value?.ToString() ?? string.Empty" />
                     </div>
                 </div>
 
@@ -65,7 +67,7 @@ else
                     <button type="submit" class="sk-button sk-button--primary" disabled="@_isCreating">
                         @(_isCreating ? "Creating..." : "Create Group")
                     </button>
-                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupForm" disabled="@_isCreating">Reset</button>
+                    <button type="button" class="sk-button sk-button--secondary" @onclick="ResetGroupFormAsync" disabled="@_isCreating">Clear draft</button>
                 </div>
             </EditForm>
         </section>
@@ -113,6 +115,7 @@ else
                     {
                         <button type="button"
                                 class="group-directory-item @(group.GroupId == _selectedGroupId ? "is-active" : string.Empty)"
+                                aria-pressed="@(group.GroupId == _selectedGroupId ? "true" : "false")"
                                 @onclick="() => SelectGroupAsync(group.GroupId, group.Name, resetMemberQuery: true)">
                             <span class="group-avatar" aria-hidden="true">@GroupInitial(group)</span>
                             <span class="group-directory-item-body">
@@ -291,6 +294,7 @@ else
                                                     <td class="sj-text-end">
                                                         <input class="sk-checkbox__input"
                                                                type="checkbox"
+                                                               aria-label="@($"Assign {user.DisplayName} to {SelectedGroupName}")"
                                                                checked="@IsUserAssigned(user)"
                                                                @onchange="args => ToggleUserLocal(user, args)" />
                                                     </td>
@@ -355,12 +359,12 @@ else
                     <div class="group-danger-actions">
                         <div class="group-danger-copy">
                             <strong>Delete this group</strong>
-                            <span>Deleting a group removes its membership container and cannot be undone.</span>
+                            <span>Members lose access granted by this group. User accounts are kept. This cannot be undone.</span>
                         </div>
                         <button type="button"
                                 class="sk-button sk-button--danger"
                                 @onclick="() => DeleteGroupAsync(SelectedGroup.GroupId, SelectedGroup.Name)"
-                                disabled="@(_isDeleting && _deletingGroupId == SelectedGroup.GroupId)">
+                                disabled="@_isDeleting">
                             @(_isDeleting && _deletingGroupId == SelectedGroup.GroupId ? "Deleting..." : "Delete Group")
                         </button>
                     </div>
@@ -384,6 +388,7 @@ else
     private PagedResult<GroupUserAccessRow> _groupUserPage = new(Array.Empty<GroupUserAccessRow>(), 0, 1, 20, 1);
     private readonly Dictionary<Guid, bool> _pendingMemberAssignments = [];
     private Guid? _selectedGroupId;
+    private GroupOverview? _selectedGroup;
     private string? _selectedGroupName;
     private bool _showCreateGroupForm;
     private bool _showMemberBrowser;
@@ -395,11 +400,10 @@ else
     private string? _error;
 
     private bool _memberAssignmentsDirty => _pendingMemberAssignments.Count > 0;
+    private bool HasGroupDraft => !string.IsNullOrWhiteSpace(GroupDraft.Name) || !string.IsNullOrWhiteSpace(GroupDraft.Description);
+    private bool HasUnsavedChanges => _memberAssignmentsDirty || HasGroupDraft;
     private string SelectedGroupName => _selectedGroupName ?? "Selected group";
-    private GroupOverview? SelectedGroup
-        => _selectedGroupId is { } id
-            ? _groupPage.Items.FirstOrDefault(g => g.GroupId == id)
-            : null;
+    private GroupOverview? SelectedGroup => _selectedGroup;
 
     protected override async Task OnInitializedAsync()
     {
@@ -410,22 +414,20 @@ else
         }
 
         _currentUser = await JournalApp.GetCurrentUserAsync();
-        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+        await LoadGroupsAsync();
     }
 
-    private async Task LoadGroupsAsync(bool selectFirstGroupIfNeeded = false)
+    private async Task LoadGroupsAsync()
     {
         _groupPage = JournalApp.GetGroups(_groupQuery);
 
-        if (_groupPage.TotalCount == 0)
+        if (_selectedGroupId is { } selectedId)
         {
-            ClearSelectedGroup();
-            return;
+            _selectedGroup = _groupPage.Items.FirstOrDefault(group => group.GroupId == selectedId) ?? _selectedGroup;
         }
 
-        if (selectFirstGroupIfNeeded || !_selectedGroupId.HasValue || !_groupPage.Items.Any(g => g.GroupId == _selectedGroupId.Value))
+        if (_selectedGroup is null && _groupPage.Items.FirstOrDefault() is { } firstGroup)
         {
-            var firstGroup = _groupPage.Items.First();
             await SelectGroupAsync(firstGroup.GroupId, firstGroup.Name, resetMemberQuery: true);
             return;
         }
@@ -458,10 +460,6 @@ else
     private void ToggleCreateGroupForm()
     {
         _showCreateGroupForm = !_showCreateGroupForm;
-        if (!_showCreateGroupForm)
-        {
-            ResetGroupForm();
-        }
     }
 
     private async Task CreateGroupAsync()
@@ -476,7 +474,7 @@ else
             _message = $"Group '{group.Name}' created.";
             ResetGroupForm();
             _showCreateGroupForm = false;
-            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+            await LoadGroupsAsync();
         }
         catch (Exception ex)
         {
@@ -491,7 +489,7 @@ else
 
     private async Task DeleteGroupAsync(Guid groupId, string groupName)
     {
-        if (groupId == Guid.Empty)
+        if (groupId == Guid.Empty || _isDeleting)
         {
             return;
         }
@@ -502,6 +500,11 @@ else
 
         try
         {
+            if (!await JS.InvokeAsync<bool>("confirm", $"Delete group '{groupName}'? Members will lose project access granted by this group. User accounts will be kept. This cannot be undone."))
+            {
+                return;
+            }
+
             var deleted = JournalApp.DeleteGroup(groupId);
             _message = deleted
                 ? $"Group '{groupName}' deleted."
@@ -512,7 +515,7 @@ else
                 ClearSelectedGroup();
             }
 
-            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+            await LoadGroupsAsync();
         }
         catch (Exception ex)
         {
@@ -536,7 +539,6 @@ else
         }
 
         _showMemberBrowser = !_showMemberBrowser;
-        _pendingMemberAssignments.Clear();
 
         if (_showMemberBrowser)
         {
@@ -547,7 +549,18 @@ else
 
     private async Task SelectGroupAsync(Guid groupId, string groupName, bool resetMemberQuery)
     {
+        if (_selectedGroupId == groupId || _isSavingMembers || (_isDeleting && _selectedGroup is not null))
+        {
+            return;
+        }
+
+        if (_memberAssignmentsDirty && !await JS.InvokeAsync<bool>("confirm", $"Discard unsaved member changes for '{SelectedGroupName}'?"))
+        {
+            return;
+        }
+
         _selectedGroupId = groupId;
+        _selectedGroup = _groupPage.Items.FirstOrDefault(group => group.GroupId == groupId);
         _selectedGroupName = groupName;
         _pendingMemberAssignments.Clear();
 
@@ -601,6 +614,7 @@ else
             }
 
             _pendingMemberAssignments.Clear();
+            _selectedGroup = JournalApp.GetGroups().FirstOrDefault(group => group.GroupId == _selectedGroupId);
             await LoadGroupsAsync();
             await LoadGroupUsersAsync();
             _message = $"Members updated for group '{SelectedGroupName}'.";
@@ -616,10 +630,15 @@ else
         }
     }
 
-    private Task ResetGroupMemberEditsAsync()
+    private async Task ResetGroupMemberEditsAsync()
     {
+        if (_memberAssignmentsDirty && !await JS.InvokeAsync<bool>("confirm", $"Discard unsaved member changes for '{SelectedGroupName}'?"))
+        {
+            return;
+        }
+
         _pendingMemberAssignments.Clear();
-        return LoadGroupUsersAsync();
+        await LoadGroupUsersAsync();
     }
 
     private void ToggleUserLocal(GroupUserAccessRow user, ChangeEventArgs args)
@@ -640,6 +659,7 @@ else
     private void ClearSelectedGroup()
     {
         _selectedGroupId = null;
+        _selectedGroup = null;
         _selectedGroupName = null;
         _showMemberBrowser = false;
         _pendingMemberAssignments.Clear();
@@ -650,7 +670,7 @@ else
     {
         _groupQuery.FilterText = args.Value?.ToString() ?? string.Empty;
         _groupQuery.Page = 1;
-        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+        await LoadGroupsAsync();
     }
 
     private async Task OnPageSizeChanged(ChangeEventArgs args)
@@ -659,7 +679,7 @@ else
         {
             _groupQuery.PageSize = pageSize;
             _groupQuery.Page = 1;
-            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+            await LoadGroupsAsync();
         }
     }
 
@@ -676,7 +696,7 @@ else
         }
 
         _groupQuery.Page = 1;
-        await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+        await LoadGroupsAsync();
     }
 
     private async Task GoToPreviousPageAsync()
@@ -684,7 +704,7 @@ else
         if (_groupQuery.Page > 1)
         {
             _groupQuery.Page--;
-            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+            await LoadGroupsAsync();
         }
     }
 
@@ -693,7 +713,7 @@ else
         if (_groupQuery.Page < _groupPage.TotalPages)
         {
             _groupQuery.Page++;
-            await LoadGroupsAsync(selectFirstGroupIfNeeded: true);
+            await LoadGroupsAsync();
         }
     }
 
@@ -765,6 +785,23 @@ else
     {
         GroupDraft.Name = string.Empty;
         GroupDraft.Description = string.Empty;
+    }
+
+    private async Task ResetGroupFormAsync()
+    {
+        if (!HasGroupDraft || await JS.InvokeAsync<bool>("confirm", "Clear the new group draft? The name and description have not been saved."))
+        {
+            ResetGroupForm();
+        }
+    }
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        if (_isCreating || _isSavingMembers || _isDeleting ||
+            (HasUnsavedChanges && !await JS.InvokeAsync<bool>("confirm", "Leave group management without saving? Pending member changes and the new group draft will be discarded.")))
+        {
+            context.PreventNavigation();
+        }
     }
 
     private void ClearMessages()

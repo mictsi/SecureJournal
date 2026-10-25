@@ -18,17 +18,12 @@
     gap: 1rem;
 }
 
-.settings-column-right {
-    display: none;
-}
-
 @media (max-width: 980px) {
     .settings-layout {
         flex-direction: column;
     }
 
-    .settings-column-left,
-    .settings-column-right {
+    .settings-column-left {
         flex: 1 1 auto;
         width: 100%;
     }

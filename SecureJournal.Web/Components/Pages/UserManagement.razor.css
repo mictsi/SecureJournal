@@ -227,6 +227,8 @@
 }
 
 .user-directory-item.is-selected,
+.user-directory-item.is-active,
+.user-directory-item[aria-pressed="true"],
 .user-directory-item[aria-current="true"] {
     background-color: var(--sk-color-surface-selected);
     border-color: var(--sk-color-border-brand);
@@ -343,6 +345,7 @@
 }
 
 .user-role-option {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: var(--sk-space-12);
@@ -351,6 +354,7 @@
     border-radius: var(--sk-radius-md);
     background-color: var(--sk-color-surface-base);
     min-inline-size: 0;
+    cursor: pointer;
 }
 
 .user-role-option.is-selected {
@@ -358,7 +362,12 @@
     background-color: var(--sk-color-surface-selected);
 }
 
-.user-role-option-body { min-inline-size: 0; }
+.user-role-option-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sk-space-4);
+    min-inline-size: 0;
+}
 
 .user-role-option-title {
     font-weight: var(--sk-font-weight-semibold);

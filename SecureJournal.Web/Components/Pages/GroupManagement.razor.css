@@ -114,6 +114,8 @@
 }
 
 .group-directory-item.is-selected,
+.group-directory-item.is-active,
+.group-directory-item[aria-pressed="true"],
 .group-directory-item[aria-current="true"] {
     background-color: var(--sk-color-surface-selected);
     border-color: var(--sk-color-border-brand);

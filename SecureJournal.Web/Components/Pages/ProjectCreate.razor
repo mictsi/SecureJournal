@@ -15,15 +15,22 @@
 
 <section class="panel-card project-create-progress">
     <div class="project-create-progress-labels">
-        <span>Progress</span>
-        <span>@ProgressPercent%</span>
+        <span>Step @DisplayStep of @TotalSteps</span>
+        <span>@StepTitle</span>
     </div>
-    <div class="sk-progress" role="progressbar" aria-label="Create project wizard progress" aria-valuenow="@ProgressPercent" aria-valuemin="0" aria-valuemax="100">
-        <div class="sk-progress__bar" style="width:@($"{ProgressPercent}%")"></div>
-    </div>
+    <ol class="project-create-steps" aria-label="Create project steps">
+        <li class="@(CurrentStep == 1 ? "is-current" : string.Empty)" aria-current="@(CurrentStep == 1 ? "step" : null)">Project details</li>
+        <li class="@(CurrentStep == 2 ? "is-current" : string.Empty)" aria-current="@(CurrentStep == 2 ? "step" : null)">Group access</li>
+        @if (!WizardState.UseExistingGroups)
+        {
+            <li class="@(CurrentStep == 3 ? "is-current" : string.Empty)" aria-current="@(CurrentStep == 3 ? "step" : null)">Group members</li>
+        }
+        <li class="@(CurrentStep == 4 ? "is-current" : string.Empty)" aria-current="@(CurrentStep == 4 ? "step" : null)">Review &amp; create</li>
+    </ol>
 </section>
 
 <PageAlerts Message="@_message" Error="@_error" />
+<NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmNavigationAsync" />
 
 @if (_currentUser is null)
 {
@@ -36,12 +43,24 @@ else if (_currentUser.Role != AppRole.Administrator)
     <div class="sk-alert__content"><p class="sk-alert__body">Administrator access is required. Current user: <strong>@_currentUser.DisplayName</strong> (@_currentUser.Role).</p></div>
     </div>
 }
+else if (_createdProject is { } createdProject)
+{
+    <section class="panel-card">
+        <h2>Project created; finish access setup</h2>
+        <p><strong>@createdProject.Name</strong> (@createdProject.Code) was created, but its group setup could not finish. Open Manage projects to review access before using it.</p>
+        <div class="sk-cluster sj-form-actions">
+            <a href="/admin/projects" class="sk-button sk-button--primary">Review project access</a>
+            <a href="@($"/projects?projectId={createdProject.ProjectId:D}")" class="sk-button sk-button--secondary">View project</a>
+        </div>
+    </section>
+}
 else if (CurrentStep == 1)
 {
     <section class="panel-card project-create-card">
         <div class="panel-card-header">
-            <h3>Step 1: Project Information</h3>
+            <h2>Project details</h2>
         </div>
+        <p class="project-create-step-copy">Give the project a name. The remaining details are optional and can be updated later.</p>
 
         <EditForm Model="WizardState.ProjectDraft" OnValidSubmit="GoToStepTwoAsync" FormName="admin-project-create-step-1">
             <AntiforgeryToken />
@@ -51,7 +70,7 @@ else if (CurrentStep == 1)
             <div class="project-metadata-grid">
                 <div class="project-metadata-main">
                     <label class="sk-field__label" for="projectName">Name</label>
-                    <InputText id="projectName" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.Name" />
+                    <InputText id="projectName" class="sk-input" maxlength="100" aria-required="true" @bind-Value="WizardState.ProjectDraft.Name" @oninput="e => WizardState.ProjectDraft.Name = e.Value?.ToString() ?? string.Empty" />
                 </div>
 
                 <div class="project-metadata-main">
@@ -61,7 +80,7 @@ else if (CurrentStep == 1)
                                        class="sk-input journal-rich-editor-source"
                                        rows="8"
                                        maxlength="500"
-                                       @bind-Value="WizardState.ProjectDraft.Description" />
+                                       @bind-Value="WizardState.ProjectDraft.Description" @oninput="e => WizardState.ProjectDraft.Description = e.Value?.ToString() ?? string.Empty" />
                         <p class="journal-editor-hint">Use the editor toolbar for project context, lists, tables and links.</p>
                     </div>
                     <small class="sj-muted">Project code is generated automatically (for example PRJ0001).</small>
@@ -69,25 +88,25 @@ else if (CurrentStep == 1)
 
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectOwner">Project Owner</label>
-                    <InputText id="projectOwner" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.ProjectOwner" />
+                    <InputText id="projectOwner" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.ProjectOwner" @oninput="e => WizardState.ProjectDraft.ProjectOwner = e.Value?.ToString() ?? string.Empty" />
                 </div>
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectDepartment">Department</label>
-                    <InputText id="projectDepartment" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.Department" />
+                    <InputText id="projectDepartment" class="sk-input" maxlength="100" @bind-Value="WizardState.ProjectDraft.Department" @oninput="e => WizardState.ProjectDraft.Department = e.Value?.ToString() ?? string.Empty" />
                 </div>
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectEmail">Project owner email</label>
-                    <InputText id="projectEmail" class="sk-input" maxlength="254" @bind-Value="WizardState.ProjectDraft.ProjectEmail" />
+                    <InputText id="projectEmail" class="sk-input" maxlength="254" @bind-Value="WizardState.ProjectDraft.ProjectEmail" @oninput="e => WizardState.ProjectDraft.ProjectEmail = e.Value?.ToString() ?? string.Empty" />
                 </div>
                 <div class="sk-field">
                     <label class="sk-field__label" for="projectPhone">Project owner phone</label>
-                    <InputText id="projectPhone" class="sk-input" maxlength="32" @bind-Value="WizardState.ProjectDraft.ProjectPhone" />
+                    <InputText id="projectPhone" class="sk-input" maxlength="32" @bind-Value="WizardState.ProjectDraft.ProjectPhone" @oninput="e => WizardState.ProjectDraft.ProjectPhone = e.Value?.ToString() ?? string.Empty" />
                 </div>
             </div>
 
             <div class="sk-cluster">
                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
-                <button type="submit" class="sk-button sk-button--primary">Next</button>
+                <button type="submit" class="sk-button sk-button--primary">Continue to group access</button>
             </div>
         </EditForm>
     </section>
@@ -96,7 +115,7 @@ else if (CurrentStep == 2)
 {
     <section class="panel-card project-create-card">
         <div class="panel-card-header">
-            <h3>Step 2: Group Permissions</h3>
+            <h2>Group access</h2>
         </div>
 
         <p class="project-create-step-copy">Choose existing groups or create new groups to assign to this project.</p>
@@ -122,7 +141,7 @@ else if (CurrentStep == 2)
         {
             @if (_existingGroups.Count == 0)
             {
-                <p>No groups exist yet. Switch to "Create New Group" to continue.</p>
+                <p>No groups exist yet. Create a new group, or continue to review and assign access later.</p>
             }
             else
             {
@@ -149,7 +168,7 @@ else if (CurrentStep == 2)
             <div class="project-create-selection-panel">
                 <div class="sk-field">
                     <label class="sk-field__label" for="newGroupName">Group Name</label>
-                    <input id="newGroupName" class="sk-input" maxlength="100" @bind="_newGroupDraft.Name" />
+                    <input id="newGroupName" class="sk-input" maxlength="100" @bind="_newGroupDraft.Name" @bind:event="oninput" />
                 </div>
                 <div class="sk-field">
                     <label class="sk-field__label" for="newGroupDescription">Group Description</label>
@@ -193,21 +212,23 @@ else if (CurrentStep == 2)
             </div>
             @if (WizardState.UseExistingGroups)
             {
-                <button type="button" class="sk-button sk-button--primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
+                <button type="button" class="sk-button sk-button--primary" @onclick="GoToReview">Review project</button>
             }
             else
             {
-                <button type="button" class="sk-button sk-button--primary" @onclick="GoToStepThree">Next</button>
+                <button type="button" class="sk-button sk-button--primary" @onclick="GoToStepThree">Continue to members</button>
             }
         </div>
     </section>
 }
-else
+else if (CurrentStep == 3)
 {
     <section class="panel-card project-create-card">
         <div class="panel-card-header">
-            <h3>Step 3: Add Group Members</h3>
+            <h2>Group members</h2>
         </div>
+
+        <p class="project-create-step-copy">Choose who needs access. You can also add members later in group management.</p>
 
         @if (_users.Count == 0)
         {
@@ -247,7 +268,70 @@ else
                 <button type="button" class="sk-button sk-button--secondary" @onclick="CancelWizard">Cancel</button>
                 <button type="button" class="sk-button sk-button--secondary" @onclick="GoToStepTwo">Back</button>
             </div>
-            <button type="button" class="sk-button sk-button--primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">Create Project</button>
+            <button type="button" class="sk-button sk-button--primary" @onclick="GoToReview">Review project</button>
+        </div>
+    </section>
+}
+else
+{
+    <section class="panel-card project-create-card">
+        <div class="panel-card-header">
+            <h2>Review &amp; create</h2>
+        </div>
+        <p class="project-create-step-copy">Check the project details and who will have access before creating it.</p>
+
+        <dl class="project-create-review">
+            <div><dt>Project name</dt><dd>@WizardState.ProjectDraft.Name</dd></div>
+            <div><dt>Owner</dt><dd>@RenderValueOrDash(WizardState.ProjectDraft.ProjectOwner)</dd></div>
+            <div><dt>Department</dt><dd>@RenderValueOrDash(WizardState.ProjectDraft.Department)</dd></div>
+            <div><dt>Owner email</dt><dd>@RenderValueOrDash(WizardState.ProjectDraft.ProjectEmail)</dd></div>
+            <div><dt>Owner phone</dt><dd>@RenderValueOrDash(WizardState.ProjectDraft.ProjectPhone)</dd></div>
+        </dl>
+
+        @if (!string.IsNullOrWhiteSpace(WizardState.ProjectDraft.Description))
+        {
+            <div class="project-create-review-content">
+                <h3>Description</h3>
+                @SimpleMarkupPreview.Render(WizardState.ProjectDraft.Description)
+            </div>
+        }
+
+        <div class="project-create-review-content">
+            <h3>Group access</h3>
+            @if (WizardState.UseExistingGroups)
+            {
+                @if (WizardState.SelectedExistingGroupIds.Count == 0)
+                {
+                    <p>No groups selected. Only administrators will have access until you assign a group.</p>
+                }
+                else
+                {
+                    <ul class="project-create-review-groups">
+                        @foreach (var group in _existingGroups.Where(group => WizardState.SelectedExistingGroupIds.Contains(group.GroupId)))
+                        {
+                            <li><strong>@group.Name</strong><span>Existing members will receive project access.</span></li>
+                        }
+                    </ul>
+                }
+            }
+            else
+            {
+                <ul class="project-create-review-groups">
+                    @foreach (var group in WizardState.NewGroups)
+                    {
+                        <li>
+                            <strong>@group.Name <span class="sk-badge sk-badge--neutral">New group</span></strong>
+                            <span>@(group.MemberUserIds.Count == 0 ? "No members yet. Add members later to give them access." : $"{group.MemberUserIds.Count} member(s): {string.Join(", ", _users.Where(user => group.MemberUserIds.Contains(user.UserId)).Select(user => user.DisplayName))}")</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="sk-cluster sj-form-actions">
+            <button type="button" class="sk-button sk-button--secondary" @onclick="GoBackFromReview" disabled="@_isSubmitting">Back</button>
+            <button type="button" class="sk-button sk-button--primary" @onclick="CreateProjectAsync" disabled="@_isSubmitting">@(_isSubmitting ? "Creating project…" : "Create project")</button>
+            <button type="button" class="sk-button sk-button--ghost" @onclick="CancelWizard" disabled="@_isSubmitting">Cancel</button>
         </div>
     </section>
 }
@@ -256,17 +340,29 @@ else
     [Parameter] public int? Step { get; set; }
 
     private const int MinStep = 1;
-    private const int MaxStep = 3;
+    private const int MaxStep = 4;
     private const string WizardBaseRoute = "/admin/projects/create";
-    private const string StepOneRoute = WizardBaseRoute;
+    private const string StepOneRoute = $"{WizardBaseRoute}/1";
     private const string StepTwoRoute = $"{WizardBaseRoute}/2";
     private const string StepThreeRoute = $"{WizardBaseRoute}/3";
+    private const string ReviewRoute = $"{WizardBaseRoute}/4";
     private const string StartPageRoute = "/projects";
 
     private UserContext? _currentUser;
     private string? _message;
     private string? _error;
     private bool _isSubmitting;
+    private bool _allowNavigation;
+    private ProjectOverview? _createdProject;
+    private bool HasUnsavedChanges => !_allowNavigation && _createdProject is null &&
+        (!string.IsNullOrWhiteSpace(WizardState.ProjectDraft.Name)
+         || !string.IsNullOrWhiteSpace(WizardState.ProjectDraft.Description)
+         || !string.IsNullOrWhiteSpace(WizardState.ProjectDraft.ProjectOwner)
+         || !string.IsNullOrWhiteSpace(WizardState.ProjectDraft.Department)
+         || !string.IsNullOrWhiteSpace(WizardState.ProjectDraft.ProjectEmail)
+         || !string.IsNullOrWhiteSpace(WizardState.ProjectDraft.ProjectPhone)
+         || WizardState.SelectedExistingGroupIds.Count > 0 || WizardState.NewGroups.Count > 0
+         || !string.IsNullOrWhiteSpace(_newGroupDraft.Name) || !string.IsNullOrWhiteSpace(_newGroupDraft.Description));
     private CreateGroupRequest _newGroupDraft = new();
     private List<GroupOverview> _existingGroups = [];
     private List<UserOverview> _users = [];
@@ -282,17 +378,14 @@ else
 
     private string StepTitle => CurrentStep switch
     {
-        1 => "Project Information",
-        2 => "Group Permissions",
-        _ => "Add Group Members"
+        1 => "Project details",
+        2 => "Group access",
+        3 => "Group members",
+        _ => "Review & create"
     };
 
-    private int ProgressPercent => CurrentStep switch
-    {
-        1 => 33,
-        2 => 67,
-        _ => 100
-    };
+    private int TotalSteps => WizardState.UseExistingGroups ? 3 : 4;
+    private int DisplayStep => CurrentStep == 4 ? TotalSteps : CurrentStep;
 
     protected override async Task OnInitializedAsync()
     {
@@ -309,11 +402,6 @@ else
 
     protected override void OnParametersSet()
     {
-        if (Step is null)
-        {
-            WizardState.Reset();
-        }
-
         CurrentStep = Step.GetValueOrDefault(1);
         if (CurrentStep < MinStep || CurrentStep > MaxStep)
         {
@@ -332,10 +420,16 @@ else
         {
             Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
         }
+
+        if (CurrentStep == 4 && !WizardState.UseExistingGroups && WizardState.NewGroups.Count == 0)
+        {
+            Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        _jsReady = true;
         var editors = new List<object>();
 
         if (CurrentStep == 1)
@@ -357,14 +451,33 @@ else
             });
         }
 
-        await JS.InvokeVoidAsync("secureJournalEditors.syncTinyMce", editors, _editorIds);
+        try
+        {
+            if (editors.Count == 0)
+            {
+                await JS.InvokeVoidAsync("secureJournalEditors.dispose", _editorIds);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("secureJournalEditors.syncTinyMce", editors, _editorIds);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Reconnection restores the interactive editor.
+        }
+        catch (JSException ex)
+        {
+            _jsReady = false;
+            Logger.LogWarning(ex, "Project editor unavailable; using the text field");
+        }
     }
 
-    private Task GoToStepTwoAsync()
+    private async Task GoToStepTwoAsync()
     {
         ClearMessages();
+        await SyncEditorValuesAsync();
         Navigation.NavigateTo(StepTwoRoute, forceLoad: false);
-        return Task.CompletedTask;
     }
 
     private void GoToStepOne()
@@ -391,25 +504,55 @@ else
         Navigation.NavigateTo(StepThreeRoute, forceLoad: false);
     }
 
-    private void CancelWizard()
+    private void GoToReview()
     {
+        ClearMessages();
+        Navigation.NavigateTo(ReviewRoute, forceLoad: false);
+    }
+
+    private void GoBackFromReview()
+    {
+        ClearMessages();
+        Navigation.NavigateTo(WizardState.UseExistingGroups ? StepTwoRoute : StepThreeRoute, forceLoad: false);
+    }
+
+    private async Task CancelWizard()
+    {
+        if (HasUnsavedChanges && !await JS.InvokeAsync<bool>("confirm", "Discard this project setup? Your unsaved project details and group selections will be lost."))
+        {
+            return;
+        }
+
+        _allowNavigation = true;
         WizardState.Reset();
         Navigation.NavigateTo(StartPageRoute, forceLoad: false);
+    }
+
+    private async Task ConfirmNavigationAsync(LocationChangingContext context)
+    {
+        var path = new Uri(context.TargetLocation).AbsolutePath.TrimEnd('/');
+        var isWizardStep = path == WizardBaseRoute ||
+            (path.StartsWith(WizardBaseRoute + "/", StringComparison.Ordinal) &&
+             int.TryParse(path[(WizardBaseRoute.Length + 1)..], out var step) && step >= MinStep && step <= MaxStep);
+        if (!HasUnsavedChanges || isWizardStep)
+        {
+            return;
+        }
+
+        if (!await JS.InvokeAsync<bool>("confirm", "Leave project setup? Your unsaved details and group selections will be lost."))
+        {
+            context.PreventNavigation();
+            return;
+        }
+
+        _allowNavigation = true;
+        WizardState.Reset();
     }
 
     private void SetGroupMode(bool useExistingGroups)
     {
         ClearMessages();
         WizardState.UseExistingGroups = useExistingGroups;
-        if (useExistingGroups)
-        {
-            WizardState.NewGroups.Clear();
-            _newGroupDraft = new();
-        }
-        else
-        {
-            WizardState.SelectedExistingGroupIds.Clear();
-        }
     }
 
     private void ToggleExistingGroup(Guid groupId, ChangeEventArgs args)
@@ -471,7 +614,7 @@ else
 
     private Task CreateProjectAsync()
     {
-        if (_isSubmitting)
+        if (_isSubmitting || CurrentStep != 4 || _createdProject is not null)
         {
             return Task.CompletedTask;
         }
@@ -492,6 +635,7 @@ else
                 ProjectOwner = WizardState.ProjectDraft.ProjectOwner,
                 Department = WizardState.ProjectDraft.Department
             });
+            _createdProject = project;
 
             if (WizardState.UseExistingGroups)
             {
@@ -531,13 +675,21 @@ else
                 }
             }
 
+            _allowNavigation = true;
             WizardState.Reset();
-            Navigation.NavigateTo(StartPageRoute, forceLoad: false);
+            Navigation.NavigateTo($"/projects?projectId={project.ProjectId:D}", forceLoad: false);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Admin project wizard create failed");
             _error = ex.Message;
+            if (_createdProject is not null)
+            {
+                // Creation is already committed. Never offer a retry that would
+                // create a second project after a later group operation fails.
+                _allowNavigation = true;
+                WizardState.Reset();
+            }
         }
         finally
         {
@@ -567,7 +719,12 @@ else
         => string.IsNullOrWhiteSpace(value) ? "-" : value;
 
     private async Task SyncEditorValuesAsync()
-        => await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
+    {
+        if (_jsReady)
+        {
+            await JS.InvokeVoidAsync("secureJournalEditors.flush", _editorIds);
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {

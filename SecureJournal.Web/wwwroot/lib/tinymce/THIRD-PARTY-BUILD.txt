@@ -1,0 +1,12 @@
+TinyMCE 8.10.0, GPL-2.0-or-later, https://www.tiny.cloud/
+Secure Journal rebuild replaces the embedded DOMPurify 3.4.12 module with the complete
+official DOMPurify 3.4.17 distribution (Apache-2.0 OR MPL-2.0).
+Source: https://github.com/cure53/DOMPurify/releases/tag/3.4.17
+The replacement is isolated in a closure and retains TinyMCE's existing module interface.
+Core input SHA-256: f729f55e6900ccfbdddcbc0426035de9f932bcfc17be367dd329decb5d9301c5
+DOMPurify input SHA-256: 60c5d5ccbb466de3de3ba863461a92bf134f8c156cef7992da43e0f659bc5cbd
+Minifier: esbuild 0.28.2; pinned inputs and npm lockfile: scripts/frontend/
+Rebuild: npm ci --ignore-scripts --prefix scripts/frontend
+         python3 scripts/verify-frontend-assets.py --sync-tinymce
+The unused codesample plugin is omitted; it bundles an older Prism implementation.
+Upstream license.md and notices.txt are retained unchanged; their DOMPurify version is superseded above.

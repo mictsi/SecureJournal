@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+      - "[0-9]*"
 
 permissions:
   contents: read
@@ -11,35 +12,62 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SECUREJOURNAL_IMAGE: securejournal:${{ github.ref_name }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          global-json-file: global.json
 
       - name: Restore projects
         run: |
-          dotnet restore SecureJournal.Web/SecureJournal.Web.csproj
-          dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj
+          dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj --locked-mode
 
       - name: Build web project (Debug for tests)
         run: dotnet build SecureJournal.Web/SecureJournal.Web.csproj -c Debug --no-restore
+
+      - name: Verify bundled frontend versions and integrity
+        run: python3 scripts/verify-frontend-assets.py
+
+      - name: Audit frontend maintenance dependencies
+        run: npm --prefix scripts/frontend audit --audit-level=low
 
       - name: Run tests
         run: dotnet test SecureJournal.Tests/SecureJournal.Tests.csproj -c Debug --no-restore --logger "console;verbosity=minimal"
 
       - name: Build Docker image
-        run: docker build -t securejournal:${{ github.ref_name }} .
+        run: docker build --pull -t "$SECUREJOURNAL_IMAGE" .
+
+      - name: Scan final image for all known vulnerabilities
+        env:
+          TRIVY_VERSION: "0.76.1"
+          TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+        run: |
+          set -euo pipefail
+          trivy_dir="$(mktemp -d "$RUNNER_TEMP/trivy.XXXXXX")"
+          trivy_archive="$trivy_dir/trivy.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            --output "$trivy_archive"
+          printf '%s  %s\n' "$TRIVY_SHA256" "$trivy_archive" | sha256sum --check --strict
+          tar -xzf "$trivy_archive" -C "$trivy_dir" trivy
+          "$trivy_dir/trivy" image --config /dev/null --cache-dir "$trivy_dir/cache" \
+            --image-src docker --scanners vuln --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
+            --ignorefile '' --ignore-unfixed=false --exit-code 1 --timeout 10m --no-progress \
+            "$SECUREJOURNAL_IMAGE"
 
       - name: Publish web artifact (Release)
         run: dotnet publish SecureJournal.Web/SecureJournal.Web.csproj -c Release -o .artifacts/publish/web --no-restore
 
       - name: Upload published web artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: securejournal-web-${{ github.ref_name }}
           path: .artifacts/publish/web

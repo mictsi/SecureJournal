@@ -95,9 +95,7 @@ if (appInsightsEnabled)
 }
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
+    TrustedProxyConfiguration.Apply(options, builder.Configuration);
 });
 
 var app = builder.Build();
@@ -219,19 +217,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseStaticFiles();
-app.UseAntiforgery();
-app.Use(async (context, next) =>
-{
-    if (HttpMethods.IsGet(context.Request.Method) &&
-        !context.Request.Path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) &&
-        !context.Request.Path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase))
-    {
-        var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
-        antiforgery.GetAndStoreTokens(context);
-    }
-
-    await next();
-});
 if (authStackEnabled)
 {
     app.UseAuthentication();
@@ -277,19 +262,36 @@ else if (enableAspNetIdentity)
         "Authentication:EnableAspNetIdentity=true but Persistence:EnableProductionIdentityDatabase=false. Authentication middleware and auth endpoints are disabled for this startup.");
 }
 
+// Request tokens are bound to the current principal. Authentication must run
+// before either validation or token issuance, including tokens rendered by the
+// Blazor layout after a full page load.
+app.UseAntiforgery();
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsGet(context.Request.Method) &&
+        !context.Request.Path.StartsWithSegments("/_framework", StringComparison.OrdinalIgnoreCase) &&
+        !context.Request.Path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase))
+    {
+        var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+        antiforgery.GetAndStoreTokens(context);
+    }
+
+    await next();
+});
+
 if (authStackEnabled)
 {
-    static string SafeRelative(string? path, string fallback)
-        => !string.IsNullOrWhiteSpace(path) && Uri.IsWellFormedUriString(path, UriKind.Relative)
+    static string SafeLocal(string? path, string fallback)
+        => !string.IsNullOrWhiteSpace(path) && Microsoft.AspNetCore.Http.HttpResults.RedirectHttpResult.IsLocalUrl(path)
             ? path
             : fallback;
 
     static IResult RedirectWithError(string path, string message)
     {
-        var safePath = SafeRelative(path, "/login");
+        var safePath = SafeLocal(path, "/login");
         var separator = safePath.Contains('?') ? '&' : '?';
         var encodedError = Uri.EscapeDataString(message);
-        return Results.Redirect($"{safePath}{separator}error={encodedError}");
+        return Results.LocalRedirect($"{safePath}{separator}error={encodedError}");
     }
 
     app.MapPost("/auth/local-login", async (HttpContext httpContext, IAntiforgery antiforgery, ISecureJournalAppService journalApp, PrototypeSessionCookieCoordinator sessionCookies) =>
@@ -306,14 +308,14 @@ if (authStackEnabled)
             var password = form["password"].ToString() ?? string.Empty;
             var returnUrl = form["returnUrl"].ToString();
             var failurePath = form["failurePath"].ToString();
-            var safeReturnUrl = SafeRelative(returnUrl, "/projects");
-            safeFailurePath = SafeRelative(failurePath, "/login");
+            var safeReturnUrl = SafeLocal(returnUrl, "/projects");
+            safeFailurePath = SafeLocal(failurePath, "/login");
 
             var result = await journalApp.TryLocalLoginAsync(username, password, httpContext.RequestAborted);
             if (result.Success)
             {
                 await sessionCookies.PersistCurrentLoginAsync();
-                return Results.Redirect(safeReturnUrl);
+                return Results.LocalRedirect(safeReturnUrl);
             }
 
             return RedirectWithError(safeFailurePath, result.Message ?? "Login failed.");
@@ -338,8 +340,8 @@ if (authStackEnabled)
             var form = await httpContext.Request.ReadFormAsync();
             var returnUrl = form["returnUrl"].ToString();
             await httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
-            var safeReturnUrl = SafeRelative(returnUrl, "/");
-            return Results.Redirect(safeReturnUrl);
+            var safeReturnUrl = SafeLocal(returnUrl, "/");
+            return Results.LocalRedirect(safeReturnUrl);
         }
         catch (AntiforgeryValidationException ex)
         {
@@ -360,9 +362,7 @@ if (authStackEnabled)
             return Results.Redirect("/");
         }
 
-        var safeReturnUrl = string.IsNullOrWhiteSpace(returnUrl) || !Uri.IsWellFormedUriString(returnUrl, UriKind.Relative)
-            ? "/projects"
-            : returnUrl;
+        var safeReturnUrl = SafeLocal(returnUrl, "/projects");
 
         return Results.Challenge(
             new AuthenticationProperties { RedirectUri = safeReturnUrl },

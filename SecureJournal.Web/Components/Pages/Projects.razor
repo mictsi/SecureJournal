@@ -2,13 +2,14 @@
 @attribute [Authorize]
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>My Projects</PageTitle>
 
 <PageHeader Title="My projects"
-            Description="Projects available to the current user. Search supports partial matches in subject, description and notes.">
+            Description="Choose a project, find a record, or capture what happened next.">
     <Actions>
-        <button type="button" class="sk-button sk-button--secondary" @onclick="RefreshSelectedProjectEntries">
+        <button type="button" class="sk-button sk-button--secondary" disabled="@(SelectedProject is null || _currentUser?.Role == AppRole.Auditor)" @onclick="RefreshSelectedProjectEntries">
             <svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-refresh" /></svg>
             Refresh entries
         </button>
@@ -19,6 +20,25 @@
 
 <div class="my-projects-shell">
     <aside class="panel-card my-project-directory-card">
+        @if (SelectedProject is { } currentProject)
+        {
+            <div class="my-project-picker-summary">
+                <div class="my-project-picker-current">
+                    <span class="my-project-directory-subtitle">Current project</span>
+                    <strong>@currentProject.Name</strong>
+                </div>
+                <button type="button"
+                        class="sk-button sk-button--secondary sk-button--sm"
+                        aria-expanded="@(_projectPickerOpen ? "true" : "false")"
+                        aria-controls="project-picker-directory"
+                        @ref="_projectPickerToggle"
+                        @onclick="() => _projectPickerOpen = !_projectPickerOpen">
+                    @(_projectPickerOpen ? "Close picker" : "Change project")
+                </button>
+            </div>
+        }
+
+        <div id="project-picker-directory" class="my-project-picker-content @(_projectPickerOpen || SelectedProject is null ? "is-open" : string.Empty)">
         <div class="my-project-directory-header">
             <div>
                 <h3>Projects</h3>
@@ -40,13 +60,23 @@
         @if (_projects.Count == 0)
         {
             <div class="my-project-directory-empty">
-                <p>No projects are available for the current user.</p>
+                <h3>Your workspace is ready</h3>
+                <p>Projects appear here when you have access.</p>
+                @if (_currentUser?.Role == AppRole.Administrator)
+                {
+                    <a class="sk-button sk-button--primary" href="/admin/projects/create">Create your first project</a>
+                }
+                else
+                {
+                    <p>Ask an administrator to add you to a project group.</p>
+                }
             </div>
         }
         else if (FilteredProjectCount == 0)
         {
             <div class="my-project-directory-empty">
                 <p>No projects match the current search text.</p>
+                <button class="sk-button sk-button--secondary sk-button--sm" type="button" @onclick="ClearProjectSearch">Clear search</button>
             </div>
         }
         else
@@ -56,11 +86,12 @@
                 {
                     <button type="button"
                             class="my-project-directory-item @(_selectedProjectId == project.ProjectId ? "is-active" : string.Empty)"
+                            aria-pressed="@(_selectedProjectId == project.ProjectId ? "true" : "false")"
                             @onclick="() => SelectProject(project.ProjectId)">
                         <span class="my-project-avatar" aria-hidden="true">@ProjectInitial(project)</span>
                         <span class="my-project-directory-item-body">
-                            <span class="my-project-directory-name">@project.Code</span>
-                            <span class="my-project-directory-subtitle">@project.Name</span>
+                            <span class="my-project-directory-name">@project.Name</span>
+                            <span class="my-project-directory-subtitle">@project.Code</span>
                             <span class="my-project-chip-list">
                                 @if (project.AssignedGroups.Count == 0)
                                 {
@@ -84,6 +115,8 @@
             </div>
 
             <div class="my-project-directory-footer">
+                @if (ProjectListTotalPages > 1)
+                {
                 <div class="my-project-directory-footer-row">
                     <span>Page @_projectListPage of @ProjectListTotalPages</span>
                     <div class="sk-cluster">
@@ -91,8 +124,11 @@
                         <button type="button" class="sk-button sk-button--secondary sk-button--sm" disabled="@(_projectListPage >= ProjectListTotalPages)" @onclick="GoToNextProjectListPage">Next</button>
                     </div>
                 </div>
+                }
                 <div class="my-project-directory-footer-row">
                     <span>@VisibleProjectRangeLabel()</span>
+                    @if (FilteredProjectCount > _projectListPageSizeOptions[0])
+                    {
                     <div class="my-project-page-size">
                         <label class="project-page-size-label" for="projectListPageSize">Page size</label>
                         <div class="sk-select-wrapper">
@@ -104,11 +140,15 @@
                         </select>
                         </div>
                     </div>
+                    }
                 </div>
             </div>
         }
+        </div>
     </aside>
 
+    @if (_projects.Count > 0)
+    {
     <div class="my-project-detail-column">
 
         @if (SelectedProject is null)
@@ -123,14 +163,14 @@
             <section class="panel-card my-project-journal-card">
                 <div class="panel-card-header my-project-section-header">
                     <div>
-                        <p class="my-project-section-kicker">Journal Entries</p>
+                        <p class="my-project-section-kicker">@SelectedProject.Code · Project journal</p>
                         <h3>@JournalEntriesPanelTitle</h3>
-                        <p class="my-project-section-copy">@SelectedProjectLabel</p>
+                        <p class="my-project-section-copy">A shared record of decisions, updates, and events.</p>
                     </div>
                     <div class="panel-card-header-actions">
                         @if (_selectedProjectId.HasValue && _currentUser?.Role != AppRole.Auditor)
                         {
-                            <a href="/journal" class="sk-button sk-button--primary">Add Journal Entry</a>
+                            <a href="@NewEntryUrl" class="sk-button sk-button--primary"><svg class="sk-button__icon" aria-hidden="true" focusable="false" width="16" height="16"><use href="#sk-icon-plus" /></svg>New entry</a>
                         }
                     </div>
                 </div>
@@ -141,18 +181,18 @@
                 }
                 else
                 {
-                    <div class="sk-stack sk-stack--gap-16">
-                        <div class="sk-field">
+                    <div class="my-project-journal-toolbar">
+                        <div class="sk-field my-project-journal-search">
                             <label class="sk-field__label" for="projectJournalSearch">Search</label>
                             <input id="projectJournalSearch"
                                    class="sk-input"
-                                   type="text"
+                                   type="search"
                                    value="@_searchText"
                                    @oninput="OnSearchChanged"
                                    placeholder="Search subject, description, notes..." />
                         </div>
                         <div class="sk-field">
-                            <label class="sk-field__label" for="projectJournalPageSize">Page size</label>
+                            <label class="sk-field__label" for="projectJournalPageSize">Entries per page</label>
                             <div class="sk-select-wrapper">
                                 <select id="projectJournalPageSize" class="sk-select" @onchange="OnPageSizeChanged">
                                 @foreach (var pageSize in _pageSizeOptions)
@@ -171,29 +211,45 @@
                             </select>
                             </div>
                         </div>
-                        <div class="sk-cluster">
+                    </div>
+                    <div class="my-project-journal-tools">
+                        <p class="sj-muted" role="status">@FilteredEntries.Count() @(FilteredEntries.Count() == 1 ? "entry" : "entries")</p>
+                        @if (!string.IsNullOrWhiteSpace(_searchText))
+                        {
+                            <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="ClearEntrySearch">Clear search</button>
+                        }
+                        @if (_currentUser?.Role == AppRole.Administrator)
+                        {
                             <label class="sk-checkbox">
                                     <input id="projectIncludeDeleted"
                                            class="sk-checkbox__input"
                                            type="checkbox"
                                            checked="@_includeSoftDeleted"
-                                           disabled="@(_currentUser?.Role != AppRole.Administrator)"
                                            @onchange="OnIncludeSoftDeletedChanged" />
                                 <span class="sk-checkbox__box" aria-hidden="true"></span>
                                 <span class="sk-checkbox__content">
-                                    <span class="sk-checkbox__label">Include deleted (Admin only)</span>
+                                    <span class="sk-checkbox__label">Show deleted entries</span>
                                 </span>
                             </label>
-                        </div>
+                        }
                     </div>
 
                     @if (!_entries.Any())
                     {
-                        <p>No journal entries were found for this project.</p>
+                        <div class="sk-empty-state">
+                            <svg class="sk-empty-state__icon" aria-hidden="true" focusable="false" width="48" height="48"><use href="#sk-icon-book" /></svg>
+                            <h3 class="sk-empty-state__heading">Start this project's story</h3>
+                            <p class="sk-empty-state__body">Record a decision, milestone, or update. Each entry becomes part of the project's history.</p>
+                            <a href="@NewEntryUrl" class="sk-button sk-button--primary">Create the first entry</a>
+                        </div>
                     }
                     else if (!FilteredEntries.Any())
                     {
-                        <p>No journal entries match the current search text.</p>
+                        <div class="sk-empty-state">
+                            <h3 class="sk-empty-state__heading">No matching entries</h3>
+                            <p class="sk-empty-state__body">Try a shorter phrase. Search looks in subjects, descriptions, and notes.</p>
+                            <button type="button" class="sk-button sk-button--secondary" @onclick="ClearEntrySearch">Clear search</button>
+                        </div>
                     }
                     else
                     {
@@ -201,31 +257,31 @@
                            aria-hidden header row, so the column names never reached a screen
                            reader and every cell lost its association with its header. *@
                         <div class="sk-table entry-list" role="region" aria-labelledby="entry-list-caption" tabindex="0">
-                            <table>
+                            <table role="table">
                                 <caption id="entry-list-caption" class="sk-visually-hidden">
                                     Journal entries
                                     <span class="sk-table__caption-detail">@VisibleEntries.Count() shown</span>
                                 </caption>
-                                <thead>
-                                    <tr>
-                                        <th scope="col" class="entry-col-created">Created</th>
-                                        <th scope="col" class="entry-col-subject">Subject</th>
-                                        <th scope="col" class="entry-col-status">Status</th>
-                                        <th scope="col" class="entry-col-actions"><span class="sk-visually-hidden">Actions</span></th>
+                                <thead role="rowgroup">
+                                    <tr role="row">
+                                        <th scope="col" role="columnheader" class="entry-col-created">Created (UTC)</th>
+                                        <th scope="col" role="columnheader" class="entry-col-subject">Subject</th>
+                                        <th scope="col" role="columnheader" class="entry-col-status">Status</th>
+                                        <th scope="col" role="columnheader" class="entry-col-actions"><span class="sk-visually-hidden">Actions</span></th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody role="rowgroup">
                                     @foreach (var entry in VisibleEntries)
                                     {
-                                        <tr class="@(entry.IsSoftDeleted ? "is-soft-deleted" : string.Empty)">
-                                            <td class="entry-col-created">
-                                                <time datetime="@entry.CreatedAtUtc.ToString("o")">@entry.CreatedAtUtc.ToString("yyyy-MM-dd")</time>
+                                        <tr role="row" class="@(entry.IsSoftDeleted ? "is-soft-deleted" : string.Empty)">
+                                            <td role="cell" class="entry-col-created">
+                                                <time datetime="@entry.CreatedAtUtc.ToString("o")" title="@entry.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")">@entry.CreatedAtUtc.ToString("dd MMM yyyy")</time><span class="entry-mobile-zone" aria-hidden="true"> UTC</span>
                                                 <span class="entry-created-by">by @entry.CreatedBy</span>
                                             </td>
-                                            <th scope="row" class="entry-col-subject">
+                                            <th scope="row" role="rowheader" class="entry-col-subject">
                                                 <a class="sk-link" href="@GetEntryDetailsUrl(entry)">@entry.Subject</a>
                                             </th>
-                                            <td class="entry-col-status">
+                                            <td role="cell" class="entry-col-status">
                                                 @if (entry.IsSoftDeleted)
                                                 {
                                                     <span class="sk-badge sk-badge--warning">Soft-deleted</span>
@@ -235,14 +291,14 @@
                                                     <span class="sk-badge sk-badge--success">Active</span>
                                                 }
                                             </td>
-                                            <td class="entry-col-actions">
+                                            <td role="cell" class="entry-col-actions">
                                                 <div class="sk-cluster sk-cluster--end sk-cluster--gap-8">
                                                     <a href="@GetEntryDetailsUrl(entry)" class="sk-button sk-button--secondary sk-button--sm">
                                                         View<span class="sk-visually-hidden"> @entry.Subject</span>
                                                     </a>
                                                     @if (!entry.IsSoftDeleted)
                                                     {
-                                                        <button type="button" class="sk-button sk-button--danger sk-button--sm" @onclick="() => SoftDelete(entry.RecordId)">
+                                                        <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="() => SoftDeleteAsync(entry)">
                                                             Delete<span class="sk-visually-hidden"> @entry.Subject</span>
                                                         </button>
                                                     }
@@ -272,11 +328,15 @@
             </section>
         }
     </div>
+    }
 </div>
 
 @code {
     [SupplyParameterFromQuery(Name = "projectId")]
     public Guid? ProjectId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "saved")]
+    public Guid? SavedEntryId { get; set; }
 
     private const string DateSortNewest = "newest";
     private const string DateSortOldest = "oldest";
@@ -297,6 +357,10 @@
     private int _projectListPage = 1;
     private string? _message;
     private string? _error;
+    private Guid? _lastSavedEntryId;
+    private bool _projectPickerOpen;
+    private bool _focusProjectPicker;
+    private ElementReference _projectPickerToggle;
 
     private ProjectOverview? SelectedProject
         => _selectedProjectId is { } id
@@ -368,15 +432,40 @@
         }
     }
 
-    private string SelectedProjectLabel
-        => SelectedProject is { } project
-            ? $"{project.Code} - {project.Name}"
-            : "No project selected";
-
     private string JournalEntriesPanelTitle
         => SelectedProject is { } project
-            ? $"Journal entries for {project.Name}"
+            ? project.Name
             : "Project Journal Entries";
+
+    private string NewEntryUrl => _selectedProjectId is { } id ? $"/journal?projectId={id:D}" : "/journal";
+
+    protected override void OnParametersSet()
+    {
+        if (_currentUser is null || _currentUser.Role == AppRole.Auditor)
+        {
+            return;
+        }
+
+        var nextProjectId = ProjectId is { } id && _projects.Any(project => project.ProjectId == id)
+            ? id
+            : _projects.FirstOrDefault()?.ProjectId;
+        if (nextProjectId != _selectedProjectId)
+        {
+            _selectedProjectId = nextProjectId;
+            _searchText = string.Empty;
+            _currentPage = 1;
+            _message = null;
+            RefreshSelectedProjectEntries();
+        }
+
+        if (SavedEntryId != _lastSavedEntryId)
+        {
+            _lastSavedEntryId = SavedEntryId;
+            _message = SavedEntryId is { } savedId && _entries.FirstOrDefault(entry => entry.RecordId == savedId) is { } savedEntry
+                ? $"“{savedEntry.Subject}” was saved to this project."
+                : null;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -389,9 +478,24 @@
         await LoadPageAsync();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusProjectPicker)
+        {
+            _focusProjectPicker = false;
+            await _projectPickerToggle.FocusAsync(preventScroll: true);
+        }
+    }
+
     private async Task LoadPageAsync()
     {
         _currentUser = await JournalApp.GetCurrentUserAsync();
+        if (_currentUser.Role == AppRole.Auditor)
+        {
+            Navigation.NavigateTo("/audit", replace: true);
+            return;
+        }
+
         _projects = JournalApp.GetProjects().Where(p => p.HasAccessForCurrentUser).ToList();
         _projectListPage = 1;
 
@@ -447,10 +551,14 @@
 
     private void SelectProject(Guid projectId)
     {
+        _focusProjectPicker = _projectPickerOpen;
+        _projectPickerOpen = false;
+        _message = null;
         _selectedProjectId = projectId;
         _searchText = string.Empty;
         _currentPage = 1;
         RefreshSelectedProjectEntries();
+        Navigation.NavigateTo($"/projects?projectId={projectId:D}");
     }
 
     private void RefreshSelectedProjectEntries()
@@ -478,15 +586,20 @@
         }
     }
 
-    private void SoftDelete(Guid recordId)
+    private async Task SoftDeleteAsync(JournalEntryView entry)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Delete “{entry.Subject}”? The entry will be hidden from the project journal. Its history is retained, and an administrator can restore it."))
+        {
+            return;
+        }
+
         _message = null;
         _error = null;
 
         try
         {
-            var deleted = JournalApp.SoftDeleteJournalEntry(recordId);
-            _message = deleted ? "Entry soft-deleted." : "Entry was already deleted or not found.";
+            var deleted = JournalApp.SoftDeleteJournalEntry(entry.RecordId);
+            _message = deleted ? $"“{entry.Subject}” was deleted. An administrator can restore it." : "Entry was already deleted or not found.";
             RefreshSelectedProjectEntries();
         }
         catch (Exception ex)
@@ -515,6 +628,18 @@
     private void OnSearchChanged(ChangeEventArgs args)
     {
         _searchText = args.Value?.ToString() ?? string.Empty;
+        _currentPage = 1;
+    }
+
+    private void ClearProjectSearch()
+    {
+        _projectSearchText = string.Empty;
+        _projectListPage = 1;
+    }
+
+    private void ClearEntrySearch()
+    {
+        _searchText = string.Empty;
         _currentPage = 1;
     }
 

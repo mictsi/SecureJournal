@@ -68,6 +68,20 @@
     margin: 0;
 }
 
+.sj-nav-backdrop { display: none; }
+
+@media (max-width: 63.999rem) {
+    .sj-nav-backdrop {
+        display: block;
+        position: fixed;
+        inset: var(--sk-layout-header-height) 0 0;
+        z-index: calc(var(--sk-z-drawer) - 1);
+        border: 0;
+        background: color-mix(in srgb, var(--sk-color-text-primary) 24%, transparent);
+        cursor: pointer;
+    }
+}
+
 /* Blazor's circuit error notice. Positioned as a page-level alert rather than
    the framework default bar so it inherits the system's danger tokens. */
 #blazor-error-ui {

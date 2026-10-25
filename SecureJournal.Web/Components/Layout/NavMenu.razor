@@ -4,24 +4,27 @@
 @inject ISecureJournalAppService JournalApp
 @inject NavigationManager Navigation
 
-<nav class="sk-side-nav sk-app-shell__nav @(IsOpen ? "is-open" : string.Empty)"
+<nav class="sk-side-nav sk-side-nav--drawer sk-app-shell__nav @(IsOpen ? "is-open" : string.Empty)"
      id="primary-nav"
      aria-label="Primary">
-    <h2 class="sk-side-nav__group-label" id="nav-workspace">Workspace</h2>
+    @if (_canUseJournal)
+    {
+    <h2 class="sk-side-nav__group-label" id="nav-workspace">Journal</h2>
     <ul class="sk-side-nav__list" aria-labelledby="nav-workspace">
         <li>
-            <NavLink class="sk-side-nav__item" href="projects" Match="NavLinkMatch.Prefix" @onclick="HandleNavigate">
+            <NavLink class="sk-side-nav__item" href="projects" Match="NavLinkMatch.Prefix">
                 <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-folder" /></svg>
                 <span class="sk-side-nav__label">My projects</span>
             </NavLink>
         </li>
         <li>
-            <NavLink class="sk-side-nav__item" href="journal" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+            <NavLink class="sk-side-nav__item" href="journal" Match="NavLinkMatch.All">
                 <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-book" /></svg>
                 <span class="sk-side-nav__label">New journal entry</span>
             </NavLink>
         </li>
     </ul>
+    }
 
     @if (_canAccessAudit || _canAccessExports)
     {
@@ -30,7 +33,7 @@
             @if (_canAccessAudit)
             {
                 <li>
-                    <NavLink class="sk-side-nav__item" href="audit" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                    <NavLink class="sk-side-nav__item" href="audit" Match="NavLinkMatch.All">
                         <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-search" /></svg>
                         <span class="sk-side-nav__label">Audit search</span>
                     </NavLink>
@@ -40,7 +43,7 @@
             @if (_canAccessExports)
             {
                 <li>
-                    <NavLink class="sk-side-nav__item" href="exports" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                    <NavLink class="sk-side-nav__item" href="exports" Match="NavLinkMatch.All">
                         <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-download" /></svg>
                         <span class="sk-side-nav__label">Exports</span>
                     </NavLink>
@@ -54,49 +57,51 @@
         <h2 class="sk-side-nav__group-label" id="nav-admin">Administration</h2>
         <ul class="sk-side-nav__list" aria-labelledby="nav-admin">
             <li>
-                <NavLink class="sk-side-nav__item" href="admin/projects/create" Match="NavLinkMatch.Prefix" @onclick="HandleNavigate">
-                    <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-plus" /></svg>
-                    <span class="sk-side-nav__label">Create project</span>
-                </NavLink>
-            </li>
-            <li>
-                <NavLink class="sk-side-nav__item" href="admin/users" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <NavLink class="sk-side-nav__item" href="admin/users" Match="NavLinkMatch.All">
                     <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-users" /></svg>
-                    <span class="sk-side-nav__label">User management</span>
+                    <span class="sk-side-nav__label">People</span>
                 </NavLink>
             </li>
             <li>
-                <NavLink class="sk-side-nav__item" href="admin/groups" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <NavLink class="sk-side-nav__item" href="admin/groups" Match="NavLinkMatch.All">
                     <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-group" /></svg>
-                    <span class="sk-side-nav__label">Group management</span>
+                    <span class="sk-side-nav__label">Groups</span>
                 </NavLink>
             </li>
             <li>
-                <NavLink class="sk-side-nav__item" href="admin/projects" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <NavLink class="sk-side-nav__item" href="admin/projects" Match="NavLinkMatch.All">
                     <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-settings" /></svg>
-                    <span class="sk-side-nav__label">Project management</span>
+                    <span class="sk-side-nav__label">Manage projects</span>
                 </NavLink>
             </li>
             <li>
-                <NavLink class="sk-side-nav__item" href="admin/projects/trash" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <NavLink class="sk-side-nav__item" href="admin/projects/trash" Match="NavLinkMatch.All">
                     <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-trash" /></svg>
                     <span class="sk-side-nav__label">Trash</span>
                 </NavLink>
             </li>
         </ul>
     }
+
+    <h2 class="sk-side-nav__group-label" id="nav-account">Account</h2>
+    <ul class="sk-side-nav__list" aria-labelledby="nav-account">
+        <li>
+            <NavLink class="sk-side-nav__item" href="login" Match="NavLinkMatch.All">
+                <svg aria-hidden="true" focusable="false" width="20" height="20"><use href="#sk-icon-settings" /></svg>
+                <span class="sk-side-nav__label">My settings</span>
+            </NavLink>
+        </li>
+    </ul>
 </nav>
 
 @code {
     [Parameter]
     public bool IsOpen { get; set; }
 
-    [Parameter]
-    public EventCallback OnNavigate { get; set; }
-
     private bool _showAdminLinks;
     private bool _canAccessAudit;
     private bool _canAccessExports;
+    private bool _canUseJournal;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,6 +121,7 @@
             _showAdminLinks = false;
             _canAccessAudit = false;
             _canAccessExports = false;
+            _canUseJournal = false;
             return;
         }
 
@@ -123,6 +129,7 @@
         _showAdminLinks = currentUser.Role == AppRole.Administrator;
         _canAccessAudit = currentUser.Role is AppRole.Administrator or AppRole.Auditor;
         _canAccessExports = _canAccessAudit;
+        _canUseJournal = currentUser.Role is AppRole.Administrator or AppRole.ProjectUser;
     }
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -130,5 +137,4 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
-    private Task HandleNavigate() => OnNavigate.InvokeAsync();
 }

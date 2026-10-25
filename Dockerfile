@@ -1,22 +1,23 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402 AS build
 WORKDIR /src
 
-COPY ["SecureJournal.Web/SecureJournal.Web.csproj", "SecureJournal.Web/"]
-COPY ["SecureJournal.Core/SecureJournal.Core.csproj", "SecureJournal.Core/"]
-RUN dotnet restore "SecureJournal.Web/SecureJournal.Web.csproj"
+COPY ["global.json", "Directory.Build.props", "Directory.Packages.props", "./"]
+COPY ["SecureJournal.Web/SecureJournal.Web.csproj", "SecureJournal.Web/packages.lock.json", "SecureJournal.Web/"]
+COPY ["SecureJournal.Core/SecureJournal.Core.csproj", "SecureJournal.Core/packages.lock.json", "SecureJournal.Core/"]
+RUN dotnet restore "SecureJournal.Web/SecureJournal.Web.csproj" --locked-mode
 
 COPY . .
 RUN dotnet publish "SecureJournal.Web/SecureJournal.Web.csproj" -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-alpine3.24-extra AS final
 WORKDIR /app
 
 ARG APP_UID=10001
 ARG APP_GID=10001
 
-RUN groupadd --gid ${APP_GID} appgroup \
-    && useradd --uid ${APP_UID} --gid ${APP_GID} --create-home --home-dir /home/appuser --shell /usr/sbin/nologin appuser \
-    && mkdir -p /data /app/logs \
+RUN addgroup -g ${APP_GID} appgroup \
+    && adduser -D -H -u ${APP_UID} -G appgroup -h /home/appuser -s /sbin/nologin appuser \
+    && mkdir -p /data /app/logs /home/appuser \
     && chown -R appuser:appgroup /app /data /home/appuser
 
 ENV ASPNETCORE_URLS=http://+:8080

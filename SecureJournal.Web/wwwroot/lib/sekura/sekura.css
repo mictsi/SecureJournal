@@ -10,31 +10,32 @@
 :root {
   /* --- Primitive palette (reference only) --- */
   --sk-palette-neutral-0: #ffffff;
-  --sk-palette-neutral-50: #f7f8fa;
-  --sk-palette-neutral-100: #eef0f4;
-  --sk-palette-neutral-200: #dfe3ea;
-  --sk-palette-neutral-300: #c5ccd8;
-  --sk-palette-neutral-400: #8590a3;
-  --sk-palette-neutral-500: #646e7f;
-  --sk-palette-neutral-600: #515b6b;
-  --sk-palette-neutral-700: #3c4553;
-  --sk-palette-neutral-800: #28303c;
-  --sk-palette-neutral-850: #20272f;
-  --sk-palette-neutral-900: #181e27;
-  --sk-palette-neutral-950: #0e131a;
-  --sk-palette-neutral-975: #090d12;
+  --sk-palette-neutral-50: #fafafa;
+  --sk-palette-neutral-100: #f1f1f1;
+  --sk-palette-neutral-200: #dedede;
+  --sk-palette-neutral-300: #b8b8b8;
+  --sk-palette-neutral-350: #a9a9a9;
+  --sk-palette-neutral-400: #858585;
+  --sk-palette-neutral-500: #555555;
+  --sk-palette-neutral-600: #454545;
+  --sk-palette-neutral-700: #3c3c3c;
+  --sk-palette-neutral-800: #2b2b2b;
+  --sk-palette-neutral-850: #22252a;
+  --sk-palette-neutral-900: #1a1a1a;
+  --sk-palette-neutral-950: #121315;
+  --sk-palette-neutral-975: #0d0e10;
   --sk-palette-neutral-1000: #000000;
-  --sk-palette-cobalt-50: #eef3ff;
-  --sk-palette-cobalt-100: #dde7ff;
-  --sk-palette-cobalt-200: #c2d3ff;
-  --sk-palette-cobalt-300: #9bb6ff;
-  --sk-palette-cobalt-400: #7191fb;
-  --sk-palette-cobalt-500: #4f6df1;
-  --sk-palette-cobalt-600: #3a4fdd;
-  --sk-palette-cobalt-700: #2f3cb8;
-  --sk-palette-cobalt-800: #2b3593;
-  --sk-palette-cobalt-900: #283274;
-  --sk-palette-cobalt-950: #1a1f47;
+  --sk-palette-cobalt-50: #e9f2ff;
+  --sk-palette-cobalt-100: #cce0ff;
+  --sk-palette-cobalt-200: #b3d4ff;
+  --sk-palette-cobalt-300: #85b8ff;
+  --sk-palette-cobalt-400: #579dff;
+  --sk-palette-cobalt-500: #388bff;
+  --sk-palette-cobalt-600: #1868db;
+  --sk-palette-cobalt-700: #1558bc;
+  --sk-palette-cobalt-800: #144794;
+  --sk-palette-cobalt-900: #12396f;
+  --sk-palette-cobalt-950: #1c3557;
   --sk-palette-aqua-50: #e8fbf7;
   --sk-palette-aqua-100: #c5f5ec;
   --sk-palette-aqua-200: #91e9dc;
@@ -170,8 +171,8 @@
   --sk-z-debug: 1000;
   --sk-duration-instant: 0ms;
   --sk-duration-fast: 120ms;
-  --sk-duration-normal: 200ms;
-  --sk-duration-slow: 320ms;
+  --sk-duration-normal: 160ms;
+  --sk-duration-slow: 220ms;
   --sk-duration-slower: 480ms;
   --sk-duration-deliberate: 640ms;
   --sk-easing-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -179,16 +180,25 @@
   --sk-easing-exit: cubic-bezier(0.3, 0, 1, 1);
   --sk-easing-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
   --sk-easing-linear: linear;
-  --sk-font-family-sans: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --sk-font-family-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --sk-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --sk-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --sk-font-weight-regular: 400;
   --sk-font-weight-medium: 500;
   --sk-font-weight-semibold: 600;
   --sk-font-weight-bold: 700;
+  --sk-layout-header-height: 3rem;
+  --sk-layout-content-header-height: 3.5rem;
+  --sk-layout-toolbar-height: 2.5rem;
+  --sk-layout-nav-width: 17rem;
+  --sk-layout-nav-min-width: 13rem;
+  --sk-layout-nav-max-width: 25rem;
+  --sk-layout-document-width: 47.5rem;
+  --sk-layout-detail-width: 22.5rem;
+  --sk-layout-touch-target: 2.75rem;
   --sk-container-xs: 30rem;
   --sk-container-sm: 40rem;
   --sk-container-md: 48rem;
-  --sk-container-prose: 68ch;
+  --sk-container-prose: 47.5rem;
   --sk-container-lg: 64rem;
   --sk-container-xl: 80rem;
   --sk-container-2xl: 90rem;
@@ -205,13 +215,13 @@
   --sk-line-height-display-lg: 1.15;
   --sk-font-weight-display-lg: 700;
   --sk-letter-spacing-display-lg: -0.02em;
-  --sk-font-size-heading-xl: clamp(1.5rem, 1.28rem + 1.1vw, 2rem);
-  --sk-line-height-heading-xl: 1.2;
+  --sk-font-size-heading-xl: 2rem;
+  --sk-line-height-heading-xl: 1.25;
   --sk-font-weight-heading-xl: 700;
   --sk-letter-spacing-heading-xl: -0.018em;
-  --sk-font-size-heading-lg: clamp(1.25rem, 1.14rem + 0.55vw, 1.5rem);
-  --sk-line-height-heading-lg: 1.25;
-  --sk-font-weight-heading-lg: 650;
+  --sk-font-size-heading-lg: 1.5rem;
+  --sk-line-height-heading-lg: 1.333333;
+  --sk-font-weight-heading-lg: 700;
   --sk-letter-spacing-heading-lg: -0.014em;
   --sk-font-size-heading-md: 1.25rem;
   --sk-line-height-heading-md: 1.4;
@@ -230,31 +240,31 @@
   --sk-font-weight-body-lg: 400;
   --sk-letter-spacing-body-lg: 0;
   --sk-font-size-body-md: 1rem;
-  --sk-line-height-body-md: 1.6;
+  --sk-line-height-body-md: 1.5;
   --sk-font-weight-body-md: 400;
   --sk-letter-spacing-body-md: 0;
   --sk-font-size-body-sm: 0.875rem;
-  --sk-line-height-body-sm: 1.5;
+  --sk-line-height-body-sm: 1.428571;
   --sk-font-weight-body-sm: 400;
-  --sk-letter-spacing-body-sm: 0.002em;
-  --sk-font-size-body-xs: 0.8125rem;
-  --sk-line-height-body-xs: 1.4;
+  --sk-letter-spacing-body-sm: 0;
+  --sk-font-size-body-xs: 0.75rem;
+  --sk-line-height-body-xs: 1.333333;
   --sk-font-weight-body-xs: 400;
-  --sk-letter-spacing-body-xs: 0.005em;
+  --sk-letter-spacing-body-xs: 0;
   --sk-font-size-label-md: 0.875rem;
-  --sk-line-height-label-md: 1.3;
+  --sk-line-height-label-md: 1.428571;
   --sk-font-weight-label-md: 500;
-  --sk-letter-spacing-label-md: 0.002em;
-  --sk-font-size-label-sm: 0.8125rem;
-  --sk-line-height-label-sm: 1.25;
+  --sk-letter-spacing-label-md: 0;
+  --sk-font-size-label-sm: 0.875rem;
+  --sk-line-height-label-sm: 1.428571;
   --sk-font-weight-label-sm: 500;
-  --sk-letter-spacing-label-sm: 0.005em;
+  --sk-letter-spacing-label-sm: 0;
   --sk-font-size-overline: 0.75rem;
   --sk-line-height-overline: 1.33;
   --sk-font-weight-overline: 600;
   --sk-letter-spacing-overline: 0.08em;
   --sk-font-size-code-md: 0.875rem;
-  --sk-line-height-code-md: 1.6;
+  --sk-line-height-code-md: 1.428571;
   --sk-font-weight-code-md: 400;
   --sk-letter-spacing-code-md: 0;
   --sk-font-size-code-sm: 0.8125rem;
@@ -278,11 +288,12 @@
 :root, [data-sk-density="comfortable"] {
   /* Default. Suits mixed-ability audiences, touch input and marketing surfaces. */
   --sk-control-height-sm: 2rem;
-  --sk-control-height-md: 2.5rem;
-  --sk-control-height-lg: 3rem;
-  --sk-control-padding-inline: 1rem;
+  --sk-control-height-md: 2.25rem;
+  --sk-control-height-lg: 2.5rem;
+  --sk-control-padding-inline: 0.75rem;
   --sk-control-padding-block: 0.5rem;
   --sk-row-padding-block: 0.75rem;
+  --sk-cell-padding-inline: 1rem;
   --sk-stack-gap: 1rem;
   --sk-section-gap: 2rem;
 }
@@ -290,27 +301,60 @@
 [data-sk-density="compact"] {
   /* Operator consoles and admin tools where more rows on screen is worth the tighter rhythm. */
   --sk-control-height-sm: 1.75rem;
-  --sk-control-height-md: 2.25rem;
-  --sk-control-height-lg: 2.75rem;
+  --sk-control-height-md: 2rem;
+  --sk-control-height-lg: 2.25rem;
   --sk-control-padding-inline: 0.75rem;
   --sk-control-padding-block: 0.375rem;
   --sk-row-padding-block: 0.5rem;
+  --sk-cell-padding-inline: 1rem;
   --sk-stack-gap: 0.75rem;
   --sk-section-gap: 1.5rem;
 }
 
 [data-sk-density="dense"] {
-  /* Data grids and log views only. Requires an escape hatch back to comfortable, and must never be the default for a first-time user. */
+  /* Data tables, grids and log views only. Requires an escape hatch back to comfortable, and must never be the default for a first-time user. */
   --sk-control-height-sm: 1.5rem;
-  --sk-control-height-md: 2rem;
-  --sk-control-height-lg: 2.5rem;
+  --sk-control-height-md: 1.75rem;
+  --sk-control-height-lg: 2rem;
   --sk-control-padding-inline: 0.5rem;
   --sk-control-padding-block: 0.25rem;
   --sk-row-padding-block: 0.25rem;
+  --sk-cell-padding-inline: 0.75rem;
   --sk-stack-gap: 0.5rem;
   --sk-section-gap: 1rem;
 }
 
+/* Opt-in geometry bridge for incremental v2 migrations. */
+[data-sk-geometry="v2"] {
+  --sk-layout-header-height: 3.5rem;
+  --sk-layout-nav-width: 16rem;
+  --sk-layout-detail-width: 28rem;
+  --sk-container-prose: 68ch;
+  --sk-font-size-body-xs: 0.8125rem;
+  --sk-line-height-body-xs: 1.4;
+  --sk-line-height-body-md: 1.6;
+  --sk-line-height-body-sm: 1.5;
+  --sk-font-size-heading-xl: clamp(1.5rem, 1.28rem + 1.1vw, 2rem);
+  --sk-line-height-heading-xl: 1.2;
+}
+[data-sk-geometry="v2"], [data-sk-geometry="v2"][data-sk-density="comfortable"], [data-sk-geometry="v2"] [data-sk-density="comfortable"] {
+  --sk-control-height-sm: 2rem;
+  --sk-control-height-md: 2.5rem;
+  --sk-control-height-lg: 3rem;
+  --sk-control-padding-inline: 1rem;
+}
+[data-sk-geometry="v2"][data-sk-density="compact"], [data-sk-geometry="v2"] [data-sk-density="compact"] {
+  --sk-control-height-sm: 1.75rem;
+  --sk-control-height-md: 2.25rem;
+  --sk-control-height-lg: 2.75rem;
+  --sk-control-padding-inline: 0.75rem;
+}
+[data-sk-geometry="v2"][data-sk-density="dense"], [data-sk-geometry="v2"] [data-sk-density="dense"] {
+  --sk-control-height-sm: 1.5rem;
+  --sk-control-height-md: 2rem;
+  --sk-control-height-lg: 2.5rem;
+  --sk-control-padding-inline: 0.5rem;
+}
 /* --- Themes --------------------------------------------------------
    Every semantic token is defined in all four themes. Dark is a peer of
    light, not an inversion: floating surfaces get LIGHTER as they rise,
@@ -320,59 +364,59 @@
   color-scheme: light;
   /* surface */
   --sk-color-surface-base: #ffffff;
-  --sk-color-surface-subtle: #f7f8fa;
-  --sk-color-surface-sunken: #eef0f4;
+  --sk-color-surface-subtle: #fafafa;
+  --sk-color-surface-sunken: #f1f1f1;
   --sk-color-surface-raised: #ffffff;
   --sk-color-surface-overlay: #ffffff;
-  --sk-color-surface-inverse: #181e27;
+  --sk-color-surface-inverse: #1a1a1a;
   --sk-color-surface-hover: rgb(14 19 26 / 4%);
   --sk-color-surface-active: rgb(14 19 26 / 8%);
-  --sk-color-surface-selected: #eef3ff;
-  --sk-color-surface-disabled: #eef0f4;
-  --sk-color-surface-brand: #3a4fdd;
-  --sk-color-surface-brand-subtle: #eef3ff;
+  --sk-color-surface-selected: #e9f2ff;
+  --sk-color-surface-disabled: #f1f1f1;
+  --sk-color-surface-brand: #1868db;
+  --sk-color-surface-brand-subtle: #e9f2ff;
   --sk-color-surface-accent: #057b76;
   --sk-color-surface-accent-subtle: #e8fbf7;
   --sk-color-surface-scrim: rgb(14 19 26 / 48%);
   /* text */
-  --sk-color-text-primary: #181e27;
-  --sk-color-text-secondary: #515b6b;
-  --sk-color-text-tertiary: #646e7f;
-  --sk-color-text-disabled: #8590a3;
-  --sk-color-text-placeholder: #646e7f;
+  --sk-color-text-primary: #1a1a1a;
+  --sk-color-text-secondary: #454545;
+  --sk-color-text-tertiary: #555555;
+  --sk-color-text-disabled: #858585;
+  --sk-color-text-placeholder: #555555;
   --sk-color-text-on-brand: #ffffff;
   --sk-color-text-on-accent: #ffffff;
-  --sk-color-text-on-inverse: #f7f8fa;
-  --sk-color-text-brand: #2f3cb8;
-  --sk-color-text-link: #2f3cb8;
-  --sk-color-text-link-hover: #2b3593;
+  --sk-color-text-on-inverse: #fafafa;
+  --sk-color-text-brand: #1558bc;
+  --sk-color-text-link: #1558bc;
+  --sk-color-text-link-hover: #144794;
   --sk-color-text-link-visited: #5732a8;
-  --sk-color-text-code: #28303c;
+  --sk-color-text-code: #2b2b2b;
   /* border */
-  --sk-color-border-subtle: #dfe3ea;
-  --sk-color-border-default: #c5ccd8;
-  --sk-color-border-strong: #8590a3;
-  --sk-color-border-interactive: #646e7f;
-  --sk-color-border-brand: #3a4fdd;
-  --sk-color-border-disabled: #dfe3ea;
-  --sk-color-border-inverse: #3c4553;
+  --sk-color-border-subtle: #dedede;
+  --sk-color-border-default: #b8b8b8;
+  --sk-color-border-strong: #858585;
+  --sk-color-border-interactive: #555555;
+  --sk-color-border-brand: #1868db;
+  --sk-color-border-disabled: #dedede;
+  --sk-color-border-inverse: #3c3c3c;
   /* focus */
-  --sk-color-focus-ring: #3a4fdd;
+  --sk-color-focus-ring: #1868db;
   --sk-color-focus-ring-offset: #ffffff;
   --sk-color-focus-ring-inverse: #ffffff;
   /* action */
-  --sk-color-action-primary-bg: #3a4fdd;
-  --sk-color-action-primary-bg-hover: #2f3cb8;
-  --sk-color-action-primary-bg-active: #2b3593;
+  --sk-color-action-primary-bg: #1868db;
+  --sk-color-action-primary-bg-hover: #1558bc;
+  --sk-color-action-primary-bg-active: #144794;
   --sk-color-action-primary-text: #ffffff;
-  --sk-color-action-secondary-bg: transparent;
-  --sk-color-action-secondary-bg-hover: #eef0f4;
-  --sk-color-action-secondary-bg-active: #dfe3ea;
-  --sk-color-action-secondary-border: #8590a3;
-  --sk-color-action-secondary-text: #181e27;
-  --sk-color-action-ghost-text: #2f3cb8;
-  --sk-color-action-ghost-bg-hover: #eef3ff;
-  --sk-color-action-ghost-bg-active: #dde7ff;
+  --sk-color-action-secondary-bg: #f1f1f1;
+  --sk-color-action-secondary-bg-hover: #dedede;
+  --sk-color-action-secondary-bg-active: #b8b8b8;
+  --sk-color-action-secondary-border: #858585;
+  --sk-color-action-secondary-text: #1a1a1a;
+  --sk-color-action-ghost-text: #1a1a1a;
+  --sk-color-action-ghost-bg-hover: #f1f1f1;
+  --sk-color-action-ghost-bg-active: #dedede;
   --sk-color-action-danger-bg: #b02626;
   --sk-color-action-danger-bg-hover: #8e2020;
   --sk-color-action-danger-bg-active: #751e1e;
@@ -381,8 +425,8 @@
   --sk-color-action-success-bg-hover: #0c5732;
   --sk-color-action-success-bg-active: #0c462a;
   --sk-color-action-success-text: #ffffff;
-  --sk-color-action-disabled-bg: #dfe3ea;
-  --sk-color-action-disabled-text: #8590a3;
+  --sk-color-action-disabled-bg: #dedede;
+  --sk-color-action-disabled-text: #858585;
   /* status */
   --sk-color-status-success-surface: #eaf8ee;
   --sk-color-status-success-border: #0d6d3d;
@@ -404,34 +448,34 @@
   --sk-color-status-info-text: #134276;
   --sk-color-status-info-solid: #1360b5;
   --sk-color-status-info-on-solid: #ffffff;
-  --sk-color-status-neutral-surface: #eef0f4;
-  --sk-color-status-neutral-border: #8590a3;
-  --sk-color-status-neutral-text: #3c4553;
-  --sk-color-status-neutral-solid: #515b6b;
+  --sk-color-status-neutral-surface: #f1f1f1;
+  --sk-color-status-neutral-border: #858585;
+  --sk-color-status-neutral-text: #3c3c3c;
+  --sk-color-status-neutral-solid: #454545;
   --sk-color-status-neutral-on-solid: #ffffff;
   /* form */
   --sk-color-field-bg: #ffffff;
-  --sk-color-field-bg-hover: #f7f8fa;
-  --sk-color-field-bg-disabled: #eef0f4;
-  --sk-color-field-bg-readonly: #f7f8fa;
-  --sk-color-field-border: #8590a3;
-  --sk-color-field-border-hover: #646e7f;
+  --sk-color-field-bg-hover: #fafafa;
+  --sk-color-field-bg-disabled: #f1f1f1;
+  --sk-color-field-bg-readonly: #fafafa;
+  --sk-color-field-border: #858585;
+  --sk-color-field-border-hover: #555555;
   --sk-color-field-border-error: #b02626;
   --sk-color-field-border-success: #0d6d3d;
-  --sk-color-field-selection-bg: #dde7ff;
-  --sk-color-field-selection-text: #181e27;
-  --sk-color-control-checked: #3a4fdd;
+  --sk-color-field-selection-bg: #cce0ff;
+  --sk-color-field-selection-text: #1a1a1a;
+  --sk-color-control-checked: #1868db;
   --sk-color-control-checked-mark: #ffffff;
-  --sk-color-control-track: #8590a3;
+  --sk-color-control-track: #858585;
   /* chart */
-  --sk-color-chart-1: #3a4fdd;
+  --sk-color-chart-1: #1868db;
   --sk-color-chart-2: #0d9a92;
   --sk-color-chart-3: #c58006;
   --sk-color-chart-4: #cf3838;
   --sk-color-chart-5: #8259e6;
   --sk-color-chart-6: #18894d;
   --sk-color-chart-7: #3f97ed;
-  --sk-color-chart-8: #646e7f;
+  --sk-color-chart-8: #555555;
   --sk-color-chart-1-on-solid: #ffffff;
   --sk-color-chart-2-on-solid: #000000;
   --sk-color-chart-3-on-solid: #000000;
@@ -440,9 +484,9 @@
   --sk-color-chart-6-on-solid: #000000;
   --sk-color-chart-7-on-solid: #000000;
   --sk-color-chart-8-on-solid: #ffffff;
-  --sk-color-chart-grid: #dfe3ea;
-  --sk-color-chart-axis: #8590a3;
-  --sk-color-chart-label: #515b6b;
+  --sk-color-chart-grid: #dedede;
+  --sk-color-chart-axis: #858585;
+  --sk-color-chart-label: #454545;
   /* ai */
   --sk-color-ai-surface: #f4f0ff;
   --sk-color-ai-border: #8259e6;
@@ -459,119 +503,119 @@
 [data-sk-theme="dark"] {
   color-scheme: dark;
   /* surface */
-  --sk-color-surface-base: #0e131a;
-  --sk-color-surface-subtle: #181e27;
-  --sk-color-surface-sunken: #090d12;
-  --sk-color-surface-raised: #181e27;
-  --sk-color-surface-overlay: #20272f;
-  --sk-color-surface-inverse: #eef0f4;
+  --sk-color-surface-base: #121315;
+  --sk-color-surface-subtle: #0d0e10;
+  --sk-color-surface-sunken: #0d0e10;
+  --sk-color-surface-raised: #1a1a1a;
+  --sk-color-surface-overlay: #22252a;
+  --sk-color-surface-inverse: #f1f1f1;
   --sk-color-surface-hover: rgb(255 255 255 / 8%);
   --sk-color-surface-active: rgb(255 255 255 / 12%);
-  --sk-color-surface-selected: #1a1f47;
-  --sk-color-surface-disabled: #28303c;
-  --sk-color-surface-brand: #7191fb;
-  --sk-color-surface-brand-subtle: #1a1f47;
+  --sk-color-surface-selected: #1c3557;
+  --sk-color-surface-disabled: #2b2b2b;
+  --sk-color-surface-brand: #579dff;
+  --sk-color-surface-brand-subtle: #1c3557;
   --sk-color-surface-accent: #55d5c7;
   --sk-color-surface-accent-subtle: #022827;
   --sk-color-surface-scrim: rgb(14 19 26 / 64%);
   /* text */
-  --sk-color-text-primary: #f7f8fa;
-  --sk-color-text-secondary: #c5ccd8;
-  --sk-color-text-tertiary: #8590a3;
-  --sk-color-text-disabled: #515b6b;
-  --sk-color-text-placeholder: #8590a3;
-  --sk-color-text-on-brand: #0e131a;
-  --sk-color-text-on-accent: #0e131a;
-  --sk-color-text-on-inverse: #181e27;
-  --sk-color-text-brand: #9bb6ff;
-  --sk-color-text-link: #9bb6ff;
-  --sk-color-text-link-hover: #c2d3ff;
+  --sk-color-text-primary: #fafafa;
+  --sk-color-text-secondary: #f1f1f1;
+  --sk-color-text-tertiary: #dedede;
+  --sk-color-text-disabled: #454545;
+  --sk-color-text-placeholder: #dedede;
+  --sk-color-text-on-brand: #121315;
+  --sk-color-text-on-accent: #121315;
+  --sk-color-text-on-inverse: #1a1a1a;
+  --sk-color-text-brand: #85b8ff;
+  --sk-color-text-link: #85b8ff;
+  --sk-color-text-link-hover: #b3d4ff;
   --sk-color-text-link-visited: #bba5fb;
-  --sk-color-text-code: #eef0f4;
+  --sk-color-text-code: #f1f1f1;
   /* border */
-  --sk-color-border-subtle: #28303c;
-  --sk-color-border-default: #3c4553;
-  --sk-color-border-strong: #646e7f;
-  --sk-color-border-interactive: #8590a3;
-  --sk-color-border-brand: #7191fb;
-  --sk-color-border-disabled: #3c4553;
-  --sk-color-border-inverse: #c5ccd8;
+  --sk-color-border-subtle: #2b2b2b;
+  --sk-color-border-default: #3c3c3c;
+  --sk-color-border-strong: #858585;
+  --sk-color-border-interactive: #a9a9a9;
+  --sk-color-border-brand: #579dff;
+  --sk-color-border-disabled: #3c3c3c;
+  --sk-color-border-inverse: #b8b8b8;
   /* focus */
-  --sk-color-focus-ring: #9bb6ff;
-  --sk-color-focus-ring-offset: #0e131a;
+  --sk-color-focus-ring: #85b8ff;
+  --sk-color-focus-ring-offset: #121315;
   --sk-color-focus-ring-inverse: #ffffff;
   /* action */
-  --sk-color-action-primary-bg: #7191fb;
-  --sk-color-action-primary-bg-hover: #9bb6ff;
-  --sk-color-action-primary-bg-active: #c2d3ff;
-  --sk-color-action-primary-text: #0e131a;
-  --sk-color-action-secondary-bg: transparent;
-  --sk-color-action-secondary-bg-hover: rgb(255 255 255 / 8%);
-  --sk-color-action-secondary-bg-active: rgb(255 255 255 / 12%);
-  --sk-color-action-secondary-border: #646e7f;
-  --sk-color-action-secondary-text: #f7f8fa;
-  --sk-color-action-ghost-text: #9bb6ff;
+  --sk-color-action-primary-bg: #579dff;
+  --sk-color-action-primary-bg-hover: #85b8ff;
+  --sk-color-action-primary-bg-active: #b3d4ff;
+  --sk-color-action-primary-text: #121315;
+  --sk-color-action-secondary-bg: #2b2b2b;
+  --sk-color-action-secondary-bg-hover: #3c3c3c;
+  --sk-color-action-secondary-bg-active: #454545;
+  --sk-color-action-secondary-border: #858585;
+  --sk-color-action-secondary-text: #fafafa;
+  --sk-color-action-ghost-text: #fafafa;
   --sk-color-action-ghost-bg-hover: rgb(255 255 255 / 8%);
   --sk-color-action-ghost-bg-active: rgb(255 255 255 / 12%);
   --sk-color-action-danger-bg: #e35a5a;
   --sk-color-action-danger-bg-hover: #f08a8a;
   --sk-color-action-danger-bg-active: #f7b6b6;
-  --sk-color-action-danger-text: #0e131a;
+  --sk-color-action-danger-text: #121315;
   --sk-color-action-success-bg: #63c489;
   --sk-color-action-success-bg-hover: #9bdcb3;
   --sk-color-action-success-bg-active: #cbeed7;
-  --sk-color-action-success-text: #0e131a;
-  --sk-color-action-disabled-bg: #28303c;
-  --sk-color-action-disabled-text: #515b6b;
+  --sk-color-action-success-text: #121315;
+  --sk-color-action-disabled-bg: #2b2b2b;
+  --sk-color-action-disabled-text: #454545;
   /* status */
   --sk-color-status-success-surface: #042013;
   --sk-color-status-success-border: #34a765;
   --sk-color-status-success-text: #9bdcb3;
   --sk-color-status-success-solid: #34a765;
-  --sk-color-status-success-on-solid: #0e131a;
+  --sk-color-status-success-on-solid: #121315;
   --sk-color-status-warning-surface: #301d05;
   --sk-color-status-warning-border: #e8a013;
   --sk-color-status-warning-text: #fdd77f;
   --sk-color-status-warning-solid: #f7bd3f;
-  --sk-color-status-warning-on-solid: #0e131a;
+  --sk-color-status-warning-on-solid: #121315;
   --sk-color-status-danger-surface: #380c0c;
   --sk-color-status-danger-border: #e35a5a;
   --sk-color-status-danger-text: #f7b6b6;
   --sk-color-status-danger-solid: #e35a5a;
-  --sk-color-status-danger-on-solid: #0e131a;
+  --sk-color-status-danger-on-solid: #121315;
   --sk-color-status-info-surface: #0b1f3a;
   --sk-color-status-info-border: #3f97ed;
   --sk-color-status-info-text: #a5d2fb;
   --sk-color-status-info-solid: #3f97ed;
-  --sk-color-status-info-on-solid: #0e131a;
-  --sk-color-status-neutral-surface: #28303c;
-  --sk-color-status-neutral-border: #646e7f;
-  --sk-color-status-neutral-text: #dfe3ea;
-  --sk-color-status-neutral-solid: #8590a3;
-  --sk-color-status-neutral-on-solid: #0e131a;
+  --sk-color-status-info-on-solid: #121315;
+  --sk-color-status-neutral-surface: #2b2b2b;
+  --sk-color-status-neutral-border: #858585;
+  --sk-color-status-neutral-text: #dedede;
+  --sk-color-status-neutral-solid: #858585;
+  --sk-color-status-neutral-on-solid: #121315;
   /* form */
-  --sk-color-field-bg: #0e131a;
-  --sk-color-field-bg-hover: #181e27;
-  --sk-color-field-bg-disabled: #181e27;
-  --sk-color-field-bg-readonly: #181e27;
-  --sk-color-field-border: #646e7f;
-  --sk-color-field-border-hover: #8590a3;
+  --sk-color-field-bg: #121315;
+  --sk-color-field-bg-hover: #1a1a1a;
+  --sk-color-field-bg-disabled: #1a1a1a;
+  --sk-color-field-bg-readonly: #1a1a1a;
+  --sk-color-field-border: #858585;
+  --sk-color-field-border-hover: #a9a9a9;
   --sk-color-field-border-error: #e35a5a;
   --sk-color-field-border-success: #34a765;
-  --sk-color-field-selection-bg: #2b3593;
+  --sk-color-field-selection-bg: #144794;
   --sk-color-field-selection-text: #ffffff;
-  --sk-color-control-checked: #7191fb;
-  --sk-color-control-checked-mark: #0e131a;
-  --sk-color-control-track: #646e7f;
+  --sk-color-control-checked: #579dff;
+  --sk-color-control-checked-mark: #121315;
+  --sk-color-control-track: #858585;
   /* chart */
-  --sk-color-chart-1: #9bb6ff;
+  --sk-color-chart-1: #85b8ff;
   --sk-color-chart-2: #55d5c7;
   --sk-color-chart-3: #f7bd3f;
   --sk-color-chart-4: #f08a8a;
   --sk-color-chart-5: #bba5fb;
   --sk-color-chart-6: #63c489;
   --sk-color-chart-7: #a5d2fb;
-  --sk-color-chart-8: #8590a3;
+  --sk-color-chart-8: #858585;
   --sk-color-chart-1-on-solid: #000000;
   --sk-color-chart-2-on-solid: #000000;
   --sk-color-chart-3-on-solid: #000000;
@@ -580,9 +624,9 @@
   --sk-color-chart-6-on-solid: #000000;
   --sk-color-chart-7-on-solid: #000000;
   --sk-color-chart-8-on-solid: #000000;
-  --sk-color-chart-grid: #28303c;
-  --sk-color-chart-axis: #515b6b;
-  --sk-color-chart-label: #c5ccd8;
+  --sk-color-chart-grid: #2b2b2b;
+  --sk-color-chart-axis: #454545;
+  --sk-color-chart-label: #b8b8b8;
   /* ai */
   --sk-color-ai-surface: #251643;
   --sk-color-ai-border: #9e7ef4;
@@ -600,59 +644,59 @@
   color-scheme: light;
   /* surface */
   --sk-color-surface-base: #ffffff;
-  --sk-color-surface-subtle: #f7f8fa;
-  --sk-color-surface-sunken: #eef0f4;
+  --sk-color-surface-subtle: #fafafa;
+  --sk-color-surface-sunken: #f1f1f1;
   --sk-color-surface-raised: #ffffff;
   --sk-color-surface-overlay: #ffffff;
   --sk-color-surface-inverse: #000000;
   --sk-color-surface-hover: rgb(14 19 26 / 8%);
   --sk-color-surface-active: rgb(14 19 26 / 12%);
-  --sk-color-surface-selected: #dde7ff;
-  --sk-color-surface-disabled: #dfe3ea;
-  --sk-color-surface-brand: #2b3593;
-  --sk-color-surface-brand-subtle: #dde7ff;
+  --sk-color-surface-selected: #cce0ff;
+  --sk-color-surface-disabled: #dedede;
+  --sk-color-surface-brand: #144794;
+  --sk-color-surface-brand-subtle: #cce0ff;
   --sk-color-surface-accent: #0a4e4c;
   --sk-color-surface-accent-subtle: #c5f5ec;
   --sk-color-surface-scrim: rgb(14 19 26 / 64%);
   /* text */
   --sk-color-text-primary: #000000;
-  --sk-color-text-secondary: #28303c;
-  --sk-color-text-tertiary: #3c4553;
-  --sk-color-text-disabled: #646e7f;
-  --sk-color-text-placeholder: #3c4553;
+  --sk-color-text-secondary: #2b2b2b;
+  --sk-color-text-tertiary: #3c3c3c;
+  --sk-color-text-disabled: #555555;
+  --sk-color-text-placeholder: #3c3c3c;
   --sk-color-text-on-brand: #ffffff;
   --sk-color-text-on-accent: #ffffff;
   --sk-color-text-on-inverse: #ffffff;
-  --sk-color-text-brand: #283274;
-  --sk-color-text-link: #283274;
-  --sk-color-text-link-hover: #1a1f47;
+  --sk-color-text-brand: #12396f;
+  --sk-color-text-link: #12396f;
+  --sk-color-text-link-hover: #1c3557;
   --sk-color-text-link-visited: #3d276e;
   --sk-color-text-code: #000000;
   /* border */
-  --sk-color-border-subtle: #8590a3;
-  --sk-color-border-default: #3c4553;
-  --sk-color-border-strong: #181e27;
+  --sk-color-border-subtle: #858585;
+  --sk-color-border-default: #3c3c3c;
+  --sk-color-border-strong: #1a1a1a;
   --sk-color-border-interactive: #000000;
-  --sk-color-border-brand: #2b3593;
-  --sk-color-border-disabled: #c5ccd8;
+  --sk-color-border-brand: #144794;
+  --sk-color-border-disabled: #b8b8b8;
   --sk-color-border-inverse: #ffffff;
   /* focus */
   --sk-color-focus-ring: #000000;
   --sk-color-focus-ring-offset: #ffffff;
   --sk-color-focus-ring-inverse: #ffffff;
   /* action */
-  --sk-color-action-primary-bg: #2b3593;
-  --sk-color-action-primary-bg-hover: #283274;
-  --sk-color-action-primary-bg-active: #1a1f47;
+  --sk-color-action-primary-bg: #144794;
+  --sk-color-action-primary-bg-hover: #12396f;
+  --sk-color-action-primary-bg-active: #1c3557;
   --sk-color-action-primary-text: #ffffff;
   --sk-color-action-secondary-bg: transparent;
-  --sk-color-action-secondary-bg-hover: #dfe3ea;
-  --sk-color-action-secondary-bg-active: #c5ccd8;
+  --sk-color-action-secondary-bg-hover: #dedede;
+  --sk-color-action-secondary-bg-active: #b8b8b8;
   --sk-color-action-secondary-border: #000000;
   --sk-color-action-secondary-text: #000000;
-  --sk-color-action-ghost-text: #283274;
-  --sk-color-action-ghost-bg-hover: #dde7ff;
-  --sk-color-action-ghost-bg-active: #c2d3ff;
+  --sk-color-action-ghost-text: #000000;
+  --sk-color-action-ghost-bg-hover: #f1f1f1;
+  --sk-color-action-ghost-bg-active: #dedede;
   --sk-color-action-danger-bg: #751e1e;
   --sk-color-action-danger-bg-hover: #621d1d;
   --sk-color-action-danger-bg-active: #380c0c;
@@ -661,8 +705,8 @@
   --sk-color-action-success-bg-hover: #0b3a24;
   --sk-color-action-success-bg-active: #042013;
   --sk-color-action-success-text: #ffffff;
-  --sk-color-action-disabled-bg: #dfe3ea;
-  --sk-color-action-disabled-text: #646e7f;
+  --sk-color-action-disabled-bg: #dedede;
+  --sk-color-action-disabled-text: #555555;
   /* status */
   --sk-color-status-success-surface: #cbeed7;
   --sk-color-status-success-border: #0c462a;
@@ -684,34 +728,34 @@
   --sk-color-status-info-text: #0b1f3a;
   --sk-color-status-info-solid: #134276;
   --sk-color-status-info-on-solid: #ffffff;
-  --sk-color-status-neutral-surface: #dfe3ea;
-  --sk-color-status-neutral-border: #181e27;
+  --sk-color-status-neutral-surface: #dedede;
+  --sk-color-status-neutral-border: #1a1a1a;
   --sk-color-status-neutral-text: #000000;
-  --sk-color-status-neutral-solid: #181e27;
+  --sk-color-status-neutral-solid: #1a1a1a;
   --sk-color-status-neutral-on-solid: #ffffff;
   /* form */
   --sk-color-field-bg: #ffffff;
-  --sk-color-field-bg-hover: #f7f8fa;
-  --sk-color-field-bg-disabled: #dfe3ea;
-  --sk-color-field-bg-readonly: #eef0f4;
+  --sk-color-field-bg-hover: #fafafa;
+  --sk-color-field-bg-disabled: #dedede;
+  --sk-color-field-bg-readonly: #f1f1f1;
   --sk-color-field-border: #000000;
   --sk-color-field-border-hover: #000000;
   --sk-color-field-border-error: #751e1e;
   --sk-color-field-border-success: #0c462a;
-  --sk-color-field-selection-bg: #c2d3ff;
+  --sk-color-field-selection-bg: #b3d4ff;
   --sk-color-field-selection-text: #000000;
-  --sk-color-control-checked: #2b3593;
+  --sk-color-control-checked: #144794;
   --sk-color-control-checked-mark: #ffffff;
-  --sk-color-control-track: #181e27;
+  --sk-color-control-track: #1a1a1a;
   /* chart */
-  --sk-color-chart-1: #2b3593;
+  --sk-color-chart-1: #144794;
   --sk-color-chart-2: #07625f;
   --sk-color-chart-3: #7e4e0c;
   --sk-color-chart-4: #8e2020;
   --sk-color-chart-5: #5732a8;
   --sk-color-chart-6: #0c5732;
   --sk-color-chart-7: #1360b5;
-  --sk-color-chart-8: #3c4553;
+  --sk-color-chart-8: #3c3c3c;
   --sk-color-chart-1-on-solid: #ffffff;
   --sk-color-chart-2-on-solid: #ffffff;
   --sk-color-chart-3-on-solid: #ffffff;
@@ -720,9 +764,9 @@
   --sk-color-chart-6-on-solid: #ffffff;
   --sk-color-chart-7-on-solid: #ffffff;
   --sk-color-chart-8-on-solid: #ffffff;
-  --sk-color-chart-grid: #8590a3;
-  --sk-color-chart-axis: #181e27;
-  --sk-color-chart-label: #181e27;
+  --sk-color-chart-grid: #858585;
+  --sk-color-chart-axis: #1a1a1a;
+  --sk-color-chart-label: #1a1a1a;
   /* ai */
   --sk-color-ai-surface: #e9e2ff;
   --sk-color-ai-border: #482c88;
@@ -740,57 +784,57 @@
   color-scheme: dark;
   /* surface */
   --sk-color-surface-base: #000000;
-  --sk-color-surface-subtle: #0e131a;
+  --sk-color-surface-subtle: #121315;
   --sk-color-surface-sunken: #000000;
   --sk-color-surface-raised: #000000;
   --sk-color-surface-overlay: #000000;
   --sk-color-surface-inverse: #ffffff;
   --sk-color-surface-hover: rgb(255 255 255 / 12%);
   --sk-color-surface-active: rgb(255 255 255 / 24%);
-  --sk-color-surface-selected: #1a1f47;
-  --sk-color-surface-disabled: #28303c;
-  --sk-color-surface-brand: #c2d3ff;
+  --sk-color-surface-selected: #1c3557;
+  --sk-color-surface-disabled: #2b2b2b;
+  --sk-color-surface-brand: #b3d4ff;
   --sk-color-surface-brand-subtle: #000000;
   --sk-color-surface-accent: #91e9dc;
   --sk-color-surface-accent-subtle: #000000;
   --sk-color-surface-scrim: rgb(14 19 26 / 64%);
   /* text */
   --sk-color-text-primary: #ffffff;
-  --sk-color-text-secondary: #eef0f4;
-  --sk-color-text-tertiary: #dfe3ea;
-  --sk-color-text-disabled: #646e7f;
-  --sk-color-text-placeholder: #dfe3ea;
+  --sk-color-text-secondary: #f1f1f1;
+  --sk-color-text-tertiary: #dedede;
+  --sk-color-text-disabled: #555555;
+  --sk-color-text-placeholder: #dedede;
   --sk-color-text-on-brand: #000000;
   --sk-color-text-on-accent: #000000;
   --sk-color-text-on-inverse: #000000;
-  --sk-color-text-brand: #dde7ff;
-  --sk-color-text-link: #dde7ff;
-  --sk-color-text-link-hover: #eef3ff;
+  --sk-color-text-brand: #cce0ff;
+  --sk-color-text-link: #cce0ff;
+  --sk-color-text-link-hover: #e9f2ff;
   --sk-color-text-link-visited: #e9e2ff;
   --sk-color-text-code: #ffffff;
   /* border */
-  --sk-color-border-subtle: #515b6b;
-  --sk-color-border-default: #8590a3;
-  --sk-color-border-strong: #dfe3ea;
+  --sk-color-border-subtle: #454545;
+  --sk-color-border-default: #858585;
+  --sk-color-border-strong: #dedede;
   --sk-color-border-interactive: #ffffff;
-  --sk-color-border-brand: #c2d3ff;
-  --sk-color-border-disabled: #3c4553;
+  --sk-color-border-brand: #b3d4ff;
+  --sk-color-border-disabled: #3c3c3c;
   --sk-color-border-inverse: #000000;
   /* focus */
   --sk-color-focus-ring: #ffffff;
   --sk-color-focus-ring-offset: #000000;
   --sk-color-focus-ring-inverse: #ffffff;
   /* action */
-  --sk-color-action-primary-bg: #c2d3ff;
-  --sk-color-action-primary-bg-hover: #dde7ff;
-  --sk-color-action-primary-bg-active: #eef3ff;
+  --sk-color-action-primary-bg: #b3d4ff;
+  --sk-color-action-primary-bg-hover: #cce0ff;
+  --sk-color-action-primary-bg-active: #e9f2ff;
   --sk-color-action-primary-text: #000000;
   --sk-color-action-secondary-bg: transparent;
   --sk-color-action-secondary-bg-hover: rgb(255 255 255 / 24%);
   --sk-color-action-secondary-bg-active: rgb(255 255 255 / 48%);
   --sk-color-action-secondary-border: #ffffff;
   --sk-color-action-secondary-text: #ffffff;
-  --sk-color-action-ghost-text: #dde7ff;
+  --sk-color-action-ghost-text: #ffffff;
   --sk-color-action-ghost-bg-hover: rgb(255 255 255 / 24%);
   --sk-color-action-ghost-bg-active: rgb(255 255 255 / 48%);
   --sk-color-action-danger-bg: #f7b6b6;
@@ -801,8 +845,8 @@
   --sk-color-action-success-bg-hover: #cbeed7;
   --sk-color-action-success-bg-active: #eaf8ee;
   --sk-color-action-success-text: #000000;
-  --sk-color-action-disabled-bg: #28303c;
-  --sk-color-action-disabled-text: #646e7f;
+  --sk-color-action-disabled-bg: #2b2b2b;
+  --sk-color-action-disabled-text: #555555;
   /* status */
   --sk-color-status-success-surface: #000000;
   --sk-color-status-success-border: #9bdcb3;
@@ -825,33 +869,33 @@
   --sk-color-status-info-solid: #a5d2fb;
   --sk-color-status-info-on-solid: #000000;
   --sk-color-status-neutral-surface: #000000;
-  --sk-color-status-neutral-border: #dfe3ea;
+  --sk-color-status-neutral-border: #dedede;
   --sk-color-status-neutral-text: #ffffff;
-  --sk-color-status-neutral-solid: #dfe3ea;
+  --sk-color-status-neutral-solid: #dedede;
   --sk-color-status-neutral-on-solid: #000000;
   /* form */
   --sk-color-field-bg: #000000;
   --sk-color-field-bg-hover: #000000;
-  --sk-color-field-bg-disabled: #181e27;
-  --sk-color-field-bg-readonly: #0e131a;
+  --sk-color-field-bg-disabled: #1a1a1a;
+  --sk-color-field-bg-readonly: #121315;
   --sk-color-field-border: #ffffff;
   --sk-color-field-border-hover: #ffffff;
   --sk-color-field-border-error: #f7b6b6;
   --sk-color-field-border-success: #9bdcb3;
-  --sk-color-field-selection-bg: #283274;
+  --sk-color-field-selection-bg: #12396f;
   --sk-color-field-selection-text: #ffffff;
-  --sk-color-control-checked: #c2d3ff;
+  --sk-color-control-checked: #b3d4ff;
   --sk-color-control-checked-mark: #000000;
-  --sk-color-control-track: #dfe3ea;
+  --sk-color-control-track: #dedede;
   /* chart */
-  --sk-color-chart-1: #c2d3ff;
+  --sk-color-chart-1: #b3d4ff;
   --sk-color-chart-2: #91e9dc;
   --sk-color-chart-3: #fdd77f;
   --sk-color-chart-4: #f7b6b6;
   --sk-color-chart-5: #d6c9ff;
   --sk-color-chart-6: #9bdcb3;
   --sk-color-chart-7: #d0e8fd;
-  --sk-color-chart-8: #c5ccd8;
+  --sk-color-chart-8: #b8b8b8;
   --sk-color-chart-1-on-solid: #000000;
   --sk-color-chart-2-on-solid: #000000;
   --sk-color-chart-3-on-solid: #000000;
@@ -860,9 +904,9 @@
   --sk-color-chart-6-on-solid: #000000;
   --sk-color-chart-7-on-solid: #000000;
   --sk-color-chart-8-on-solid: #000000;
-  --sk-color-chart-grid: #3c4553;
-  --sk-color-chart-axis: #dfe3ea;
-  --sk-color-chart-label: #eef0f4;
+  --sk-color-chart-grid: #3c3c3c;
+  --sk-color-chart-axis: #dedede;
+  --sk-color-chart-label: #f1f1f1;
   /* ai */
   --sk-color-ai-surface: #000000;
   --sk-color-ai-border: #d6c9ff;
@@ -883,112 +927,112 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-sk-theme]) {
     color-scheme: dark;
-    --sk-color-surface-base: #0e131a;
-    --sk-color-surface-subtle: #181e27;
-    --sk-color-surface-sunken: #090d12;
-    --sk-color-surface-raised: #181e27;
-    --sk-color-surface-overlay: #20272f;
-    --sk-color-surface-inverse: #eef0f4;
+    --sk-color-surface-base: #121315;
+    --sk-color-surface-subtle: #0d0e10;
+    --sk-color-surface-sunken: #0d0e10;
+    --sk-color-surface-raised: #1a1a1a;
+    --sk-color-surface-overlay: #22252a;
+    --sk-color-surface-inverse: #f1f1f1;
     --sk-color-surface-hover: rgb(255 255 255 / 8%);
     --sk-color-surface-active: rgb(255 255 255 / 12%);
-    --sk-color-surface-selected: #1a1f47;
-    --sk-color-surface-disabled: #28303c;
-    --sk-color-surface-brand: #7191fb;
-    --sk-color-surface-brand-subtle: #1a1f47;
+    --sk-color-surface-selected: #1c3557;
+    --sk-color-surface-disabled: #2b2b2b;
+    --sk-color-surface-brand: #579dff;
+    --sk-color-surface-brand-subtle: #1c3557;
     --sk-color-surface-accent: #55d5c7;
     --sk-color-surface-accent-subtle: #022827;
     --sk-color-surface-scrim: rgb(14 19 26 / 64%);
-    --sk-color-text-primary: #f7f8fa;
-    --sk-color-text-secondary: #c5ccd8;
-    --sk-color-text-tertiary: #8590a3;
-    --sk-color-text-disabled: #515b6b;
-    --sk-color-text-placeholder: #8590a3;
-    --sk-color-text-on-brand: #0e131a;
-    --sk-color-text-on-accent: #0e131a;
-    --sk-color-text-on-inverse: #181e27;
-    --sk-color-text-brand: #9bb6ff;
-    --sk-color-text-link: #9bb6ff;
-    --sk-color-text-link-hover: #c2d3ff;
+    --sk-color-text-primary: #fafafa;
+    --sk-color-text-secondary: #f1f1f1;
+    --sk-color-text-tertiary: #dedede;
+    --sk-color-text-disabled: #454545;
+    --sk-color-text-placeholder: #dedede;
+    --sk-color-text-on-brand: #121315;
+    --sk-color-text-on-accent: #121315;
+    --sk-color-text-on-inverse: #1a1a1a;
+    --sk-color-text-brand: #85b8ff;
+    --sk-color-text-link: #85b8ff;
+    --sk-color-text-link-hover: #b3d4ff;
     --sk-color-text-link-visited: #bba5fb;
-    --sk-color-text-code: #eef0f4;
-    --sk-color-border-subtle: #28303c;
-    --sk-color-border-default: #3c4553;
-    --sk-color-border-strong: #646e7f;
-    --sk-color-border-interactive: #8590a3;
-    --sk-color-border-brand: #7191fb;
-    --sk-color-border-disabled: #3c4553;
-    --sk-color-border-inverse: #c5ccd8;
-    --sk-color-focus-ring: #9bb6ff;
-    --sk-color-focus-ring-offset: #0e131a;
+    --sk-color-text-code: #f1f1f1;
+    --sk-color-border-subtle: #2b2b2b;
+    --sk-color-border-default: #3c3c3c;
+    --sk-color-border-strong: #858585;
+    --sk-color-border-interactive: #a9a9a9;
+    --sk-color-border-brand: #579dff;
+    --sk-color-border-disabled: #3c3c3c;
+    --sk-color-border-inverse: #b8b8b8;
+    --sk-color-focus-ring: #85b8ff;
+    --sk-color-focus-ring-offset: #121315;
     --sk-color-focus-ring-inverse: #ffffff;
-    --sk-color-action-primary-bg: #7191fb;
-    --sk-color-action-primary-bg-hover: #9bb6ff;
-    --sk-color-action-primary-bg-active: #c2d3ff;
-    --sk-color-action-primary-text: #0e131a;
-    --sk-color-action-secondary-bg: transparent;
-    --sk-color-action-secondary-bg-hover: rgb(255 255 255 / 8%);
-    --sk-color-action-secondary-bg-active: rgb(255 255 255 / 12%);
-    --sk-color-action-secondary-border: #646e7f;
-    --sk-color-action-secondary-text: #f7f8fa;
-    --sk-color-action-ghost-text: #9bb6ff;
+    --sk-color-action-primary-bg: #579dff;
+    --sk-color-action-primary-bg-hover: #85b8ff;
+    --sk-color-action-primary-bg-active: #b3d4ff;
+    --sk-color-action-primary-text: #121315;
+    --sk-color-action-secondary-bg: #2b2b2b;
+    --sk-color-action-secondary-bg-hover: #3c3c3c;
+    --sk-color-action-secondary-bg-active: #454545;
+    --sk-color-action-secondary-border: #858585;
+    --sk-color-action-secondary-text: #fafafa;
+    --sk-color-action-ghost-text: #fafafa;
     --sk-color-action-ghost-bg-hover: rgb(255 255 255 / 8%);
     --sk-color-action-ghost-bg-active: rgb(255 255 255 / 12%);
     --sk-color-action-danger-bg: #e35a5a;
     --sk-color-action-danger-bg-hover: #f08a8a;
     --sk-color-action-danger-bg-active: #f7b6b6;
-    --sk-color-action-danger-text: #0e131a;
+    --sk-color-action-danger-text: #121315;
     --sk-color-action-success-bg: #63c489;
     --sk-color-action-success-bg-hover: #9bdcb3;
     --sk-color-action-success-bg-active: #cbeed7;
-    --sk-color-action-success-text: #0e131a;
-    --sk-color-action-disabled-bg: #28303c;
-    --sk-color-action-disabled-text: #515b6b;
+    --sk-color-action-success-text: #121315;
+    --sk-color-action-disabled-bg: #2b2b2b;
+    --sk-color-action-disabled-text: #454545;
     --sk-color-status-success-surface: #042013;
     --sk-color-status-success-border: #34a765;
     --sk-color-status-success-text: #9bdcb3;
     --sk-color-status-success-solid: #34a765;
-    --sk-color-status-success-on-solid: #0e131a;
+    --sk-color-status-success-on-solid: #121315;
     --sk-color-status-warning-surface: #301d05;
     --sk-color-status-warning-border: #e8a013;
     --sk-color-status-warning-text: #fdd77f;
     --sk-color-status-warning-solid: #f7bd3f;
-    --sk-color-status-warning-on-solid: #0e131a;
+    --sk-color-status-warning-on-solid: #121315;
     --sk-color-status-danger-surface: #380c0c;
     --sk-color-status-danger-border: #e35a5a;
     --sk-color-status-danger-text: #f7b6b6;
     --sk-color-status-danger-solid: #e35a5a;
-    --sk-color-status-danger-on-solid: #0e131a;
+    --sk-color-status-danger-on-solid: #121315;
     --sk-color-status-info-surface: #0b1f3a;
     --sk-color-status-info-border: #3f97ed;
     --sk-color-status-info-text: #a5d2fb;
     --sk-color-status-info-solid: #3f97ed;
-    --sk-color-status-info-on-solid: #0e131a;
-    --sk-color-status-neutral-surface: #28303c;
-    --sk-color-status-neutral-border: #646e7f;
-    --sk-color-status-neutral-text: #dfe3ea;
-    --sk-color-status-neutral-solid: #8590a3;
-    --sk-color-status-neutral-on-solid: #0e131a;
-    --sk-color-field-bg: #0e131a;
-    --sk-color-field-bg-hover: #181e27;
-    --sk-color-field-bg-disabled: #181e27;
-    --sk-color-field-bg-readonly: #181e27;
-    --sk-color-field-border: #646e7f;
-    --sk-color-field-border-hover: #8590a3;
+    --sk-color-status-info-on-solid: #121315;
+    --sk-color-status-neutral-surface: #2b2b2b;
+    --sk-color-status-neutral-border: #858585;
+    --sk-color-status-neutral-text: #dedede;
+    --sk-color-status-neutral-solid: #858585;
+    --sk-color-status-neutral-on-solid: #121315;
+    --sk-color-field-bg: #121315;
+    --sk-color-field-bg-hover: #1a1a1a;
+    --sk-color-field-bg-disabled: #1a1a1a;
+    --sk-color-field-bg-readonly: #1a1a1a;
+    --sk-color-field-border: #858585;
+    --sk-color-field-border-hover: #a9a9a9;
     --sk-color-field-border-error: #e35a5a;
     --sk-color-field-border-success: #34a765;
-    --sk-color-field-selection-bg: #2b3593;
+    --sk-color-field-selection-bg: #144794;
     --sk-color-field-selection-text: #ffffff;
-    --sk-color-control-checked: #7191fb;
-    --sk-color-control-checked-mark: #0e131a;
-    --sk-color-control-track: #646e7f;
-    --sk-color-chart-1: #9bb6ff;
+    --sk-color-control-checked: #579dff;
+    --sk-color-control-checked-mark: #121315;
+    --sk-color-control-track: #858585;
+    --sk-color-chart-1: #85b8ff;
     --sk-color-chart-2: #55d5c7;
     --sk-color-chart-3: #f7bd3f;
     --sk-color-chart-4: #f08a8a;
     --sk-color-chart-5: #bba5fb;
     --sk-color-chart-6: #63c489;
     --sk-color-chart-7: #a5d2fb;
-    --sk-color-chart-8: #8590a3;
+    --sk-color-chart-8: #858585;
     --sk-color-chart-1-on-solid: #000000;
     --sk-color-chart-2-on-solid: #000000;
     --sk-color-chart-3-on-solid: #000000;
@@ -997,9 +1041,9 @@
     --sk-color-chart-6-on-solid: #000000;
     --sk-color-chart-7-on-solid: #000000;
     --sk-color-chart-8-on-solid: #000000;
-    --sk-color-chart-grid: #28303c;
-    --sk-color-chart-axis: #515b6b;
-    --sk-color-chart-label: #c5ccd8;
+    --sk-color-chart-grid: #2b2b2b;
+    --sk-color-chart-axis: #454545;
+    --sk-color-chart-label: #b8b8b8;
     --sk-color-ai-surface: #251643;
     --sk-color-ai-border: #9e7ef4;
     --sk-color-ai-text: #d6c9ff;
@@ -1015,55 +1059,55 @@
 @media (prefers-contrast: more) {
   :root:not([data-sk-theme]) {
     --sk-color-surface-base: #ffffff;
-    --sk-color-surface-subtle: #f7f8fa;
-    --sk-color-surface-sunken: #eef0f4;
+    --sk-color-surface-subtle: #fafafa;
+    --sk-color-surface-sunken: #f1f1f1;
     --sk-color-surface-raised: #ffffff;
     --sk-color-surface-overlay: #ffffff;
     --sk-color-surface-inverse: #000000;
     --sk-color-surface-hover: rgb(14 19 26 / 8%);
     --sk-color-surface-active: rgb(14 19 26 / 12%);
-    --sk-color-surface-selected: #dde7ff;
-    --sk-color-surface-disabled: #dfe3ea;
-    --sk-color-surface-brand: #2b3593;
-    --sk-color-surface-brand-subtle: #dde7ff;
+    --sk-color-surface-selected: #cce0ff;
+    --sk-color-surface-disabled: #dedede;
+    --sk-color-surface-brand: #144794;
+    --sk-color-surface-brand-subtle: #cce0ff;
     --sk-color-surface-accent: #0a4e4c;
     --sk-color-surface-accent-subtle: #c5f5ec;
     --sk-color-surface-scrim: rgb(14 19 26 / 64%);
     --sk-color-text-primary: #000000;
-    --sk-color-text-secondary: #28303c;
-    --sk-color-text-tertiary: #3c4553;
-    --sk-color-text-disabled: #646e7f;
-    --sk-color-text-placeholder: #3c4553;
+    --sk-color-text-secondary: #2b2b2b;
+    --sk-color-text-tertiary: #3c3c3c;
+    --sk-color-text-disabled: #555555;
+    --sk-color-text-placeholder: #3c3c3c;
     --sk-color-text-on-brand: #ffffff;
     --sk-color-text-on-accent: #ffffff;
     --sk-color-text-on-inverse: #ffffff;
-    --sk-color-text-brand: #283274;
-    --sk-color-text-link: #283274;
-    --sk-color-text-link-hover: #1a1f47;
+    --sk-color-text-brand: #12396f;
+    --sk-color-text-link: #12396f;
+    --sk-color-text-link-hover: #1c3557;
     --sk-color-text-link-visited: #3d276e;
     --sk-color-text-code: #000000;
-    --sk-color-border-subtle: #8590a3;
-    --sk-color-border-default: #3c4553;
-    --sk-color-border-strong: #181e27;
+    --sk-color-border-subtle: #858585;
+    --sk-color-border-default: #3c3c3c;
+    --sk-color-border-strong: #1a1a1a;
     --sk-color-border-interactive: #000000;
-    --sk-color-border-brand: #2b3593;
-    --sk-color-border-disabled: #c5ccd8;
+    --sk-color-border-brand: #144794;
+    --sk-color-border-disabled: #b8b8b8;
     --sk-color-border-inverse: #ffffff;
     --sk-color-focus-ring: #000000;
     --sk-color-focus-ring-offset: #ffffff;
     --sk-color-focus-ring-inverse: #ffffff;
-    --sk-color-action-primary-bg: #2b3593;
-    --sk-color-action-primary-bg-hover: #283274;
-    --sk-color-action-primary-bg-active: #1a1f47;
+    --sk-color-action-primary-bg: #144794;
+    --sk-color-action-primary-bg-hover: #12396f;
+    --sk-color-action-primary-bg-active: #1c3557;
     --sk-color-action-primary-text: #ffffff;
     --sk-color-action-secondary-bg: transparent;
-    --sk-color-action-secondary-bg-hover: #dfe3ea;
-    --sk-color-action-secondary-bg-active: #c5ccd8;
+    --sk-color-action-secondary-bg-hover: #dedede;
+    --sk-color-action-secondary-bg-active: #b8b8b8;
     --sk-color-action-secondary-border: #000000;
     --sk-color-action-secondary-text: #000000;
-    --sk-color-action-ghost-text: #283274;
-    --sk-color-action-ghost-bg-hover: #dde7ff;
-    --sk-color-action-ghost-bg-active: #c2d3ff;
+    --sk-color-action-ghost-text: #000000;
+    --sk-color-action-ghost-bg-hover: #f1f1f1;
+    --sk-color-action-ghost-bg-active: #dedede;
     --sk-color-action-danger-bg: #751e1e;
     --sk-color-action-danger-bg-hover: #621d1d;
     --sk-color-action-danger-bg-active: #380c0c;
@@ -1072,8 +1116,8 @@
     --sk-color-action-success-bg-hover: #0b3a24;
     --sk-color-action-success-bg-active: #042013;
     --sk-color-action-success-text: #ffffff;
-    --sk-color-action-disabled-bg: #dfe3ea;
-    --sk-color-action-disabled-text: #646e7f;
+    --sk-color-action-disabled-bg: #dedede;
+    --sk-color-action-disabled-text: #555555;
     --sk-color-status-success-surface: #cbeed7;
     --sk-color-status-success-border: #0c462a;
     --sk-color-status-success-text: #042013;
@@ -1094,32 +1138,32 @@
     --sk-color-status-info-text: #0b1f3a;
     --sk-color-status-info-solid: #134276;
     --sk-color-status-info-on-solid: #ffffff;
-    --sk-color-status-neutral-surface: #dfe3ea;
-    --sk-color-status-neutral-border: #181e27;
+    --sk-color-status-neutral-surface: #dedede;
+    --sk-color-status-neutral-border: #1a1a1a;
     --sk-color-status-neutral-text: #000000;
-    --sk-color-status-neutral-solid: #181e27;
+    --sk-color-status-neutral-solid: #1a1a1a;
     --sk-color-status-neutral-on-solid: #ffffff;
     --sk-color-field-bg: #ffffff;
-    --sk-color-field-bg-hover: #f7f8fa;
-    --sk-color-field-bg-disabled: #dfe3ea;
-    --sk-color-field-bg-readonly: #eef0f4;
+    --sk-color-field-bg-hover: #fafafa;
+    --sk-color-field-bg-disabled: #dedede;
+    --sk-color-field-bg-readonly: #f1f1f1;
     --sk-color-field-border: #000000;
     --sk-color-field-border-hover: #000000;
     --sk-color-field-border-error: #751e1e;
     --sk-color-field-border-success: #0c462a;
-    --sk-color-field-selection-bg: #c2d3ff;
+    --sk-color-field-selection-bg: #b3d4ff;
     --sk-color-field-selection-text: #000000;
-    --sk-color-control-checked: #2b3593;
+    --sk-color-control-checked: #144794;
     --sk-color-control-checked-mark: #ffffff;
-    --sk-color-control-track: #181e27;
-    --sk-color-chart-1: #2b3593;
+    --sk-color-control-track: #1a1a1a;
+    --sk-color-chart-1: #144794;
     --sk-color-chart-2: #07625f;
     --sk-color-chart-3: #7e4e0c;
     --sk-color-chart-4: #8e2020;
     --sk-color-chart-5: #5732a8;
     --sk-color-chart-6: #0c5732;
     --sk-color-chart-7: #1360b5;
-    --sk-color-chart-8: #3c4553;
+    --sk-color-chart-8: #3c3c3c;
     --sk-color-chart-1-on-solid: #ffffff;
     --sk-color-chart-2-on-solid: #ffffff;
     --sk-color-chart-3-on-solid: #ffffff;
@@ -1128,9 +1172,9 @@
     --sk-color-chart-6-on-solid: #ffffff;
     --sk-color-chart-7-on-solid: #ffffff;
     --sk-color-chart-8-on-solid: #ffffff;
-    --sk-color-chart-grid: #8590a3;
-    --sk-color-chart-axis: #181e27;
-    --sk-color-chart-label: #181e27;
+    --sk-color-chart-grid: #858585;
+    --sk-color-chart-axis: #1a1a1a;
+    --sk-color-chart-label: #1a1a1a;
     --sk-color-ai-surface: #e9e2ff;
     --sk-color-ai-border: #482c88;
     --sk-color-ai-text: #251643;
@@ -1140,53 +1184,53 @@
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root:not([data-sk-theme]) {
     --sk-color-surface-base: #000000;
-    --sk-color-surface-subtle: #0e131a;
+    --sk-color-surface-subtle: #121315;
     --sk-color-surface-sunken: #000000;
     --sk-color-surface-raised: #000000;
     --sk-color-surface-overlay: #000000;
     --sk-color-surface-inverse: #ffffff;
     --sk-color-surface-hover: rgb(255 255 255 / 12%);
     --sk-color-surface-active: rgb(255 255 255 / 24%);
-    --sk-color-surface-selected: #1a1f47;
-    --sk-color-surface-disabled: #28303c;
-    --sk-color-surface-brand: #c2d3ff;
+    --sk-color-surface-selected: #1c3557;
+    --sk-color-surface-disabled: #2b2b2b;
+    --sk-color-surface-brand: #b3d4ff;
     --sk-color-surface-brand-subtle: #000000;
     --sk-color-surface-accent: #91e9dc;
     --sk-color-surface-accent-subtle: #000000;
     --sk-color-surface-scrim: rgb(14 19 26 / 64%);
     --sk-color-text-primary: #ffffff;
-    --sk-color-text-secondary: #eef0f4;
-    --sk-color-text-tertiary: #dfe3ea;
-    --sk-color-text-disabled: #646e7f;
-    --sk-color-text-placeholder: #dfe3ea;
+    --sk-color-text-secondary: #f1f1f1;
+    --sk-color-text-tertiary: #dedede;
+    --sk-color-text-disabled: #555555;
+    --sk-color-text-placeholder: #dedede;
     --sk-color-text-on-brand: #000000;
     --sk-color-text-on-accent: #000000;
     --sk-color-text-on-inverse: #000000;
-    --sk-color-text-brand: #dde7ff;
-    --sk-color-text-link: #dde7ff;
-    --sk-color-text-link-hover: #eef3ff;
+    --sk-color-text-brand: #cce0ff;
+    --sk-color-text-link: #cce0ff;
+    --sk-color-text-link-hover: #e9f2ff;
     --sk-color-text-link-visited: #e9e2ff;
     --sk-color-text-code: #ffffff;
-    --sk-color-border-subtle: #515b6b;
-    --sk-color-border-default: #8590a3;
-    --sk-color-border-strong: #dfe3ea;
+    --sk-color-border-subtle: #454545;
+    --sk-color-border-default: #858585;
+    --sk-color-border-strong: #dedede;
     --sk-color-border-interactive: #ffffff;
-    --sk-color-border-brand: #c2d3ff;
-    --sk-color-border-disabled: #3c4553;
+    --sk-color-border-brand: #b3d4ff;
+    --sk-color-border-disabled: #3c3c3c;
     --sk-color-border-inverse: #000000;
     --sk-color-focus-ring: #ffffff;
     --sk-color-focus-ring-offset: #000000;
     --sk-color-focus-ring-inverse: #ffffff;
-    --sk-color-action-primary-bg: #c2d3ff;
-    --sk-color-action-primary-bg-hover: #dde7ff;
-    --sk-color-action-primary-bg-active: #eef3ff;
+    --sk-color-action-primary-bg: #b3d4ff;
+    --sk-color-action-primary-bg-hover: #cce0ff;
+    --sk-color-action-primary-bg-active: #e9f2ff;
     --sk-color-action-primary-text: #000000;
     --sk-color-action-secondary-bg: transparent;
     --sk-color-action-secondary-bg-hover: rgb(255 255 255 / 24%);
     --sk-color-action-secondary-bg-active: rgb(255 255 255 / 48%);
     --sk-color-action-secondary-border: #ffffff;
     --sk-color-action-secondary-text: #ffffff;
-    --sk-color-action-ghost-text: #dde7ff;
+    --sk-color-action-ghost-text: #ffffff;
     --sk-color-action-ghost-bg-hover: rgb(255 255 255 / 24%);
     --sk-color-action-ghost-bg-active: rgb(255 255 255 / 48%);
     --sk-color-action-danger-bg: #f7b6b6;
@@ -1197,8 +1241,8 @@
     --sk-color-action-success-bg-hover: #cbeed7;
     --sk-color-action-success-bg-active: #eaf8ee;
     --sk-color-action-success-text: #000000;
-    --sk-color-action-disabled-bg: #28303c;
-    --sk-color-action-disabled-text: #646e7f;
+    --sk-color-action-disabled-bg: #2b2b2b;
+    --sk-color-action-disabled-text: #555555;
     --sk-color-status-success-surface: #000000;
     --sk-color-status-success-border: #9bdcb3;
     --sk-color-status-success-text: #eaf8ee;
@@ -1220,31 +1264,31 @@
     --sk-color-status-info-solid: #a5d2fb;
     --sk-color-status-info-on-solid: #000000;
     --sk-color-status-neutral-surface: #000000;
-    --sk-color-status-neutral-border: #dfe3ea;
+    --sk-color-status-neutral-border: #dedede;
     --sk-color-status-neutral-text: #ffffff;
-    --sk-color-status-neutral-solid: #dfe3ea;
+    --sk-color-status-neutral-solid: #dedede;
     --sk-color-status-neutral-on-solid: #000000;
     --sk-color-field-bg: #000000;
     --sk-color-field-bg-hover: #000000;
-    --sk-color-field-bg-disabled: #181e27;
-    --sk-color-field-bg-readonly: #0e131a;
+    --sk-color-field-bg-disabled: #1a1a1a;
+    --sk-color-field-bg-readonly: #121315;
     --sk-color-field-border: #ffffff;
     --sk-color-field-border-hover: #ffffff;
     --sk-color-field-border-error: #f7b6b6;
     --sk-color-field-border-success: #9bdcb3;
-    --sk-color-field-selection-bg: #283274;
+    --sk-color-field-selection-bg: #12396f;
     --sk-color-field-selection-text: #ffffff;
-    --sk-color-control-checked: #c2d3ff;
+    --sk-color-control-checked: #b3d4ff;
     --sk-color-control-checked-mark: #000000;
-    --sk-color-control-track: #dfe3ea;
-    --sk-color-chart-1: #c2d3ff;
+    --sk-color-control-track: #dedede;
+    --sk-color-chart-1: #b3d4ff;
     --sk-color-chart-2: #91e9dc;
     --sk-color-chart-3: #fdd77f;
     --sk-color-chart-4: #f7b6b6;
     --sk-color-chart-5: #d6c9ff;
     --sk-color-chart-6: #9bdcb3;
     --sk-color-chart-7: #d0e8fd;
-    --sk-color-chart-8: #c5ccd8;
+    --sk-color-chart-8: #b8b8b8;
     --sk-color-chart-1-on-solid: #000000;
     --sk-color-chart-2-on-solid: #000000;
     --sk-color-chart-3-on-solid: #000000;
@@ -1253,9 +1297,9 @@
     --sk-color-chart-6-on-solid: #000000;
     --sk-color-chart-7-on-solid: #000000;
     --sk-color-chart-8-on-solid: #000000;
-    --sk-color-chart-grid: #3c4553;
-    --sk-color-chart-axis: #dfe3ea;
-    --sk-color-chart-label: #eef0f4;
+    --sk-color-chart-grid: #3c3c3c;
+    --sk-color-chart-axis: #dedede;
+    --sk-color-chart-label: #f1f1f1;
     --sk-color-ai-surface: #000000;
     --sk-color-ai-border: #d6c9ff;
     --sk-color-ai-text: #f4f0ff;
@@ -1275,7 +1319,7 @@
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0ms !important;
     scroll-behavior: auto !important;
   }
 }
@@ -1332,7 +1376,7 @@
    * !important is correct here: [hidden] is a statement of intent that no
    * layout rule should be able to override.
    */
-  [hidden] { display: none !important; }
+  [hidden]:not([hidden="until-found"]) { display: none !important; }
 
   img, picture, svg, video, canvas {
     max-inline-size: 100%;
@@ -1392,14 +1436,14 @@
     font-weight: var(--sk-font-weight-bold);
     letter-spacing: var(--sk-letter-spacing-heading-xl);
     text-wrap: balance;
-    margin-block-start: var(--sk-space-40);
+    margin-block-start: var(--sk-space-32);
   }
   .sk-prose h2 {
     font-size: var(--sk-font-size-heading-lg);
     line-height: var(--sk-line-height-heading-lg);
     font-weight: var(--sk-font-weight-bold);
     text-wrap: balance;
-    margin-block-start: var(--sk-space-40);
+    margin-block-start: var(--sk-space-32);
   }
   .sk-prose h3 {
     font-size: var(--sk-font-size-heading-md);
@@ -1553,6 +1597,12 @@
      viewport's, which is what makes a card behave correctly in both a sidebar
      and a full-width region. */
   .sk-cq { container-type: inline-size; }
+  @media (pointer: coarse) {
+    .sk-button, .sk-icon-button, .sk-side-nav__item, .sk-menu__item, .sk-segmented__option { min-block-size: var(--sk-layout-touch-target); }
+    .sk-icon-button { min-inline-size: var(--sk-layout-touch-target); }
+    .sk-field-row :is(.sk-input, .sk-search, .sk-select, .sk-button) { --sk-control-size: var(--sk-layout-touch-target); }
+  }
+
 }
 
 @layer sk-components {
@@ -1567,7 +1617,7 @@
   gap: var(--sk-space-8);
   min-height: var(--sk-control-height-md);
   padding-inline: var(--sk-control-padding-inline);
-  padding-block: var(--sk-control-padding-block);
+  padding-block: max(0px, calc((var(--sk-control-size, var(--sk-control-height-md)) - 1lh - 2 * var(--sk-border-width-hairline)) / 2));
   border: var(--sk-border-width-hairline) solid transparent;
   border-radius: var(--sk-radius-md);
   /* Type */
@@ -1577,7 +1627,9 @@
   font-weight: var(--sk-font-weight-medium);
   letter-spacing: var(--sk-letter-spacing-label-md);
   text-decoration: none;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-inline-size: 100%;
   /* Behaviour */
   cursor: pointer;
   user-select: none;
@@ -1593,7 +1645,7 @@
 .sk-button::after {
   content: "";
   position: absolute;
-  inset: 50% 0 0 50%;
+  inset: 50% auto auto 50%;
   translate: -50% -50%;
   min-width: 24px;
   min-height: 24px;
@@ -1693,6 +1745,7 @@
 
 /* --- Sizes --- */
 .sk-button--sm {
+  --sk-control-size: var(--sk-control-height-sm);
   min-height: var(--sk-control-height-sm);
   padding-inline: var(--sk-space-12);
   font-size: var(--sk-font-size-label-sm);
@@ -1700,6 +1753,7 @@
   gap: var(--sk-space-6);
 }
 .sk-button--lg {
+  --sk-control-size: var(--sk-control-height-lg);
   min-height: var(--sk-control-height-lg);
   padding-inline: var(--sk-space-24);
   font-size: var(--sk-font-size-body-md);
@@ -1786,7 +1840,7 @@
 .sk-icon-button::after {
   content: "";
   position: absolute;
-  inset: 50% 0 0 50%;
+  inset: 50% auto auto 50%;
   translate: -50% -50%;
   min-inline-size: 24px;
   min-block-size: 24px;
@@ -1859,6 +1913,7 @@
 .sk-button-group--vertical > .sk-button:last-child:not(:first-child) { border-radius: 0 0 var(--sk-radius-md) var(--sk-radius-md); }
 
 /* --- Segmented --- */
+.sk-button-group--sm { --sk-control-height-md: var(--sk-control-height-sm); }
 .sk-button-group--segmented {
   padding: var(--sk-space-2);
   background-color: var(--sk-color-surface-sunken);
@@ -1965,14 +2020,10 @@
 .sk-split-button--primary .sk-split-button__action:hover,
 .sk-split-button--primary .sk-split-button__trigger:hover { background-color: var(--sk-color-action-primary-bg-hover); }
 
-/* The divider must survive the label flipping from white (light) to near-black (dark),
-   so it is declared per theme rather than inherited from currentColor. */
+/* Resolve the divider from the local action token, including nested themes.
+   An outer theme selector would also match controls inside an opposite theme. */
 .sk-split-button--primary .sk-split-button__trigger {
-  border-inline-start: var(--sk-border-width-hairline) solid rgb(255 255 255 / 32%);
-}
-[data-sk-theme="dark"] .sk-split-button--primary .sk-split-button__trigger,
-[data-sk-theme="hc-dark"] .sk-split-button--primary .sk-split-button__trigger {
-  border-inline-start-color: rgb(0 0 0 / 32%);
+  border-inline-start: var(--sk-border-width-hairline) solid color-mix(in srgb, var(--sk-color-action-primary-text) 32%, transparent);
 }
 
 .sk-split-button__trigger[aria-expanded="true"] { background-color: var(--sk-color-surface-active); }
@@ -2168,6 +2219,26 @@
   min-inline-size: 0;
 }
 
+/* Shared label/hint/control/feedback tracks keep wrapped labels and hints from
+   shifting peer controls. Without subgrid support, retain a safe single column. */
+.sk-field-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sk-space-6) var(--sk-space-16); min-inline-size: 0; }
+.sk-field-row > .sk-field, .sk-field-row__actions { display: grid; grid-template-rows: auto auto auto 1fr; grid-row: span 4; gap: var(--sk-space-6); min-inline-size: 0; }
+@supports (grid-template-rows: subgrid) {
+  .sk-field-row { grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); }
+  .sk-field-row > .sk-field, .sk-field-row__actions { grid-template-rows: subgrid; }
+}
+.sk-field-row > .sk-field > .sk-field__label { grid-row: 1; align-self: start; }
+.sk-field-row > .sk-field > .sk-field__control, .sk-field-row__actions > * { grid-row: 3; align-self: start; min-inline-size: 0; }
+.sk-field-row > .sk-field > .sk-field__hint { grid-row: 2; align-self: start; }
+.sk-field-row > .sk-field > :is(.sk-field__error, .sk-field__footer) { grid-row: 4; }
+.sk-field-row__actions > * { justify-self: start; }
+/* One control-track cell owns the whole action group. Flex aligns button boxes
+   and centres text links, while wrapping safely within the available column. */
+.sk-field-row__actions > .sk-field-row__action-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-8); justify-self: stretch; }
+.sk-field-row__action-group > button { flex: 0 1 auto; align-self: stretch; }
+.sk-field-row > .sk-field > .sk-field__support { grid-row: 4; }
+.sk-field__support { display: flex; flex-direction: column; gap: var(--sk-space-6); min-inline-size: 0; }
+
 .sk-field__label {
   display: flex;
   flex-wrap: wrap;
@@ -2236,6 +2307,8 @@
 .sk-field[data-disabled] .sk-field__hint { color: var(--sk-color-text-disabled); }
 
 /* --- Inline: wraps to stacked automatically, no breakpoint needed --- */
+.sk-field--sm { --sk-control-size: var(--sk-control-height-sm); }
+.sk-field--lg { --sk-control-size: var(--sk-control-height-lg); }
 .sk-field--inline {
   flex-direction: row;
   flex-wrap: wrap;
@@ -2275,20 +2348,33 @@
      by flex-basis at the call site, never hard-coded here. */
   inline-size: 100%;
   min-inline-size: 0;
-  min-block-size: var(--sk-control-height-md);
+  min-block-size: var(--sk-control-size, var(--sk-control-height-md));
   padding-inline: var(--sk-space-12);
-  padding-block: var(--sk-space-8);
+  padding-block: max(0px, calc((var(--sk-control-size, var(--sk-control-height-md)) - 1lh - 2 * var(--sk-border-width-hairline)) / 2));
   background-color: var(--sk-color-field-bg);
   border: var(--sk-border-width-hairline) solid var(--sk-color-field-border);
   border-radius: var(--sk-radius-md);
   color: var(--sk-color-text-primary);
   font-family: var(--sk-font-family-sans);
   font-size: var(--sk-font-size-body-md);
-  line-height: var(--sk-line-height-body-md);
+  line-height: 1.25;
   transition:
     border-color var(--sk-duration-fast) var(--sk-easing-standard),
     background-color var(--sk-duration-fast) var(--sk-easing-standard);
 }
+
+/* Native single-line editors clamp their used line height to the font's normal
+   metrics. Let 1lh use those same metrics when calculating padding; a smaller
+   author line height otherwise adds extra intrinsic height in Firefox. Keep
+   automatic sizing so enlarged text can still grow the control. */
+input.sk-input { line-height: normal; }
+
+/* Native date editors otherwise add internal padding on top of field padding. */
+.sk-input:is([type="date"], [type="time"], [type="datetime-local"]) {
+  block-size: max(var(--sk-control-size, var(--sk-control-height-md)), calc(1lh + 2 * var(--sk-border-width-hairline)));
+  padding-block: 0;
+}
+.sk-input::-webkit-datetime-edit { padding: 0; }
 
 .sk-input::placeholder { color: var(--sk-color-text-placeholder); opacity: 1; }
 .sk-input:hover:not(:disabled, [readonly]) { border-color: var(--sk-color-field-border-hover); }
@@ -2318,8 +2404,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sk-input--sm { min-block-size: var(--sk-control-height-sm); padding-inline: var(--sk-space-8); font-size: var(--sk-font-size-body-sm); }
-.sk-input--lg { min-block-size: var(--sk-control-height-lg); padding-inline: var(--sk-space-16); }
+.sk-input--sm { --sk-control-size: var(--sk-control-height-sm); min-block-size: var(--sk-control-height-sm); padding-inline: var(--sk-space-8); font-size: var(--sk-font-size-body-sm); }
+.sk-input--lg { --sk-control-size: var(--sk-control-height-lg); min-block-size: var(--sk-control-height-lg); padding-inline: var(--sk-space-16); }
 
 /* Chrome injects a hard-coded pale yellow autofill background that is unreadable
    in dark mode. There is no supported property to change it, so we paint over it
@@ -2355,6 +2441,7 @@
   min-inline-size: 0;
   border: none;
   border-radius: 0;
+  min-block-size: calc(var(--sk-control-size, var(--sk-control-height-md)) - 2 * var(--sk-border-width-hairline));
   background: transparent;
 }
 .sk-input-group > .sk-input:focus-visible { outline: none; }
@@ -2386,6 +2473,25 @@
 }
 .sk-input-group__action:hover { background-color: var(--sk-color-surface-hover); color: var(--sk-color-text-primary); }
 .sk-input-group__action > svg { fill: currentColor; }
+
+/* Native datalist indicators may appear only on hover. Paint a permanent,
+   theme-aware affordance for datalists and editable comboboxes. Keep the native
+   indicator hit area, so its browser-provided action remains available. */
+.sk-input[list], .sk-input[role="combobox"]:not([data-sk-tag-input]) {
+  padding-inline-end: var(--sk-space-32);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-size: 0.3rem 0.3rem;
+  background-position: right calc(var(--sk-space-12) + 0.3rem) center, right var(--sk-space-12) center;
+  background-repeat: no-repeat;
+}
+.sk-input[list]:dir(rtl), .sk-input[role="combobox"]:not([data-sk-tag-input]):dir(rtl) {
+  background-position: left var(--sk-space-12) center, left calc(var(--sk-space-12) + 0.3rem) center;
+}
+.sk-input[list]::-webkit-calendar-picker-indicator { opacity: 0; }
+@media (forced-colors: active) {
+  .sk-input[list], .sk-input[role="combobox"]:not([data-sk-tag-input]) { forced-color-adjust: none; color: FieldText; background-color: Field; border-color: ButtonBorder; }
+  .sk-input[list]:disabled, .sk-input[role="combobox"]:disabled { color: GrayText; border-color: GrayText; }
+}
 
 @media (forced-colors: active) {
   .sk-input { border-color: ButtonBorder; }
@@ -2465,38 +2571,32 @@
 }
 
 .sk-select {
+  block-size: var(--sk-control-size, var(--sk-control-height-md));
   flex: 1 1 auto;
   min-inline-size: 0;
-  min-block-size: var(--sk-control-height-md);
+  min-block-size: var(--sk-control-size, var(--sk-control-height-md));
   /* Inline-end padding leaves room for the chevron; logical so RTL flips it. */
   padding-inline: var(--sk-space-12) var(--sk-space-32);
-  padding-block: var(--sk-space-8);
+  padding-block: max(0px, calc((var(--sk-control-size, var(--sk-control-height-md)) - 1lh - 2 * var(--sk-border-width-hairline)) / 2));
   background-color: var(--sk-color-field-bg);
   border: var(--sk-border-width-hairline) solid var(--sk-color-field-border);
   border-radius: var(--sk-radius-md);
   color: var(--sk-color-text-primary);
   font-family: var(--sk-font-family-sans);
   font-size: var(--sk-font-size-body-md);
-  line-height: var(--sk-line-height-body-md);
+  line-height: 1.25;
   appearance: none;
   cursor: pointer;
-  /* Makes the OS-rendered option list follow the theme instead of flashing white. */
-  color-scheme: light;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23676f82' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  /* Theme token scopes also set color-scheme. Inherit the nearest scope so
+     nested previews and unpinned system themes keep native option surfaces aligned. */
+  color-scheme: inherit;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-repeat: no-repeat;
-  background-position: right var(--sk-space-12) center;
-  background-size: 1rem;
+  background-position: right calc(var(--sk-space-12) + 0.3rem) center, right var(--sk-space-12) center;
+  background-size: 0.3rem 0.3rem;
 }
 
-[dir="rtl"] .sk-select { background-position: left var(--sk-space-12) center; }
-
-/* The chevron is baked into a data URI and cannot inherit currentColor, so each
-   dark theme re-declares it. Skipping this is the classic invisible-chevron bug. */
-[data-sk-theme="dark"] .sk-select,
-[data-sk-theme="hc-dark"] .sk-select {
-  color-scheme: dark;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238590a3' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
-}
+.sk-select:dir(rtl) { background-position: left var(--sk-space-12) center, left calc(var(--sk-space-12) + 0.3rem) center; }
 
 .sk-select:hover:not(:disabled) { border-color: var(--sk-color-field-border-hover); }
 .sk-select:focus-visible {
@@ -2511,16 +2611,17 @@
   cursor: not-allowed;
 }
 .sk-select[data-placeholder] { color: var(--sk-color-text-placeholder); }
+.sk-select[aria-invalid="true"] { border-color: var(--sk-color-field-border-error); }
 
 .sk-select--quiet { border-color: transparent; background-color: transparent; }
 .sk-select--quiet:hover:not(:disabled) { background-color: var(--sk-color-surface-hover); border-color: var(--sk-color-border-subtle); }
 
-.sk-select--sm { min-block-size: var(--sk-control-height-sm); font-size: var(--sk-font-size-body-sm); padding-inline: var(--sk-space-8) var(--sk-space-28); }
-.sk-select--lg { min-block-size: var(--sk-control-height-lg); }
-/* The chevron is a background-image data URI, which HCM discards outright,
+.sk-select--sm { --sk-control-size: var(--sk-control-height-sm); min-block-size: var(--sk-control-height-sm); font-size: var(--sk-font-size-body-sm); padding-inline: var(--sk-space-8) var(--sk-space-28); }
+.sk-select--lg { --sk-control-size: var(--sk-control-height-lg); min-block-size: var(--sk-control-height-lg); }
+/* The CSS chevron is a background image, which HCM discards outright,
    leaving a select with no affordance that it opens anything. */
 @media (forced-colors: active) {
-  .sk-select { border-color: CanvasText; }
+  .sk-select { border-color: CanvasText; appearance: auto; background-image: none; }
   .sk-select:focus-visible { outline-color: Highlight; }
   .sk-select:disabled { color: GrayText; border-color: GrayText; }
 }
@@ -2529,6 +2630,7 @@
 
 /* ===== Checkbox (checkbox) ===== */
 .sk-checkbox {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--sk-space-10);
@@ -2541,6 +2643,7 @@
    display:none or visibility:hidden would remove it from both. */
 .sk-checkbox__input {
   position: absolute;
+  z-index: var(--sk-z-raised);
   inline-size: 1.25rem;
   block-size: 1.25rem;
   margin: 0;
@@ -2649,6 +2752,7 @@
 .sk-radio-group--cards { gap: var(--sk-space-12); }
 
 .sk-radio {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--sk-space-10);
@@ -2659,6 +2763,7 @@
 
 .sk-radio__input {
   position: absolute;
+  z-index: var(--sk-z-raised);
   inline-size: 1.25rem;
   block-size: 1.25rem;
   margin: 0;
@@ -2811,9 +2916,11 @@
 
 
 /* ===== Combobox (combobox) ===== */
+.sk-combobox--sm { --sk-control-size: var(--sk-control-height-sm); }
 .sk-combobox { position: relative; display: flex; flex-direction: column; min-inline-size: 0; }
 
-.sk-combobox__list {
+.sk-combobox__list,
+.sk-combobox__popup {
   position: absolute;
   inset-block-start: calc(100% + var(--sk-space-4));
   inset-inline: 0;
@@ -2831,6 +2938,9 @@
   border-radius: var(--sk-radius-md);
   box-shadow: var(--sk-elevation-3);
 }
+
+.sk-combobox__popup { inset-inline-end: auto; }
+.sk-combobox__popup > .sk-combobox__list { position: static; margin: 0; padding: 0; border: 0; box-shadow: none; max-block-size: min(18rem, calc(100dvh - 4rem)); animation: none; }
 
 .sk-combobox__option {
   display: flex;
@@ -2857,13 +2967,19 @@
   background-color: var(--sk-color-surface-selected);
 }
 /* Selection is not colour-only: the active option also gains a leading brand bar. */
-.sk-combobox__option[data-active] { box-shadow: inset 3px 0 0 0 var(--sk-color-border-brand); }
+.sk-combobox__option[data-active] { position: relative; }
+.sk-combobox__option[data-active]::before { content: ""; position: absolute; inset-inline-start: 0; inset-block: var(--sk-space-4); inline-size: var(--sk-space-4); border-radius: var(--sk-radius-xs); background-color: var(--sk-color-border-brand); }
+@media (forced-colors: active) { .sk-combobox__option[data-active]::before { background-color: HighlightText; forced-color-adjust: none; } }
+
 
 .sk-combobox__empty {
+  margin: 0;
   padding: var(--sk-space-16) var(--sk-space-12);
   font-size: var(--sk-font-size-body-sm);
   color: var(--sk-color-text-secondary);
 }
+
+@media (pointer: coarse) { .sk-combobox__remove, .sk-combobox__option { min-block-size: 2.75rem; min-inline-size: 2.75rem; } }
 
 /* --- Multi-select tokens --- */
 .sk-combobox--multi .sk-combobox__field {
@@ -2882,11 +2998,18 @@
   outline-offset: var(--sk-focus-ring-offset);
 }
 /* The input takes at least 6rem but shares the row with tokens, wrapping as needed. */
-.sk-combobox--multi .sk-input { flex: 1 1 6rem; min-inline-size: 0; border: none; background: transparent; }
+.sk-combobox--multi .sk-input { flex: 1 1 6rem; min-inline-size: 0; border: none; background-color: transparent; }
 .sk-combobox--multi .sk-input:focus-visible { outline: none; }
 
+.sk-combobox__tokens { display: contents; }
+.sk-combobox__remove { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 1.5rem; min-block-size: 1.5rem; padding: 0; border: 0; border-radius: var(--sk-radius-sm); background: transparent; color: inherit; cursor: pointer; }
+.sk-combobox__remove:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: var(--sk-focus-ring-offset); }
+.sk-combobox__remove:disabled, .sk-combobox__option[aria-disabled="true"] { cursor: not-allowed; }
+.sk-combobox__option[aria-selected="true"] { font-weight: var(--sk-font-weight-semibold); }
 .sk-combobox__token {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
   display: inline-flex;
   align-items: center;
   gap: var(--sk-space-4);
@@ -2908,7 +3031,8 @@
    background — both discarded. aria-activedescendant is still correct, but a
    sighted HCM user would have nothing to look at. */
 @media (forced-colors: active) {
-  .sk-combobox__list { border: 1px solid CanvasText; }
+  .sk-combobox__list, .sk-combobox__popup { border: 1px solid CanvasText; }
+  .sk-combobox__popup > .sk-combobox__list { border: 0; }
   .sk-combobox__option[data-active],
   .sk-combobox__option:hover { background-color: Highlight; color: HighlightText; }
 }
@@ -2924,7 +3048,7 @@
   flex: 1 1 20rem;
   min-inline-size: 0;
   max-inline-size: 32rem;
-  min-block-size: var(--sk-control-height-md);
+  min-block-size: var(--sk-control-size, var(--sk-control-height-md));
   padding-inline: var(--sk-space-12);
   background-color: var(--sk-color-field-bg);
   border: var(--sk-border-width-hairline) solid var(--sk-color-field-border);
@@ -2947,8 +3071,11 @@
   color: var(--sk-color-text-primary);
   font-family: var(--sk-font-family-sans);
   font-size: var(--sk-font-size-body-md);
-  padding-block: var(--sk-space-8);
+  line-height: 1.25;
+  padding-block: max(0px, calc((var(--sk-control-size, var(--sk-control-height-md)) - 1lh - 2 * var(--sk-border-width-hairline)) / 2));
 }
+/* Match native single-line metrics without changing search-button placeholders. */
+input.sk-search__input { line-height: normal; }
 .sk-search__input:focus-visible { outline: none; }
 .sk-search__input::placeholder { color: var(--sk-color-text-placeholder); opacity: 1; }
 
@@ -2963,7 +3090,7 @@
   align-items: center;
   justify-content: center;
   inline-size: 1.5rem;
-  block-size: 1.5rem;
+  block-size: min(1.5rem, calc(var(--sk-control-size, var(--sk-control-height-md)) - 2 * var(--sk-border-width-hairline)));
   padding: 0;
   border: none;
   border-radius: var(--sk-radius-full);
@@ -2972,11 +3099,11 @@
   cursor: pointer;
   position: relative;
 }
-.sk-search__clear::after { content: ""; position: absolute; inset: 50% 0 0 50%; translate: -50% -50%; min-inline-size: 24px; min-block-size: 24px; }
+.sk-search__clear::after { content: ""; position: absolute; inset: 50% auto auto 50%; translate: -50% -50%; min-inline-size: 24px; min-block-size: 24px; }
 .sk-search__clear:hover { background-color: var(--sk-color-surface-hover); color: var(--sk-color-text-primary); }
 .sk-search__clear > svg { fill: currentColor; }
 
-.sk-search--sm { min-block-size: var(--sk-control-height-sm); flex-basis: 14rem; }
+.sk-search--sm { --sk-control-size: var(--sk-control-height-sm); min-block-size: var(--sk-control-height-sm); flex-basis: 14rem; }
 .sk-search--sm .sk-search__input { font-size: var(--sk-font-size-body-sm); }
 @media (forced-colors: active) {
   .sk-search { border-color: CanvasText; }
@@ -2994,6 +3121,13 @@
   min-inline-size: 0;
 }
 
+.sk-slider--with-input { flex-wrap: wrap; }
+.sk-slider__number { flex: 0 1 7rem; inline-size: 7rem; min-inline-size: 0; }
+.sk-slider--range { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sk-space-12); }
+.sk-slider__bound { display: grid; grid-template-columns: minmax(0, 1fr) minmax(4rem, 7rem); align-items: center; gap: var(--sk-space-8); }
+.sk-slider__bound > label { grid-column: 1 / -1; }
+.sk-slider__bound .sk-slider__number { inline-size: 100%; }
+
 /* The track takes all available width; the readout keeps its intrinsic size. */
 .sk-slider__input {
   flex: 1 1 auto;
@@ -3009,11 +3143,12 @@
   block-size: 0.375rem;
   border-radius: var(--sk-radius-full);
   background: linear-gradient(
-    to right,
+    var(--sk-slider-direction, to right),
     var(--sk-color-control-checked) 0 var(--sk-slider-progress, 50%),
     var(--sk-color-control-track) var(--sk-slider-progress, 50%) 100%
   );
 }
+:dir(rtl) .sk-slider__input { --sk-slider-direction: to left; }
 .sk-slider__input::-moz-range-track {
   block-size: 0.375rem;
   border-radius: var(--sk-radius-full);
@@ -3062,7 +3197,8 @@
 
 .sk-slider__output {
   flex: 0 0 auto;
-  min-inline-size: 5rem;
+  min-inline-size: 0;
+  max-inline-size: 9rem;
   text-align: end;
   font-size: var(--sk-font-size-body-sm);
   font-variant-numeric: tabular-nums;
@@ -3070,6 +3206,8 @@
 }
 
 @media (pointer: coarse) {
+  .sk-slider__input { min-block-size: 2.75rem; }
+  .sk-slider__input::-moz-range-thumb { inline-size: 1.75rem; block-size: 1.75rem; }
   .sk-slider__input::-webkit-slider-thumb { inline-size: 1.75rem; block-size: 1.75rem; margin-block-start: -0.6875rem; }
 }
 
@@ -3108,6 +3246,9 @@
               background-color var(--sk-duration-fast) var(--sk-easing-standard);
 }
 
+.sk-upload--compact .sk-upload__zone { align-items: flex-start; padding: 0; border: 0; background: transparent; }
+.sk-upload--compact .sk-upload__icon, .sk-upload--compact .sk-upload__hint-drag { display: none; }
+.sk-upload__file[data-error] { border-color: var(--sk-color-field-border-error); }
 .sk-upload__icon { fill: var(--sk-color-text-tertiary); }
 
 .sk-upload__prompt {
@@ -3231,18 +3372,22 @@
 .sk-number .sk-input { flex: 1 1 auto; min-inline-size: 0; }
 
 .sk-number__steppers {
+  /* Include the wrapper border in the hit area at the smallest density. */
+  margin-block: calc(-1 * var(--sk-border-width-hairline));
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex: 0 0 auto;
   border-inline-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
 }
 .sk-number__step {
+  font-size: var(--sk-font-size-label-md);
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   /* 24x24 minimum per 2.5.8, which the native spinners miss. */
   inline-size: 1.75rem;
-  block-size: 1.5rem;
+  align-self: stretch;
   min-block-size: 1.5rem;
   padding: 0;
   background: none;
@@ -3252,7 +3397,7 @@
 }
 .sk-number__step:hover { background-color: var(--sk-color-surface-hover); color: var(--sk-color-text-primary); }
 .sk-number__step svg { fill: currentColor; }
-.sk-number__step + .sk-number__step { border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); }
+.sk-number__step + .sk-number__step { border-inline-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); }
 
 .sk-number[data-at-max] .sk-number__step[data-sk-step="1"],
 .sk-number[data-at-min] .sk-number__step[data-sk-step="-1"] { color: var(--sk-color-text-disabled); }
@@ -3276,7 +3421,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sk-space-4);
-  min-block-size: var(--sk-control-height-md);
+  min-block-size: var(--sk-control-size, var(--sk-control-height-md));
   padding: var(--sk-space-4) var(--sk-space-8);
   background-color: var(--sk-color-field-bg);
   border: var(--sk-border-width-hairline) solid var(--sk-color-field-border);
@@ -3408,6 +3553,7 @@
 }
 .sk-date-picker__panel[hidden] { display: none !important; }
 
+.sk-date-picker--sm { --sk-control-size: var(--sk-control-height-sm); }
 .sk-date-picker--inline { display: block; }
 .sk-date-picker--inline .sk-date-picker__panel {
   position: static;
@@ -3516,6 +3662,7 @@
 
 
 /* ===== Date range picker (date-range-picker) ===== */
+.sk-date-range--sm { --sk-control-size: var(--sk-control-height-sm); }
 .sk-date-range { display: flex; flex-direction: column; gap: var(--sk-space-16); }
 .sk-date-range__calendar {
   padding: var(--sk-space-12);
@@ -3547,7 +3694,7 @@
   position: fixed;
   inset-block-start: var(--sk-space-8);
   inset-inline-start: var(--sk-space-8);
-  z-index: var(--sk-z-skip-link);
+  z-index: var(--sk-z-skipLink);
   padding: var(--sk-space-12) var(--sk-space-16);
   /* Opaque, never translucent: a semi-transparent skip link composites against
      unknown content and its contrast becomes unpredictable. */
@@ -3581,11 +3728,11 @@
   align-items: center;
   gap: var(--sk-space-12);
   flex-wrap: nowrap;
-  min-block-size: 3.5rem;
+  min-block-size: var(--sk-layout-header-height);
   padding-inline: var(--sk-space-16);
   /* Lighter than the page in dark mode, darker in light mode — the separation
      direction inverts, which a hard-coded grey cannot express. */
-  background-color: var(--sk-color-surface-subtle);
+  background-color: var(--sk-color-surface-base);
   border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
   color: var(--sk-color-text-primary);
 }
@@ -3598,11 +3745,16 @@
 
 .sk-top-bar[data-scrolled] { box-shadow: var(--sk-elevation-2); }
 
+.sk-top-bar { flex-wrap: wrap; container-type: inline-size; }
+@container (max-width: 24rem) {
+  .sk-top-bar__product, .sk-top-bar__search { display: none; }
+  .sk-top-bar__utilities { flex-wrap: wrap; gap: var(--sk-space-2); }
+}
 .sk-top-bar__nav-trigger { flex: 0 0 auto; }
-@media (min-width: 64rem) { .sk-top-bar__nav-trigger { display: none; } }
+@media (min-width: 64rem) { .sk-top-bar__nav-trigger:not([data-sk-persistent-nav]) { display: none; } }
 
 .sk-top-bar__identity {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
   gap: var(--sk-space-8);
@@ -3672,7 +3824,7 @@
   flex-direction: column;
   gap: var(--sk-space-4);
   /* Fixed basis, allowed to shrink, never to grow: the content area takes the slack. */
-  flex: 0 0 16rem;
+  flex: 0 0 var(--sk-layout-nav-width);
   min-inline-size: 0;
   padding: var(--sk-space-12) var(--sk-space-8);
   background-color: var(--sk-color-surface-subtle);
@@ -3682,6 +3834,27 @@
 }
 
 .sk-side-nav__list { display: flex; flex-direction: column; gap: var(--sk-space-2); margin: 0; padding: 0; list-style: none; }
+
+.sk-side-nav__branch-row { display: flex; align-items: flex-start; min-inline-size: 0; gap: var(--sk-space-2); }
+.sk-side-nav__branch-row > .sk-side-nav__item { flex: 1 1 auto; }
+.sk-side-nav__toggle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; inline-size: 2rem; min-block-size: 2rem; padding: 0; border: 0; border-radius: var(--sk-radius-sm); background: transparent; color: var(--sk-color-text-primary); cursor: pointer; }
+.sk-side-nav__toggle:hover { background: var(--sk-color-surface-hover); }
+.sk-side-nav__toggle:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: var(--sk-focus-ring-offset); }
+.sk-side-nav__toggle > svg { fill: currentColor; rotate: -90deg; }
+.sk-side-nav__toggle:dir(rtl) > svg { rotate: 90deg; }
+.sk-side-nav__toggle[aria-expanded="true"] > svg { rotate: 0deg; }
+.sk-side-nav__children { display: flex; flex-direction: column; gap: var(--sk-space-2); margin-block: var(--sk-space-4); margin-inline: var(--sk-space-16) 0; padding-block: 0; padding-inline: var(--sk-space-12) 0; list-style: none; border-inline-start: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); }
+.sk-side-nav__children[hidden] { display: none; }
+.sk-side-nav__children .sk-side-nav__label { white-space: normal; overflow-wrap: anywhere; }
+.sk-side-nav__item[data-active-ancestor] { color: var(--sk-color-text-primary); font-weight: var(--sk-font-weight-semibold); }
+.sk-side-nav__open-items { margin-block-start: var(--sk-space-16); padding-block-start: var(--sk-space-8); border-block-start: var(--sk-border-width-hairline) solid var(--sk-color-border-default); }
+.sk-side-nav--collapsed .sk-side-nav__children, .sk-side-nav--collapsed .sk-side-nav__toggle, .sk-side-nav--collapsed .sk-side-nav__open-items { display: none; }
+.sk-side-nav__expand { display: none; align-items: center; justify-content: center; flex: 0 0 auto; min-block-size: 2rem; padding: var(--sk-space-4); border: 0; border-radius: var(--sk-radius-sm); background: transparent; color: var(--sk-color-text-primary); cursor: pointer; }
+.sk-side-nav--collapsed .sk-side-nav__expand { display: inline-flex; }
+.sk-side-nav__expand:hover { background: var(--sk-color-surface-hover); }
+.sk-side-nav__expand:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: -2px; }
+@media (pointer: coarse) { .sk-side-nav__toggle, .sk-side-nav__expand { min-inline-size: 2.75rem; min-block-size: 2.75rem; } .sk-side-nav__item { min-block-size: 2.75rem; } }
+@media (forced-colors: active) { .sk-side-nav__children, .sk-side-nav__open-items { border-color: CanvasText; } .sk-side-nav__toggle { color: ButtonText; } }
 
 .sk-side-nav__group-label {
   margin-block: var(--sk-space-16) var(--sk-space-4);
@@ -3699,9 +3872,9 @@
   align-items: center;
   gap: var(--sk-space-10);
   min-inline-size: 0;
-  min-block-size: 2.25rem;
+  min-block-size: 2rem;
   padding-inline: var(--sk-space-12);
-  padding-block: var(--sk-space-6);
+  padding-block: var(--sk-space-4);
   border-radius: var(--sk-radius-md);
   color: var(--sk-color-text-secondary);
   font-size: var(--sk-font-size-body-sm);
@@ -3721,7 +3894,7 @@
 
 .sk-side-nav__item:hover { background-color: var(--sk-color-surface-hover); color: var(--sk-color-text-primary); }
 
-.sk-side-nav__item[aria-current="page"] {
+.sk-side-nav__item:is([aria-current="page"], [aria-current="location"]) {
   background-color: var(--sk-color-surface-selected);
   color: var(--sk-color-text-brand);
   font-weight: var(--sk-font-weight-medium);
@@ -3729,13 +3902,13 @@
 
 /* In dark mode the selected tint is nearly invisible, so this bar — not the tint —
    is what actually communicates "you are here". It is required, not decorative. */
-.sk-side-nav__item[aria-current="page"]::before {
+.sk-side-nav__item:is([aria-current="page"], [aria-current="location"])::before {
   content: "";
   position: absolute;
   inset-inline-start: 0;
-  inset-block: var(--sk-space-6);
-  inline-size: 3px;
-  border-radius: var(--sk-radius-full);
+  inset-block: var(--sk-space-4);
+  inline-size: var(--sk-space-4);
+  border-radius: var(--sk-radius-xs);
   background-color: var(--sk-color-border-brand);
 }
 
@@ -3754,7 +3927,7 @@
 
 /* --- Drawer, below lg --- */
 @media (max-width: 63.999rem) {
-  .sk-side-nav {
+  .sk-side-nav--drawer {
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
@@ -3764,9 +3937,9 @@
     translate: -100% 0;
     transition: translate var(--sk-duration-slow) var(--sk-easing-entrance);
   }
-  .sk-side-nav[data-open] { translate: 0 0; }
-  [dir="rtl"] .sk-side-nav { translate: 100% 0; }
-  [dir="rtl"] .sk-side-nav[data-open] { translate: 0 0; }
+  .sk-side-nav--drawer[data-open] { translate: 0 0; }
+  [dir="rtl"] .sk-side-nav--drawer { translate: 100% 0; }
+  [dir="rtl"] .sk-side-nav--drawer[data-open] { translate: 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) { .sk-side-nav { transition: none; } }
@@ -3777,8 +3950,8 @@
    out against Canvas. */
 @media (forced-colors: active) {
   .sk-side-nav { border-inline-end: 1px solid CanvasText; }
-  .sk-side-nav__item[aria-current="page"] { background-color: Highlight; color: HighlightText; }
-  .sk-side-nav__item[aria-current="page"]::before { background-color: HighlightText; }
+  .sk-side-nav__item:is([aria-current="page"], [aria-current="location"]) { background-color: Highlight; color: HighlightText; }
+  .sk-side-nav__item:is([aria-current="page"], [aria-current="location"])::before { background-color: HighlightText; forced-color-adjust: none; }
   .sk-side-nav__item:focus-visible { outline-color: Highlight; }
 }
 
@@ -3828,7 +4001,19 @@
 .sk-breadcrumbs__item [aria-current="page"] {
   color: var(--sk-color-text-primary);
   font-weight: var(--sk-font-weight-medium);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
+
+.sk-breadcrumbs--collapsed { position: relative; }
+.sk-breadcrumbs__overflow > summary { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 2rem; min-block-size: 2rem; padding-inline: var(--sk-space-8); border: var(--sk-border-width-hairline) solid var(--sk-color-border-default); border-radius: var(--sk-radius-sm); color: var(--sk-color-text-primary); cursor: pointer; list-style: none; }
+.sk-breadcrumbs__overflow > summary::-webkit-details-marker { display: none; }
+.sk-breadcrumbs__overflow > summary:hover { background: var(--sk-color-surface-hover); }
+.sk-breadcrumbs__overflow > summary:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: var(--sk-focus-ring-offset); }
+.sk-breadcrumbs__ancestors { position: absolute; inset-block-start: calc(100% + var(--sk-space-4)); inset-inline-start: 0; z-index: var(--sk-z-popover); inline-size: min(18rem, 100%); margin: 0; padding: var(--sk-space-4); list-style: none; background: var(--sk-color-surface-overlay); border: var(--sk-border-width-hairline) solid var(--sk-color-border-default); border-radius: var(--sk-radius-md); box-shadow: var(--sk-elevation-3); }
+.sk-breadcrumbs__ancestors a { display: block; min-block-size: 2rem; padding: var(--sk-space-6) var(--sk-space-8); white-space: normal; overflow-wrap: anywhere; border-radius: var(--sk-radius-sm); }
+.sk-breadcrumbs__ancestors a:hover { background: var(--sk-color-surface-hover); }
+@media (pointer: coarse) { .sk-breadcrumbs__overflow > summary, .sk-breadcrumbs__ancestors a { min-block-size: 2.75rem; } }
 
 /* forced-colors: nothing to repair — text and links only — HCM forces LinkText and CanvasText correctly, and the separator is a character rather than a drawn line. */
 
@@ -3940,6 +4125,9 @@
   min-inline-size: 0;
   padding-block: var(--sk-space-12);
 }
+
+.sk-pagination--sm .sk-pagination__page,
+.sk-pagination--sm .sk-pagination__control { min-block-size: var(--sk-control-height-sm); padding-block: var(--sk-space-2); }
 
 .sk-pagination__status {
   flex: 1 1 12rem;
@@ -4167,7 +4355,13 @@ a.sk-stepper__link:focus-visible {
 }
 
 .sk-menu__icon { flex: 0 0 auto; fill: currentColor; color: var(--sk-color-text-secondary); }
-.sk-menu__label { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sk-menu__label { flex: 1 1 auto; min-inline-size: 0; white-space: normal; overflow-wrap: anywhere; }
+.sk-menu__submenu-indicator { flex: 0 0 auto; margin-inline-start: auto; color: var(--sk-color-text-secondary); }
+.sk-menu__submenu-indicator:dir(rtl), .sk-menu__back-icon:dir(rtl) { transform: scaleX(-1); }
+.sk-menu__item[data-sk-submenu][aria-expanded="true"] { background: var(--sk-color-surface-hover); }
+.sk-menu__back { margin-block-end: var(--sk-space-4); border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); border-radius: 0; }
+.sk-menu__back[hidden] { display: none; }
+.sk-menu[data-sk-menu-mode="drilldown"] { min-inline-size: min(16rem, calc(100vw - var(--sk-space-32))); max-inline-size: calc(100vw - var(--sk-space-32)); }
 .sk-menu__shortcut {
   flex: 0 0 auto;
   font-family: var(--sk-font-family-mono);
@@ -4209,6 +4403,7 @@ a.sk-stepper__link:focus-visible {
 }
 
 .sk-menu__group-label {
+  margin: 0;
   padding: var(--sk-space-6) var(--sk-space-10) var(--sk-space-2);
   font-size: var(--sk-font-size-overline);
   letter-spacing: var(--sk-letter-spacing-overline);
@@ -4217,11 +4412,14 @@ a.sk-stepper__link:focus-visible {
 }
 
 .sk-menu--sm .sk-menu__item { min-block-size: 2rem; }
+@media (pointer: coarse) { .sk-menu .sk-menu__item { min-block-size: var(--sk-layout-touch-target); } }
 
 @media (prefers-reduced-motion: no-preference) {
   .sk-menu { animation: sk-menu-in var(--sk-duration-fast) var(--sk-easing-entrance); }
 }
-@keyframes sk-menu-in { from { opacity: 0; translate: 0 -4px; scale: 0.98; } }
+/* Transforming a parent menu creates a containing block for its fixed submenu.
+   Fade only, so rapid keyboard disclosure keeps viewport positioning stable. */
+@keyframes sk-menu-in { from { opacity: 0; } }
 
 /* A floating menu with no shadow merges into whatever is behind it, so it needs
    a real border. The check mark on a checked item is a ::before background,
@@ -4275,6 +4473,7 @@ a.sk-stepper__link:focus-visible {
   border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
 }
 .sk-command-palette__search > svg { flex: 0 0 auto; fill: var(--sk-color-text-tertiary); }
+.sk-command-palette__search > [data-sk-palette-close] { flex: 0 0 auto; white-space: nowrap; }
 
 .sk-command-palette__input {
   flex: 1 1 auto;
@@ -4286,6 +4485,7 @@ a.sk-stepper__link:focus-visible {
   font-size: var(--sk-font-size-body-lg);
 }
 .sk-command-palette__input:focus-visible { outline: none; }
+.sk-command-palette__item[aria-disabled="true"] { cursor: not-allowed; color: var(--sk-color-text-disabled); }
 .sk-command-palette__input::placeholder { color: var(--sk-color-text-placeholder); }
 
 .sk-command-palette__results {
@@ -4318,10 +4518,20 @@ a.sk-stepper__link:focus-visible {
 .sk-command-palette__label { flex: 0 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--sk-color-text-primary); }
 .sk-command-palette__context { flex: 0 1 auto; min-inline-size: 0; margin-inline-start: auto; font-size: var(--sk-font-size-body-xs); color: var(--sk-color-text-tertiary); white-space: nowrap; }
 
+@media (max-width: 40rem) {
+  .sk-command-palette__item { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr); row-gap: var(--sk-space-4); padding-block: var(--sk-space-8); }
+  .sk-command-palette__item > svg { grid-column: 1; grid-row: 1; }
+  .sk-command-palette__label { grid-column: 2; white-space: normal; overflow-wrap: anywhere; }
+  .sk-command-palette__context { grid-column: 2; margin-inline-start: 0; white-space: normal; overflow-wrap: anywhere; }
+}
+
 .sk-command-palette__item[data-active] {
   background-color: var(--sk-color-surface-selected);
-  box-shadow: inset 3px 0 0 0 var(--sk-color-border-brand);
+  position: relative;
 }
+.sk-command-palette__item[data-active]::before { content: ""; position: absolute; inset-inline-start: 0; inset-block: var(--sk-space-4); inline-size: var(--sk-space-4); border-radius: var(--sk-radius-xs); background-color: var(--sk-color-border-brand); }
+@media (forced-colors: active) { .sk-command-palette__item[data-active]::before { background-color: HighlightText; forced-color-adjust: none; } }
+
 
 @media (max-width: 30rem) {
   .sk-command-palette { padding: 0; padding-block-start: 0; }
@@ -4832,7 +5042,7 @@ a.sk-stepper__link:focus-visible {
 .sk-loading--page {
   position: fixed;
   inset: 0;
-  z-index: var(--sk-z-modal);
+  z-index: var(--sk-z-dialog);
   background-color: var(--sk-color-surface-base);
   min-block-size: 100dvh;
 }
@@ -4840,7 +5050,7 @@ a.sk-stepper__link:focus-visible {
 .sk-loading--blocking {
   position: fixed;
   inset: 0;
-  z-index: var(--sk-z-modal);
+  z-index: var(--sk-z-dialog);
   background-color: var(--sk-color-surface-scrim);
 }
 .sk-loading--blocking .sk-loading__label { color: var(--sk-color-text-on-inverse); }
@@ -4990,7 +5200,8 @@ a.sk-stepper__link:focus-visible {
 
 .sk-table th,
 .sk-table td {
-  padding: var(--sk-space-12) var(--sk-space-16);
+  padding-block: var(--sk-row-padding-block, var(--sk-space-12));
+  padding-inline: var(--sk-cell-padding-inline, var(--sk-space-16));
   text-align: start;
   vertical-align: middle;
   font-size: var(--sk-font-size-body-sm);
@@ -5012,9 +5223,12 @@ a.sk-stepper__link:focus-visible {
 
 .sk-table tbody tr[aria-selected="true"] {
   background-color: var(--sk-color-surface-selected);
-  /* Leading bar, because the tint alone is imperceptible on dark. */
-  box-shadow: inset 3px 0 0 0 var(--sk-color-border-brand);
+
 }
+
+.sk-table tbody tr[aria-selected="true"] > :first-child { position: relative; }
+.sk-table tbody tr[aria-selected="true"] > :first-child::before { content: ""; position: absolute; inset-inline-start: 0; inset-block: var(--sk-space-4); inline-size: var(--sk-space-4); border-radius: var(--sk-radius-xs); background-color: var(--sk-color-border-brand); }
+@media (forced-colors: active) { .sk-table tbody tr[aria-selected="true"] > :first-child::before { background-color: HighlightText; forced-color-adjust: none; } }
 
 .sk-table__cell--numeric { text-align: end; font-variant-numeric: tabular-nums; }
 .sk-table__cell--mono { font-family: var(--sk-font-family-mono); font-size: var(--sk-font-size-code-sm); }
@@ -5029,9 +5243,15 @@ a.sk-stepper__link:focus-visible {
 
 .sk-table__select-col { inline-size: 1px; white-space: nowrap; }
 
+/* Keep the actual input target large even when the visible box stays 20px. */
+.sk-table label { min-inline-size: 1.5rem; min-block-size: 1.5rem; }
+.sk-table label > input[type="checkbox"] { inline-size: 1.5rem; block-size: 1.5rem; }
+
 .sk-table__sort {
   display: inline-flex;
   align-items: center;
+  min-inline-size: 1.5rem;
+  min-block-size: 1.5rem;
   gap: var(--sk-space-4);
   padding: 0;
   border: none;
@@ -5067,8 +5287,9 @@ a.sk-stepper__link:focus-visible {
   border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-default);
 }
 
-.sk-table--compact th, .sk-table--compact td { padding-block: var(--sk-space-8); }
-.sk-table--dense th, .sk-table--dense td { padding-block: var(--sk-space-4); padding-inline: var(--sk-space-12); }
+/* Legacy modifier classes set the same local tokens as data-sk-density. */
+.sk-table--compact { --sk-row-padding-block: var(--sk-space-8); --sk-cell-padding-inline: var(--sk-space-16); }
+.sk-table--dense { --sk-row-padding-block: var(--sk-space-4); --sk-cell-padding-inline: var(--sk-space-12); }
 
 .sk-table__empty { padding: 0; }
 .sk-table__empty td { padding: 0; }
@@ -5112,6 +5333,11 @@ a.sk-stepper__link:focus-visible {
   padding: var(--sk-space-16);
   padding-block-end: var(--sk-space-8);
 }
+
+.sk-card__heading { flex: 1 1 16rem; display: flex; flex-direction: column; gap: var(--sk-space-6); min-inline-size: 0; }
+.sk-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-8); min-inline-size: 0; max-inline-size: 100%; }
+.sk-card__actions > button { align-self: stretch; }
+.sk-card__header > * { min-inline-size: 0; max-inline-size: 100%; }
 
 .sk-card__title {
   flex: 1 1 auto;
@@ -5279,7 +5505,7 @@ a.sk-stepper__link:focus-visible {
   min-block-size: 1.5rem;
   padding-inline: var(--sk-space-8);
   border: var(--sk-border-width-hairline) solid transparent;
-  border-radius: var(--sk-radius-full);
+  border-radius: var(--sk-radius-sm);
   font-size: var(--sk-font-size-label-sm);
   line-height: var(--sk-line-height-label-sm);
   font-weight: var(--sk-font-weight-medium);
@@ -5609,8 +5835,9 @@ a.sk-stepper__link:focus-visible {
 
 .sk-timeline__event[data-pending] .sk-timeline__marker {
   background-color: var(--sk-color-status-info-solid);
-  animation: sk-status-pulse 1.8s var(--sk-easing-standard) infinite;
+  animation: sk-timeline-pulse 1.8s var(--sk-easing-standard) infinite;
 }
+@keyframes sk-timeline-pulse { 50% { transform: scale(1.15); } }
 .sk-timeline__event[data-failed] .sk-timeline__marker { background-color: var(--sk-color-status-danger-solid); }
 .sk-timeline__event[data-success] .sk-timeline__marker { background-color: var(--sk-color-status-success-solid); }
 
@@ -5627,6 +5854,10 @@ a.sk-stepper__link:focus-visible {
 }
 
 .sk-timeline--compact .sk-timeline__event { padding-block-end: var(--sk-space-8); }
+.sk-timeline--grouped { display: flex; flex-direction: column; gap: var(--sk-space-16); }
+.sk-timeline__detail { overflow-wrap: anywhere; }
+.sk-timeline__detail > summary { cursor: pointer; padding-block: var(--sk-space-8); min-block-size: 1.5rem; }
+.sk-timeline__detail > summary:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: var(--sk-focus-ring-offset); }
 
 @media (prefers-reduced-motion: reduce) {
   .sk-timeline__event[data-pending] .sk-timeline__marker { animation: none; }
@@ -5676,18 +5907,35 @@ a.sk-stepper__link:focus-visible {
   fill: currentColor;
   transition: rotate var(--sk-duration-fast) var(--sk-easing-standard);
 }
-.sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__chevron { rotate: -90deg; }
-[dir="rtl"] .sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__chevron { rotate: 90deg; }
-.sk-tree__chevron-spacer { flex: 0 0 auto; inline-size: 1rem; }
+.sk-tree__toggle { display: inline-flex; flex: 0 0 auto; align-self: stretch; align-items: center; justify-content: center; inline-size: 1.75rem; min-block-size: 1.75rem; }
+.sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__chevron,
+.sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__toggle > .sk-tree__chevron { rotate: -90deg; }
+[dir="rtl"] .sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__chevron,
+[dir="rtl"] .sk-tree__item[aria-expanded="false"] > .sk-tree__row > .sk-tree__toggle > .sk-tree__chevron { rotate: 90deg; }
+.sk-tree__item:not([aria-expanded]) > .sk-tree__row > .sk-tree__chevron,
+.sk-tree__item:not([aria-expanded]) > .sk-tree__row > .sk-tree__toggle > .sk-tree__chevron { visibility: hidden; }
+.sk-tree__chevron-spacer { flex: 0 0 auto; inline-size: 1.75rem; }
 
 .sk-tree__label { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sk-tree__count { flex: 0 0 auto; font-size: var(--sk-font-size-body-xs); color: var(--sk-color-text-tertiary); font-variant-numeric: tabular-nums; }
 
-.sk-tree__item[aria-selected="true"] > .sk-tree__row {
+.sk-tree__item[aria-selected="true"] > .sk-tree__row,
+.sk-tree__item[aria-current="page"] > .sk-tree__row,
+.sk-tree__item[aria-checked="true"] > .sk-tree__row {
   background-color: var(--sk-color-surface-selected);
   color: var(--sk-color-text-brand);
-  /* Bar, not tint: the same rule as side nav, tables and pagination. */
-  box-shadow: inset 3px 0 0 0 var(--sk-color-border-brand);
+}
+/* A straight leading accent, independent of the row corner radius. */
+.sk-tree__item[aria-selected="true"] > .sk-tree__row::before,
+.sk-tree__item[aria-current="page"] > .sk-tree__row::before,
+.sk-tree__item[aria-checked="true"] > .sk-tree__row::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: var(--sk-space-4);
+  inline-size: var(--sk-space-4);
+  border-radius: var(--sk-radius-xs);
+  background-color: var(--sk-color-border-brand);
 }
 
 .sk-tree__item:focus-visible > .sk-tree__row,
@@ -5695,15 +5943,34 @@ a.sk-stepper__link:focus-visible {
   outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring);
   outline-offset: -2px;
 }
+.sk-tree:focus-visible { outline: var(--sk-focus-ring-width) solid var(--sk-color-focus-ring); outline-offset: -2px; }
+.sk-tree__item[data-sk-tree-match] > .sk-tree__row .sk-tree__label { font-weight: var(--sk-font-weight-medium); }
+.sk-tree-panel.sk-drawer--inline[aria-modal="true"] { inline-size: 100%; max-inline-size: 100%; }
 
 .sk-tree--compact .sk-tree__row { min-block-size: 1.75rem; }
+.sk-tree__check { display: inline-flex; flex: 0 0 1rem; align-items: center; justify-content: center; inline-size: 1rem; block-size: 1rem; border: var(--sk-border-width-hairline) solid currentColor; border-radius: var(--sk-radius-xs); }
+.sk-tree__item[aria-checked="true"] > .sk-tree__row .sk-tree__check::after { content: "✓"; }
+.sk-tree__item[aria-checked="mixed"] > .sk-tree__row .sk-tree__check::after { content: "−"; }
+.sk-tree__item[aria-disabled="true"] > .sk-tree__row { cursor: not-allowed; color: var(--sk-color-text-disabled); }
+.sk-tree__item[aria-busy="true"] > .sk-tree__row::after { content: "Loading…"; font-size: var(--sk-font-size-body-xs); }
+.sk-tree__item[data-load-error] > .sk-tree__row::after { content: "Expand to retry"; font-size: var(--sk-font-size-body-xs); color: var(--sk-color-status-danger-text); }
+@media (pointer: coarse) {
+  .sk-tree .sk-tree__row { min-block-size: 2.75rem; }
+  .sk-tree__toggle { inline-size: 2.75rem; min-block-size: 2.75rem; }
+  .sk-tree__chevron-spacer { inline-size: 2.75rem; }
+}
 
 @media (prefers-reduced-motion: reduce) { .sk-tree__chevron { transition: none; } }
 
 /* Same failure as the table: selection is a background tint. The indent guides
    also vanish, and without them the hierarchy flattens. */
 @media (forced-colors: active) {
-  .sk-tree__item[aria-selected="true"] > .sk-tree__row { background-color: Highlight; color: HighlightText; }
+  .sk-tree__item[aria-selected="true"] > .sk-tree__row,
+  .sk-tree__item[aria-current="page"] > .sk-tree__row,
+.sk-tree__item[aria-checked="true"] > .sk-tree__row { background-color: Highlight; color: HighlightText; }
+  .sk-tree__item[aria-selected="true"] > .sk-tree__row::before,
+  .sk-tree__item[aria-current="page"] > .sk-tree__row::before,
+  .sk-tree__item[aria-checked="true"] > .sk-tree__row::before { background-color: HighlightText; forced-color-adjust: none; }
   .sk-tree ul[role="group"] { border-inline-start-color: CanvasText; }
   .sk-tree__item:focus-visible > .sk-tree__row { outline-color: Highlight; }
 }
@@ -5886,7 +6153,7 @@ a.sk-stepper__link:focus-visible {
   padding: 0;
   border: none;
   background: transparent;
-  max-inline-size: min(32rem, calc(100vw - var(--sk-space-32)));
+  max-inline-size: min(37.5rem, calc(100vw - var(--sk-space-32)));
   max-block-size: min(48rem, calc(100dvh - var(--sk-space-32)));
   inline-size: 100%;
   color: var(--sk-color-text-primary);
@@ -5911,6 +6178,8 @@ a.sk-stepper__link:focus-visible {
 
 .sk-dialog__header {
   display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
   align-items: flex-start;
   gap: var(--sk-space-12);
   flex: 0 0 auto;
@@ -6007,6 +6276,8 @@ a.sk-stepper__link:focus-visible {
 
 .sk-drawer__header {
   display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
   align-items: flex-start;
   gap: var(--sk-space-12);
   flex: 0 0 auto;
@@ -6042,11 +6313,24 @@ a.sk-stepper__link:focus-visible {
 
 /* --- Inline: a flex sibling of the content, so the content simply gets narrower --- */
 .sk-drawer--inline {
-  flex: 0 0 28rem;
+  flex: 0 0 var(--sk-layout-detail-width);
   max-inline-size: 100%;
   block-size: 100%;
 }
 .sk-drawer--inline[hidden], .sk-drawer--inline:not([data-open]) { display: none; }
+
+/* A media-query drawer changes modality through the controller. Style that
+   actual state so the same markup can dock or overlay at any breakpoint. */
+.sk-drawer--inline[aria-modal="true"] {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: min(var(--sk-layout-detail-width), 100vw);
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  z-index: var(--sk-z-drawer);
+  box-shadow: var(--sk-elevation-4);
+}
 
 /* --- Modal --- */
 .sk-drawer--modal {
@@ -6054,7 +6338,7 @@ a.sk-stepper__link:focus-visible {
   inset-block: 0;
   inset-inline-end: 0;
   z-index: var(--sk-z-drawer);
-  inline-size: min(28rem, 100vw);
+  inline-size: min(var(--sk-layout-detail-width), 100vw);
   box-shadow: var(--sk-elevation-4);
   translate: 100% 0;
   transition: translate var(--sk-duration-slow) var(--sk-easing-entrance);
@@ -6083,8 +6367,8 @@ a.sk-stepper__link:focus-visible {
 }
 .sk-drawer--bottom[data-open] { translate: 0 0; }
 
-.sk-drawer--sm { flex-basis: 20rem; inline-size: min(20rem, 100vw); }
-.sk-drawer--lg { flex-basis: 40rem; inline-size: min(40rem, 100vw); }
+.sk-drawer--sm { --sk-layout-detail-width: 20rem; flex-basis: 20rem; inline-size: min(20rem, 100vw); }
+.sk-drawer--lg { --sk-layout-detail-width: 40rem; flex-basis: 40rem; inline-size: min(40rem, 100vw); }
 
 @media (prefers-reduced-motion: reduce) { .sk-drawer { transition: none; } }
 
@@ -6306,7 +6590,7 @@ a.sk-stepper__link:focus-visible {
   min-inline-size: 0;
   padding-block-end: var(--sk-space-16);
   border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle);
-  margin-block-end: var(--sk-space-24);
+  margin-block-end: 0;
 }
 
 /* Titles and actions share a row when there is room and stack when there is not.
@@ -6329,6 +6613,9 @@ a.sk-stepper__link:focus-visible {
   flex-direction: column;
   gap: var(--sk-space-6);
 }
+
+.sk-page-header__controls { flex: 1 1 48rem; min-inline-size: 0; max-inline-size: 100%; }
+.sk-page-header--section .sk-page-header__title { font-size: var(--sk-font-size-heading-sm); line-height: var(--sk-line-height-heading-sm); }
 
 .sk-page-header__title-row {
   display: flex;
@@ -6358,14 +6645,19 @@ a.sk-stepper__link:focus-visible {
   text-wrap: pretty;
 }
 
-/* Actions never shrink below their content and wrap as a unit. */
+/* The action group can shrink to the available row, then wrap its buttons. */
 .sk-page-header__actions {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sk-space-8);
 }
+
+.sk-page-header__actions > * { max-inline-size: 100%; min-inline-size: 0; }
+.sk-page-header__actions > button { align-self: stretch; }
 
 .sk-page-header--sticky {
   position: sticky;
@@ -6612,5 +6904,47 @@ a.sk-stepper__link:focus-visible {
   .sk-divider--labelled::after { background-color: CanvasText; }
 }
 
+
+
+/* ===== Document canvas (document-canvas) ===== */
+.sk-document { inline-size: 100%; max-inline-size: calc(var(--sk-layout-document-width) + 2 * var(--sk-space-48)); margin-inline: auto; padding: var(--sk-space-40) var(--sk-space-48); min-inline-size: 0; overflow-wrap: anywhere; }
+.sk-document__header { display: flex; flex-direction: column; gap: var(--sk-space-12); margin-block-end: var(--sk-space-32); }
+.sk-document__eyebrow, .sk-document__meta { margin: 0; color: var(--sk-color-text-secondary); font-size: var(--sk-font-size-body-sm); line-height: var(--sk-line-height-body-sm); }
+.sk-document__title { margin: 0; font-size: var(--sk-font-size-heading-xl); line-height: var(--sk-line-height-heading-xl); font-weight: var(--sk-font-weight-bold); letter-spacing: var(--sk-letter-spacing-heading-xl); overflow-wrap: anywhere; }
+.sk-document--wide { max-inline-size: none; }
+.sk-document__body { min-inline-size: 0; }
+@media (max-width: 47.999rem) { .sk-document { padding: var(--sk-space-24) var(--sk-space-16); } }
+@media (forced-colors: active) { .sk-document { color: CanvasText; background: Canvas; } }
+
+
+/* ===== Content header (content-header) ===== */
+.sk-content-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sk-space-8) var(--sk-space-16); min-block-size: var(--sk-layout-content-header-height); padding: var(--sk-space-8) var(--sk-space-24); border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); background: var(--sk-color-surface-base); min-inline-size: 0; }
+.sk-content-header__context { flex: 1 1 14rem; min-inline-size: 0; }
+.sk-content-header__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-8); min-inline-size: 0; }
+.sk-content-header__actions > * { max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
+.sk-content-header--sticky { position: sticky; inset-block-start: var(--sk-layout-content-header-offset, 0px); z-index: var(--sk-z-sticky); }
+@media (max-width: 47.999rem) { .sk-content-header { padding-inline: var(--sk-space-16); } }
+@media (forced-colors: active) { .sk-content-header { border-color: CanvasText; } }
+
+
+/* ===== Save state (save-state) ===== */
+.sk-save-state { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-6); margin: 0; color: var(--sk-color-text-secondary); font-size: var(--sk-font-size-body-sm); line-height: var(--sk-line-height-body-sm); }
+.sk-save-state__indicator { flex: 0 0 auto; inline-size: var(--sk-space-8); block-size: var(--sk-space-8); border-radius: var(--sk-radius-full); background: currentColor; }
+.sk-save-state[data-state="error"] { color: var(--sk-color-status-danger-text); }
+.sk-save-state[data-state="conflict"], .sk-save-state[data-state="uncertain"] { color: var(--sk-color-status-warning-text); }
+.sk-save-state[data-state="saving"] .sk-save-state__indicator { background: transparent; border: var(--sk-border-width-thick) solid currentColor; }
+.sk-save-state[data-state="pending"] .sk-save-state__indicator { background: transparent; border: var(--sk-border-width-hairline) solid currentColor; }
+.sk-save-state[data-state="local"] .sk-save-state__indicator { border-radius: var(--sk-radius-xs); }
+@media (forced-colors: active) { .sk-save-state__indicator { border: 1px solid CanvasText; } }
+
+
+/* ===== Activity list (activity-list) ===== */
+.sk-activity-list { list-style: none; margin: 0; padding: 0; }
+.sk-activity-list__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sk-space-8) var(--sk-space-16); padding: var(--sk-space-12) 0; border-block-end: var(--sk-border-width-hairline) solid var(--sk-color-border-subtle); min-inline-size: 0; }
+.sk-activity-list__content { flex: 1 1 14rem; min-inline-size: 0; }
+.sk-activity-list__empty { padding-block: var(--sk-space-16); color: var(--sk-color-text-secondary); }
+.sk-activity-list__title { font-size: var(--sk-font-size-body-sm); font-weight: var(--sk-font-weight-medium); overflow-wrap: anywhere; }
+.sk-activity-list__meta, .sk-activity-list__time { margin: var(--sk-space-4) 0 0; color: var(--sk-color-text-secondary); font-size: var(--sk-font-size-body-xs); line-height: var(--sk-line-height-body-xs); }
+@media (forced-colors: active) { .sk-activity-list__item { border-color: CanvasText; } }
 
 }

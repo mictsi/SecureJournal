@@ -17,6 +17,7 @@
     <div class="sk-card sk-auth__card">
         <div class="sk-card__body sk-stack sk-stack--gap-16">
             <h1 class="sk-auth__heading">Sign in</h1>
+            <p class="sj-muted">Access your projects and journal records.</p>
 
             @if (!string.IsNullOrWhiteSpace(_message))
             {
@@ -52,7 +53,7 @@
                             <label class="sk-field__label" for="landingPassword">Password</label>
                             <input id="landingPassword" class="sk-input" type="password" name="password" autocomplete="current-password" required />
                         </div>
-                        <input type="hidden" name="returnUrl" value="/projects" />
+                        <input type="hidden" name="returnUrl" value="/" />
                         <input type="hidden" name="failurePath" value="/" />
                         <button type="submit" class="sk-button sk-button--primary sk-button--lg sk-button--full-width">Sign in</button>
                     </form>
@@ -83,9 +84,9 @@
                 <div class="sk-stack sk-stack--gap-12">
                     <div class="sk-divider sk-divider--labelled" role="separator" aria-label="or"></div>
                     <a class="sk-button sk-button--secondary sk-button--lg sk-button--full-width"
-                       href="/auth/oidc-login?returnUrl=%2Fprojects"
+                       href="/auth/oidc-login?returnUrl=%2F"
                        data-enhance-nav="false">
-                        Sign in with OpenID
+                        Sign in with your organization
                     </a>
                 </div>
             }
@@ -118,7 +119,8 @@
 
         if (await JournalApp.HasCurrentUserAsync())
         {
-            Navigation.NavigateTo("/projects", forceLoad: false);
+            var user = await JournalApp.GetCurrentUserAsync();
+            Navigation.NavigateTo(user.Role == AppRole.Auditor ? "/audit" : "/projects", forceLoad: false);
         }
     }
 
@@ -156,7 +158,8 @@
             _message = result.Message;
             LoginModel.Username = string.Empty;
             LoginModel.Password = string.Empty;
-            Navigation.NavigateTo("/projects", forceLoad: false);
+            var user = await JournalApp.GetCurrentUserAsync();
+            Navigation.NavigateTo(user.Role == AppRole.Auditor ? "/audit" : "/projects", forceLoad: false);
         }
         catch (Exception ex)
         {

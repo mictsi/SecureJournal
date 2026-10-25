@@ -2,12 +2,91 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using AngleSharp.Html.Parser;
 using Xunit;
 
 namespace SecureJournal.Tests;
 
 public sealed class CsrfEndpointIntegrationTests
 {
+    [Fact]
+    public async Task LocalLogin_RepeatedFailures_LockOutAccount()
+    {
+        await using var factory = new SecureJournalWebAppFactory();
+        using var client = factory.CreateSecureClient();
+        using var signInPage = await client.GetAsync("/");
+        var document = new HtmlParser().ParseDocument(await signInPage.Content.ReadAsStringAsync());
+        var token = document.QuerySelector("form[action='/auth/local-login'] input[name='__RequestVerificationToken']")?.GetAttribute("value");
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["username"] = "admin",
+                ["password"] = attempt < 5 ? "WrongPassword123!" : "AdminPass123!",
+                ["returnUrl"] = "/login-succeeded",
+                ["failurePath"] = "/",
+                ["__RequestVerificationToken"] = token!
+            });
+            using var response = await client.PostAsync("/auth/local-login", content);
+            Assert.Equal(System.Net.HttpStatusCode.Found, response.StatusCode);
+            Assert.StartsWith("/?error=", response.Headers.Location?.ToString());
+        }
+    }
+
+    [Theory]
+    [InlineData("/csrf-logout-success", "/csrf-logout-success")]
+    [InlineData("//attacker.example/path", "/")]
+    [InlineData("/\\attacker.example/path", "/")]
+    [InlineData("https://attacker.example/path", "/")]
+    public async Task CSRF_Logout_AcceptsTokenFromAuthenticatedPageAfterReload(string returnUrl, string expectedLocation)
+    {
+        await using var factory = new SecureJournalWebAppFactory();
+        using var client = factory.CreateSecureClient();
+        var parser = new HtmlParser();
+
+        using var signInPage = await client.GetAsync("/");
+        Assert.True(signInPage.IsSuccessStatusCode, await DescribeResponseAsync(signInPage));
+        var signInDocument = parser.ParseDocument(await signInPage.Content.ReadAsStringAsync());
+        var signInToken = signInDocument.QuerySelector("form[action='/auth/local-login'] input[name='__RequestVerificationToken']")?.GetAttribute("value");
+        Assert.False(string.IsNullOrWhiteSpace(signInToken));
+
+        using var signInContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["username"] = "admin",
+            ["password"] = "AdminPass123!",
+            ["returnUrl"] = "/projects",
+            ["__RequestVerificationToken"] = signInToken!
+        });
+        using var signInResponse = await client.PostAsync("/auth/local-login", signInContent);
+        Assert.Equal(System.Net.HttpStatusCode.Found, signInResponse.StatusCode);
+        Assert.Equal("/projects", signInResponse.Headers.Location?.ToString());
+
+        // Each full page request must issue a token bound to the authenticated
+        // principal, rather than reusing a token created before authentication.
+        using var projectsPage = await client.GetAsync("/projects");
+        Assert.True(projectsPage.IsSuccessStatusCode, await DescribeResponseAsync(projectsPage));
+        using var reloadedPage = await client.GetAsync("/admin/groups");
+        Assert.True(reloadedPage.IsSuccessStatusCode, await DescribeResponseAsync(reloadedPage));
+        var document = parser.ParseDocument(await reloadedPage.Content.ReadAsStringAsync());
+        var logoutToken = document.QuerySelector("form[action='/auth/logout'] input[name='__RequestVerificationToken']")?.GetAttribute("value");
+        Assert.False(string.IsNullOrWhiteSpace(logoutToken));
+
+        using var logoutContent = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["returnUrl"] = returnUrl,
+            ["__RequestVerificationToken"] = logoutToken!
+        });
+        using var logoutResponse = await client.PostAsync("/auth/logout", logoutContent);
+        Assert.Equal(System.Net.HttpStatusCode.Found, logoutResponse.StatusCode);
+        Assert.Equal(expectedLocation, logoutResponse.Headers.Location?.ToString());
+
+        using var signedOutPage = await client.GetAsync("/");
+        var signedOutDocument = parser.ParseDocument(await signedOutPage.Content.ReadAsStringAsync());
+        Assert.NotNull(signedOutDocument.QuerySelector("form[action='/auth/local-login']"));
+    }
+
     [Fact]
     public async Task HealthEndpoint_ReturnsOk()
     {

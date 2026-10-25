@@ -7,15 +7,15 @@
 <PageTitle>Audit Search</PageTitle>
 
 <PageHeader Title="Audit search"
-            Description="Filter audit events on searchable metadata — time range, user, project, action, entity and outcome — and read the linked journal entry when a row references one. Event details are stored in plaintext per the current specification decision, with SHA-256 checksums for integrity." />
+            Description="Find activity, review linked journal entries, and check record integrity." />
 
 <PageAlerts Error="@_error" />
 
-<section class="sk-card sj-panel">
+<form class="sk-card sj-panel" @onsubmit="ApplyFilters" @onsubmit:preventDefault>
     <div class="sk-card__header">
-        <h2 class="sk-card__title">Filters</h2>
+        <h2 class="sk-card__title">Find activity</h2>
         <div class="sk-cluster sk-cluster--gap-8">
-            <button type="button" class="sk-button sk-button--primary sk-button--sm" @onclick="ApplyFilters">Apply filters</button>
+            <button type="submit" class="sk-button sk-button--primary sk-button--sm">Search</button>
             <button type="button" class="sk-button sk-button--secondary sk-button--sm" @onclick="ClearFilters">Clear filters</button>
         </div>
     </div>
@@ -24,15 +24,15 @@
         <div class="sk-grid sk-grid--cols-4 sk-grid--gap-16">
             <div class="sk-field">
                 <label class="sk-field__label" for="fromDate">From (UTC date)</label>
-                <input id="fromDate" class="sk-input" type="date" value="@_fromDateText" @onchange="OnFromDateChanged" />
+                <input id="fromDate" class="sk-input" type="date" max="@_toDateText" value="@_fromDateText" @onchange="OnFromDateChanged" />
             </div>
             <div class="sk-field">
                 <label class="sk-field__label" for="toDate">To (UTC date)</label>
-                <input id="toDate" class="sk-input" type="date" value="@_toDateText" @onchange="OnToDateChanged" />
+                <input id="toDate" class="sk-input" type="date" min="@_fromDateText" value="@_toDateText" @onchange="OnToDateChanged" />
             </div>
             <div class="sk-field">
                 <label class="sk-field__label" for="actorText">User</label>
-                <input id="actorText" class="sk-input" type="text" placeholder="alice.admin" @bind="_actorUsername" />
+                <input id="actorText" class="sk-input" type="text" placeholder="Username" @bind="_actorUsername" @bind:event="oninput" />
             </div>
             <div class="sk-field">
                 <label class="sk-field__label" for="projectFilter">Project</label>
@@ -46,6 +46,10 @@
                     </select>
                 </div>
             </div>
+        </div>
+        <details class="sj-advanced-filters">
+            <summary>More filters <span class="sj-muted">· action, outcome, and text</span></summary>
+            <div class="sk-grid sk-grid--cols-4 sk-grid--gap-16">
             <div class="sk-field">
                 <label class="sk-field__label" for="actionFilter">Action</label>
                 <div class="sk-select-wrapper">
@@ -95,11 +99,12 @@
             </div>
             <div class="sk-field sk-grid__span-full">
                 <label class="sk-field__label" for="textContains">Contains (case-insensitive)</label>
-                <input id="textContains" class="sk-input" type="text" placeholder="Search within the selected field…" @bind="_textSearchValue" />
+                <input id="textContains" class="sk-input" type="text" placeholder="Search within the selected field…" @bind="_textSearchValue" @bind:event="oninput" />
             </div>
         </div>
+        </details>
     </div>
-</section>
+</form>
 
 <section class="sk-card sj-panel">
     <div class="sk-card__header">
@@ -114,7 +119,7 @@
                 <svg class="sk-empty-state__icon" aria-hidden="true" focusable="false" width="48" height="48"><use href="#sk-illus-search" /></svg>
                 <h3 class="sk-empty-state__heading">No audit events match these filters</h3>
                 <p class="sk-empty-state__body">
-                    Widen the date range or clear a filter. If you expected results, your role may not permit viewing audit logs.
+                    Try a wider date range or clear the filters to see all activity.
                 </p>
                 <div class="sk-empty-state__actions">
                     <button type="button" class="sk-button sk-button--secondary" @onclick="ClearFilters">Clear filters</button>
@@ -349,6 +354,12 @@
 
         try
         {
+            if (ParseFromDate(_fromDateText) is { } from && ParseToDate(_toDateText) is { } to && from > to)
+            {
+                _error = "Choose an end date on or after the start date. Results below are from your previous search.";
+                return;
+            }
+
             var filter = new AuditSearchFilter
             {
                 FromUtc = ParseFromDate(_fromDateText),
@@ -407,7 +418,9 @@
             return null;
         }
 
-        var endOfDay = parsed.Date.AddDays(1).AddTicks(-1);
+        var endOfDay = parsed.Date == DateTime.MaxValue.Date
+            ? DateTime.MaxValue
+            : parsed.Date.AddDays(1).AddTicks(-1);
         return DateTime.SpecifyKind(endOfDay, DateTimeKind.Utc);
     }
 

@@ -12,10 +12,10 @@ For the newer split documentation pages, see:
 - Operating system:
   - Windows 10/11 (examples below use PowerShell)
   - Linux/macOS also supported with equivalent `dotnet` commands
-- `.NET 10 SDK` (`10.0.x`) with ASP.NET Core/Blazor support
+- `.NET SDK 10.0.402` or a later servicing patch in that feature band (`global.json`)
 - Optional but recommended:
   - `Git`
-  - `Visual Studio 2022` with **ASP.NET and web development** workload, or
+  - Visual Studio with .NET 10 support and the **ASP.NET and web development** workload, or
   - `VS Code` + C# extensions
 - HTTPS development certificate (for local HTTPS):
   - `dotnet dev-certs https --trust`
@@ -135,9 +135,9 @@ From the repository root:
 
 ```powershell
 cd c:\Users\ghost\GitHub\SecureJournal
-dotnet restore SecureJournal.Web\SecureJournal.Web.csproj
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj
-dotnet run --project SecureJournal.Web
+dotnet restore SecureJournal.Web\SecureJournal.Web.csproj --locked-mode
+dotnet build SecureJournal.Web\SecureJournal.Web.csproj --no-restore
+dotnet run --project SecureJournal.Web --no-restore
 ```
 
 Open the local URL shown in the console (typically `https://localhost:xxxx`).
@@ -151,9 +151,9 @@ Recommended startup scripts (repository root):
 
 The scripts:
 
-- print the bootstrap admin credentials loaded from appsettings
+- show the bootstrap administrator username without printing its password
 - optionally delete the SQLite DB (`start-clean.ps1`)
-- run the app with the local SDK workaround flags already applied
+- restore locked dependencies with vulnerability auditing, then run the app
 
 After startup:
 
@@ -203,27 +203,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-appservice.
   -AdminPassword "<bootstrap-admin-password>"
 ```
 
-## 5. Known Local SDK Issue (Observed in This Environment)
+## 5. SDK And Restore Requirements
 
-If you see a restore/build error similar to:
-
-- `NU1101: Unable to find package Microsoft.AspNetCore.App.Internal.Assets`
-
-Use this temporary build/run workaround:
-
-```powershell
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true
-dotnet run --project SecureJournal.Web -p:RestoreIgnoreFailedSources=true
-```
-
-Note:
-
-- `-p:RequiresAspNetWebAssets=false` can break Blazor framework asset routing (`/_framework/*.js`) and should only be used as a last-resort troubleshooting flag.
-
-Recommended permanent fix:
-
-- Repair/reinstall the `.NET 10 SDK`
-- Ensure the ASP.NET Core web tooling/components were installed correctly
+Install .NET SDK 10.0.402 or a later servicing patch in that feature band, as
+specified in `global.json`. The previous web-assets workaround is no longer needed.
+Restore requires access to NuGet and its vulnerability feed. Missing audit data or
+a known package vulnerability fails restore; resolve the reported issue before
+building. See `docs/BUILDING.md` for dependency-update and frontend validation steps.
 
 ## 6. Current Prototype Scope (What Runs Today)
 

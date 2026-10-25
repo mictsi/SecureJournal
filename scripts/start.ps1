@@ -74,7 +74,6 @@ if ($CleanDb) {
 }
 
 $bootstrapUsername = [string]$settings.BootstrapAdmin.Username
-$bootstrapPassword = [string]$settings.BootstrapAdmin.Password
 $syncPassword = [string]$settings.BootstrapAdmin.SyncPasswordOnStartup
 
 Write-Host "Starting Secure Journal..." -ForegroundColor Cyan
@@ -85,7 +84,7 @@ if ($sqliteDbPaths.Count -gt 0) {
     }
 }
 Write-Host "Admin user:   $bootstrapUsername"
-Write-Host "Admin pass:   $bootstrapPassword"
+Write-Host "Admin password: not displayed"
 Write-Host "Sync on boot: $syncPassword"
 Write-Host ""
 
@@ -106,23 +105,16 @@ if ($useHttpsProfile) {
 }
 
 $projectPath = Join-Path $repoRoot "SecureJournal.Web\SecureJournal.Web.csproj"
-if ($useHttpsProfile) {
-    if ($UseWebAssetsWorkaround) {
-        Write-Host "Using web-assets workaround flag (may disable interactive framework assets)." -ForegroundColor Yellow
-        & dotnet run --project $projectPath --launch-profile https -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
-    }
-    else {
-        & dotnet run --project $projectPath --launch-profile https -p:RestoreIgnoreFailedSources=true
-    }
+if ($UseWebAssetsWorkaround) {
+    Write-Host "The web-assets workaround is no longer needed. Install the SDK required by global.json." -ForegroundColor Yellow
 }
-else {
-    if ($UseWebAssetsWorkaround) {
-        Write-Host "Using web-assets workaround flag (may disable interactive framework assets)." -ForegroundColor Yellow
-        & dotnet run --project $projectPath --launch-profile http -p:RestoreIgnoreFailedSources=true -p:RequiresAspNetWebAssets=false
-    }
-    else {
-        & dotnet run --project $projectPath --launch-profile http -p:RestoreIgnoreFailedSources=true
-    }
+
+& dotnet restore $projectPath --locked-mode
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
 }
+
+$launchProfile = if ($useHttpsProfile) { "https" } else { "http" }
+& dotnet run --project $projectPath --launch-profile $launchProfile --no-restore
 exit $LASTEXITCODE
 

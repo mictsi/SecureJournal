@@ -396,7 +396,7 @@ This section documents what is needed to reproduce the current working implement
 
 ### 19.2 SDK / Runtime Assumptions
 
-- `.NET 10 SDK` installed
+- `.NET SDK 10.0.402` or a later servicing patch in that feature band (`global.json`)
 - ASP.NET Core/Blazor runtime components available
 - Local HTTPS dev certificate trusted (`dotnet dev-certs https --trust`) for easiest local use
 
@@ -405,14 +405,8 @@ This section documents what is needed to reproduce the current working implement
 Build (normal):
 
 ```powershell
-dotnet restore SecureJournal.Web\SecureJournal.Web.csproj
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj
-```
-
-Build (workaround for the local web-assets issue observed in this environment):
-
-```powershell
-dotnet build SecureJournal.Web\SecureJournal.Web.csproj -p:RestoreIgnoreFailedSources=true -o .artifacts\verify-build
+dotnet restore SecureJournal.Tests\SecureJournal.Tests.csproj --locked-mode
+dotnet build SecureJournal.Web\SecureJournal.Web.csproj --no-restore
 ```
 
 Run (script, recommended):
@@ -421,16 +415,16 @@ Run (script, recommended):
 .\scripts\start.ps1
 ```
 
-Run (manual, workaround flags):
+Run (manual, after restore):
 
 ```powershell
-dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true
+dotnet run --project SecureJournal.Web --launch-profile https --no-restore
 ```
 
 Tests:
 
 ```powershell
-dotnet test SecureJournal.Tests\SecureJournal.Tests.csproj -m:1 --logger "console;verbosity=minimal" -p:RestoreIgnoreFailedSources=true
+dotnet test SecureJournal.Tests\SecureJournal.Tests.csproj --no-restore -m:1 --logger "console;verbosity=minimal"
 ```
 
 ### 19.4 Required Configuration Files (Current)

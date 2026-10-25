@@ -2,6 +2,27 @@
 
 This page explains how to run the application locally and how to configure it, including example connection strings for SQLite, SQL Server, and PostgreSQL.
 
+## Security update deployment notes
+
+Docker Compose now requires `SECUREJOURNAL_JOURNAL_ENCRYPTION_KEY` and
+`SECUREJOURNAL_BOOTSTRAP_ADMIN_PASSWORD`; there are no default secrets. Keep the
+existing encryption key when upgrading an installation so its records remain
+readable. Container builds exclude active appsettings files, private keys, and
+environment files. Supply deployment configuration through environment variables
+or mounted configuration files.
+
+Forwarded headers are accepted only from explicitly trusted proxies. Loopback is
+trusted by default. When HTTPS terminates at a non-loopback reverse proxy, configure
+its IP in `ForwardedHeaders__KnownProxies__0`, or its trusted CIDR in
+`ForwardedHeaders__KnownNetworks__0` (additional entries use `__1`, `__2`, etc.).
+Use the actual proxy addresses for the deployment; do not trust every network.
+Check sign-in callbacks and HTTPS redirects after configuring the proxy.
+
+Local accounts are locked temporarily after repeated failed sign-ins. Local role
+changes take effect from stored application membership, including in open browser
+sessions. Signing out or expiring the server session invalidates open circuits;
+password resets and disabled/deleted accounts revoke their sessions as well.
+
 ## 1. AppSettings Files
 
 Primary configuration files:
@@ -64,7 +85,7 @@ Recommended workflow:
 - `Authentication:OidcProviderName`
 - `Authentication:Oidc:*`
 - `Authentication:Oidc:LogClaimsWhenIssuerSubjectMissing` (optional diagnostics; default `false`)
-- `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing` (optional diagnostics; logs raw token strings; default `false`)
+- `Authentication:Oidc:LogTokensWhenIssuerSubjectMissing` (optional diagnostics; reports token presence with the value redacted; default `false`)
 - `Authentication:Oidc:GroupClaimType`
 - `Authentication:Oidc:RoleGroupMappings:*`
 
@@ -336,7 +357,8 @@ Clean DB and restart:
 Manual run:
 
 ```powershell
-dotnet run --project SecureJournal.Web --launch-profile https -p:RestoreIgnoreFailedSources=true
+dotnet restore SecureJournal.Web\SecureJournal.Web.csproj --locked-mode
+dotnet run --project SecureJournal.Web --launch-profile https --no-restore
 ```
 
 Docker Compose run:
@@ -387,7 +409,8 @@ Current `Audit Search` behavior:
 If you want a local publish folder build:
 
 ```powershell
-dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web -p:RestoreIgnoreFailedSources=true
+dotnet restore SecureJournal.Web\SecureJournal.Web.csproj --locked-mode
+dotnet publish SecureJournal.Web\SecureJournal.Web.csproj -c Release -o .artifacts\publish\web --no-restore
 ```
 
 Run the published app locally:

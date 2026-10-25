@@ -5,6 +5,9 @@ namespace SecureJournal.Web.Services;
 
 internal static class OidcPrincipalHelpers
 {
+    public static string DescribeTokenForDiagnostics(string? token)
+        => string.IsNullOrEmpty(token) ? "(none)" : "<redacted>";
+
     public static string? GetNormalizedPrincipalUsername(ClaimsPrincipal principal)
     {
         var isOidcPrincipal = LooksLikeOidcPrincipal(principal);
@@ -189,6 +192,7 @@ internal static class OidcPrincipalHelpers
     {
         var normalized = claimType.ToLowerInvariant();
         return normalized.Contains("token", StringComparison.Ordinal) ||
+               normalized.Contains("session", StringComparison.Ordinal) ||
                normalized.Contains("secret", StringComparison.Ordinal) ||
                normalized.Contains("assertion", StringComparison.Ordinal) ||
                normalized.Contains("password", StringComparison.Ordinal) ||

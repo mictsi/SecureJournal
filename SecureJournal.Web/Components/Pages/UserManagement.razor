@@ -19,6 +19,7 @@
 </PageHeader>
 
 <PageAlerts Message="@_message" Error="@_error" />
+<NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
 
 @if (_currentUser is null)
 {
@@ -75,6 +76,7 @@ else
                     {
                         <button type="button"
                                 class="user-directory-item @(user.UserId == _selectedUserId ? "is-active" : string.Empty)"
+                                aria-pressed="@(user.UserId == _selectedUserId ? "true" : "false")"
                                 @onclick="() => SelectUserAsync(user.UserId)">
                             <span class="user-avatar" aria-hidden="true">@UserInitial(user)</span>
                             <span class="user-directory-item-body">
@@ -198,14 +200,14 @@ else
                                                     <InputText id="manageResetPassword"
                                                                type="password"
                                                                class="sk-input"
-                                                               @bind-Value="_resetPasswordRequest.NewPassword" />
+                                                               @bind-Value="_resetPasswordRequest.NewPassword" @oninput="args => _resetPasswordRequest.NewPassword = args.Value?.ToString() ?? string.Empty" />
                                                 </div>
                                                 <div class="sk-field">
                                                     <label class="sk-field__label" for="manageResetPasswordConfirm">Confirm New Password</label>
                                                     <InputText id="manageResetPasswordConfirm"
                                                                type="password"
                                                                class="sk-input"
-                                                               @bind-Value="_confirmResetPassword" />
+                                                               @bind-Value="_confirmResetPassword" @oninput="args => _confirmResetPassword = args.Value?.ToString() ?? string.Empty" />
                                                 </div>
                                             </div>
 
@@ -268,6 +270,7 @@ else
                                                    type="checkbox"
                                                    checked="@_editedRoles.Contains(role)"
                                                    @onchange="args => ToggleRoleLocal(role, args)" />
+                                            <span class="sk-checkbox__box" aria-hidden="true"></span>
                                             <span class="user-role-option-body">
                                                 <span class="user-role-option-title">@RoleLabel(role)</span>
                                                 <span class="user-role-option-description">@RoleDescription(role)</span>
@@ -374,6 +377,7 @@ else
                                                     <td class="sj-text-end">
                                                         <input class="sk-checkbox__input"
                                                                type="checkbox"
+                                                               aria-label="@($"Assign {SelectedUser.DisplayName} to {group.Name}")"
                                                                checked="@IsGroupAssigned(group)"
                                                                @onchange="args => ToggleGroupLocal(group, args)" />
                                                     </td>
@@ -421,6 +425,7 @@ else
     private UserListQuery _userQuery = new() { PageSize = 20, SortField = "username" };
     private UserGroupMembershipQuery _groupQuery = new() { PageSize = 20, SortField = "name" };
     private Guid? _selectedUserId;
+    private UserOverview? _selectedUser;
 
     private HashSet<AppRole> _originalRoles = [];
     private HashSet<AppRole> _editedRoles = [];
@@ -436,11 +441,10 @@ else
 
     private bool _rolesDirty => !_editedRoles.SetEquals(_originalRoles);
     private bool _groupsDirty => _pendingGroupAssignments.Count > 0;
+    private bool HasUnsavedChanges => _rolesDirty || _groupsDirty ||
+        !string.IsNullOrEmpty(_resetPasswordRequest.NewPassword) || !string.IsNullOrEmpty(_confirmResetPassword);
 
-    private UserOverview? SelectedUser
-        => _selectedUserId is { } id
-            ? _userPage.Items.FirstOrDefault(u => u.UserId == id)
-            : null;
+    private UserOverview? SelectedUser => _selectedUser;
 
     private bool IsSelectedCurrentUser
         => SelectedUser?.UserId == _currentUser?.UserId;
@@ -457,7 +461,7 @@ else
 
             _currentUser = await JournalApp.GetCurrentUserAsync();
             _localPasswordMinLength = JournalApp.GetLocalPasswordMinLength();
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            await LoadUsersAsync();
         }
         catch (Exception ex)
         {
@@ -466,23 +470,20 @@ else
         }
     }
 
-    private Task LoadUsersAsync(bool selectFirstUserIfNeeded = false)
+    private Task LoadUsersAsync()
     {
         _userPage = JournalApp.GetUsers(_userQuery);
-        if (_userPage.TotalCount == 0)
+        // Searching, sorting, and paging the directory must not replace the
+        // account whose pending permissions are being edited.
+        if (_selectedUserId is { } selectedId)
         {
-            _selectedUserId = null;
-            _groupPage = new PagedResult<GroupAccessRow>(Array.Empty<GroupAccessRow>(), 0, 1, _groupQuery.PageSize, 1);
-            _originalRoles.Clear();
-            _editedRoles.Clear();
-            _pendingGroupAssignments.Clear();
-            _showGroupBrowser = false;
-            return Task.CompletedTask;
+            _selectedUser = _userPage.Items.FirstOrDefault(user => user.UserId == selectedId) ?? _selectedUser;
         }
 
-        if (selectFirstUserIfNeeded || !_selectedUserId.HasValue || !_userPage.Items.Any(x => x.UserId == _selectedUserId.Value))
+        if (_selectedUser is null)
         {
-            _selectedUserId = _userPage.Items.FirstOrDefault()?.UserId;
+            _selectedUser = _userPage.Items.FirstOrDefault();
+            _selectedUserId = _selectedUser?.UserId;
             InitializeSelectedUserEdits();
         }
 
@@ -502,19 +503,43 @@ else
         return Task.CompletedTask;
     }
 
-    private Task SelectUserAsync(Guid userId)
+    private async Task SelectUserAsync(Guid userId)
     {
         if (_selectedUserId == userId)
         {
-            return Task.CompletedTask;
+            return;
+        }
+
+        if (_isSaving || !await ConfirmDiscardAsync())
+        {
+            return;
         }
 
         _selectedUserId = userId;
+        _selectedUser = _userPage.Items.FirstOrDefault(user => user.UserId == userId);
         _message = null;
         _error = null;
         _groupQuery.Page = 1;
         InitializeSelectedUserEdits();
-        return LoadGroupsAsync();
+        await LoadGroupsAsync();
+    }
+
+    private async Task<bool> ConfirmDiscardAsync()
+        => !HasUnsavedChanges || await JS.InvokeAsync<bool>("confirm",
+            $"Discard unsaved changes for '{SelectedUser?.Username}'? Role, group, and password changes have not been saved.");
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        if (_isSaving || !await ConfirmDiscardAsync())
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    private void RefreshSelectedUser()
+    {
+        _selectedUser = JournalApp.GetUsers().FirstOrDefault(user => user.UserId == _selectedUserId);
+        _selectedUserId = _selectedUser?.UserId;
     }
 
     private void InitializeSelectedUserEdits()
@@ -526,6 +551,8 @@ else
             _editedRoles.Clear();
             _pendingGroupAssignments.Clear();
             _showGroupBrowser = false;
+            _resetPasswordRequest.UserId = Guid.Empty;
+            ResetLocalPasswordForm();
             return;
         }
 
@@ -575,8 +602,13 @@ else
                 JournalApp.RemoveUserFromRole(new UserRoleMembershipRequest { UserId = selectedUser.UserId, Role = role });
             }
 
+            RefreshSelectedUser();
             await LoadUsersAsync();
-            InitializeSelectedUserEdits();
+            // Saving roles must leave the independent group/password drafts intact.
+            _originalRoles = SelectedUser is { } updated
+                ? (updated.Roles.Count > 0 ? updated.Roles.ToHashSet() : [updated.Role])
+                : [];
+            _editedRoles = _originalRoles.ToHashSet();
             _message = $"Roles updated for user '{selectedUser.Username}'.";
         }
         catch (Exception ex)
@@ -625,6 +657,7 @@ else
             }
 
             _pendingGroupAssignments.Clear();
+            RefreshSelectedUser();
             await LoadUsersAsync();
             await LoadGroupsAsync();
             _message = $"Group memberships updated for user '{selectedUser.Username}'.";
@@ -716,6 +749,7 @@ else
             var changed = shouldEnable
                 ? await JournalApp.EnableUserAsync(selectedUser.UserId)
                 : await JournalApp.DisableUserAsync(selectedUser.UserId);
+            RefreshSelectedUser();
             await LoadUsersAsync();
             _message = changed
                 ? $"User '{selectedUser.Username}' was {actionVerb}d."
@@ -754,7 +788,9 @@ else
             _error = null;
 
             await JournalApp.DeleteUserAsync(selectedUser.UserId);
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            _selectedUser = null;
+            _selectedUserId = null;
+            await LoadUsersAsync();
             _message = $"User '{selectedUser.Username}' was deleted.";
         }
         catch (Exception ex)
@@ -834,7 +870,7 @@ else
     {
         _userQuery.FilterText = args.Value?.ToString() ?? string.Empty;
         _userQuery.Page = 1;
-        await LoadUsersAsync(selectFirstUserIfNeeded: true);
+        await LoadUsersAsync();
     }
 
     private async Task OnUserPageSizeChanged(ChangeEventArgs args)
@@ -843,7 +879,7 @@ else
         {
             _userQuery.PageSize = pageSize;
             _userQuery.Page = 1;
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            await LoadUsersAsync();
         }
     }
 
@@ -852,7 +888,7 @@ else
         if (_userQuery.Page > 1)
         {
             _userQuery.Page--;
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            await LoadUsersAsync();
         }
     }
 
@@ -861,7 +897,7 @@ else
         if (_userQuery.Page < _userPage.TotalPages)
         {
             _userQuery.Page++;
-            await LoadUsersAsync(selectFirstUserIfNeeded: true);
+            await LoadUsersAsync();
         }
     }
 
@@ -878,7 +914,7 @@ else
         }
 
         _userQuery.Page = 1;
-        await LoadUsersAsync(selectFirstUserIfNeeded: true);
+        await LoadUsersAsync();
     }
 
     private async Task OnGroupSearchChanged(ChangeEventArgs args)
@@ -991,8 +1027,8 @@ else
         => role switch
         {
             AppRole.Administrator => "Full system access and administrative control.",
-            AppRole.ProjectUser => "Create and edit journal content for assigned projects.",
-            AppRole.Auditor => "Review records, history, and auditing activity.",
+            AppRole.ProjectUser => "Create and read journal entries in assigned projects.",
+            AppRole.Auditor => "Search audit activity and review linked journal evidence.",
             _ => string.Empty
         };
 

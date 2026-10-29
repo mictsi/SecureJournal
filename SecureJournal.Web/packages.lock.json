@@ -140,9 +140,9 @@
       },
       "TinyMCE": {
         "type": "Direct",
-        "requested": "[8.10.0, )",
-        "resolved": "8.10.0",
-        "contentHash": "7os/8zLzMCFfaoA4nkGU+lqtR190xZbs4S/gC/vdu5KnUNyfBHssOA+vrL2EzPqkHRFH2TFCRPjZQGur3VVugw=="
+        "requested": "[8.10.1, )",
+        "resolved": "8.10.1",
+        "contentHash": "oQRlHBsCC0szp5gbfW/YHKXpX1k9rWnMgd6gSOJZZMy8AYH7J8c1EU3duJNBmUMc9e6nGjy7oLARQi/heIgvmg=="
       },
       "Azure.Core": {
         "type": "Transitive",

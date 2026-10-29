@@ -9,7 +9,7 @@ RUN dotnet restore "SecureJournal.Web/SecureJournal.Web.csproj" --locked-mode
 COPY . .
 RUN dotnet publish "SecureJournal.Web/SecureJournal.Web.csproj" -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-alpine3.24-extra AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-alpine3.24-extra AS final
 WORKDIR /app
 
 ARG APP_UID=10001

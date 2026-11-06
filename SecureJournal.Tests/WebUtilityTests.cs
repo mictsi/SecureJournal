@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SecureJournal.Web.Infrastructure;
+using AngleSharp.Html.Parser;
 
 namespace SecureJournal.Tests;
 
@@ -154,6 +155,65 @@ public sealed class SimpleMarkupPreviewTests
         Assert.DoesNotContain("javascript:", result, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("onclick", result, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("link", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_RemovesDocumentWrapperEventsAndPreservesJournalContent()
+    {
+        const string html = "<html onmouseover=\"alert(1)\"><head onclick=\"alert(2)\"></head>" +
+                            "<body onload=\"alert(3)\"><p>Journal text</p>" +
+                            "<table><tr><td>Reading 42</td></tr></table></body></html>";
+
+        using var document = new HtmlParser().ParseDocument(SimpleMarkupPreview.Render(html).Value);
+
+        Assert.All(document.All, element => Assert.DoesNotContain(element.Attributes,
+            attribute => attribute.Name.StartsWith("on", StringComparison.OrdinalIgnoreCase)));
+        Assert.Equal("Journal text", document.QuerySelector("p")?.TextContent);
+        Assert.Equal("Reading 42", document.QuerySelector("table td")?.TextContent);
+    }
+
+    [Fact]
+    public void Render_RejectsEmbeddedDocumentsAndUriListsWhileKeepingSafeLinks()
+    {
+        const string html = "<iframe srcdoc=\"&lt;script&gt;alert(1)&lt;/script&gt;\"></iframe>" +
+                            "<p srcdoc=\"&lt;script&gt;alert(2)&lt;/script&gt;\">Journal text</p>" +
+                            "<a href=\"https://example.com/evidence\" " +
+                            "ping=\"https://example.com/track javascript:alert(3)\">Evidence</a>" +
+                            "<img srcset=\"https://example.com/image.png 1x, " +
+                            "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoNCk+ 2x\">" +
+                            "<table><tr><td>Reading 42</td></tr></table>";
+
+        using var document = new HtmlParser().ParseDocument(SimpleMarkupPreview.Render(html).Value);
+
+        Assert.Empty(document.QuerySelectorAll("iframe, img, [srcdoc], [srcset], [ping]"));
+        Assert.Equal("Journal text", document.QuerySelector("p")?.TextContent);
+        Assert.Equal("https://example.com/evidence", document.QuerySelector("a")?.GetAttribute("href"));
+        Assert.Equal("Evidence", document.QuerySelector("a")?.TextContent);
+        Assert.Equal("Reading 42", document.QuerySelector("table td")?.TextContent);
+    }
+
+    [Theory]
+    [InlineData("<svg onload=\"alert(1)\"><foreignObject><p onclick=\"alert(2)\">Foreign text</p>" +
+                "</foreignObject><a xlink:href=\"javascript:alert(3)\">Foreign link</a></svg>")]
+    [InlineData("<math><annotation-xml encoding=\"text/html\"><p onmouseover=\"alert(1)\">Foreign text</p>" +
+                "<script>alert(2)</script></annotation-xml></math>")]
+    public void Render_RejectsForeignNamespacePayloadsAndPreservesJournalContent(string payload)
+    {
+        var html = payload + "<p>Journal text</p><table><tr><td>Reading 42</td></tr></table>";
+
+        // Reparse the rendered HTML so assertions examine the tree a consumer receives,
+        // including any markup that changes meaning when foreign content is unwrapped.
+        using var document = new HtmlParser().ParseDocument(SimpleMarkupPreview.Render(html).Value);
+
+        Assert.Empty(document.QuerySelectorAll("svg, math, foreignObject, annotation-xml, script, [xlink\\:href]"));
+        Assert.All(document.All, element =>
+        {
+            Assert.Equal("http://www.w3.org/1999/xhtml", element.NamespaceUri);
+            Assert.DoesNotContain(element.Attributes,
+                attribute => attribute.Name.StartsWith("on", StringComparison.OrdinalIgnoreCase));
+        });
+        Assert.Contains(document.QuerySelectorAll("p"), element => element.TextContent == "Journal text");
+        Assert.Equal("Reading 42", document.QuerySelector("table td")?.TextContent);
     }
 
     [Fact]

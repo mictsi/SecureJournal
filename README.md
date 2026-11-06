@@ -72,7 +72,7 @@ Recent UI behavior highlights:
 - Audit search shows Date, Project, Who, Status, Action, and Message in compact rows; View details exposes evidence and integrity checks.
 - Entries show date, author, and subject in a compact row. Show entry expands the full description, notes, and files inline. Quick read uses a paged entry list on the left and one selected full entry on the right; selection and filters survive return navigation. On phones, Back to entries returns to the list.
 - Adding an entry from a project fixes that project in the composer, including through primary navigation. New entries open their saved detail page. Draft text and files survive a canceled navigation.
-- Layouts follow Sekura Design MCP 3.2.1 and support narrow screens, light/dark themes, keyboard use, and enlarged text.
+- Layouts follow Sekura Design MCP 3.2.2 and support narrow screens, light/dark themes, keyboard use, and enlarged text.
 
 ### File attachments and exports
 
@@ -137,10 +137,18 @@ See `docs/LOCAL_DEPLOYMENT_AND_CONFIGURATION.md` for more details.
 - Detailed specification and replication baseline: `SPECIFICATION.md`
 - Legacy install/run instructions (still valid, less detailed): `INSTALL_INSTRUCTIONS.md`
 - Changelog / release history: `CHANGELOG.md`
-- Release notes: [0.24.1](docs/release_notes/v0.24.1.md)
+- Release notes: [0.24.2](docs/release_notes/v0.24.2.md)
 - Sanitized config templates:
 
 ---
+
+## 0.24.2 Release
+
+Updates the .NET runtime, NuGet dependencies, bundled editor and design assets,
+browser tooling, and CI security tools. Builds require the exact .NET SDK
+10.0.403 pinned in `global.json`; this also fixes scheduled CI restore failures
+caused by SDK roll-forward and locked dependencies.
+See the [release and upgrade notes](docs/release_notes/v0.24.2.md).
 
 ## 0.24.1 Release
 

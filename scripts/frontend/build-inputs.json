@@ -1,8 +1,10 @@
 {
-  "tinymceVersion": "8.10.0",
-  "tinymceCoreSha256": "f729f55e6900ccfbdddcbc0426035de9f932bcfc17be367dd329decb5d9301c5",
+  "tinymceVersion": "8.10.1",
+  "tinymceCoreSha256": "6f683299eae947607e6f289781fadb9ac857bb00f6feebe0e74e0cee72c9b052",
   "dompurifyVersion": "3.4.17",
   "dompurifyModuleSha256": "60c5d5ccbb466de3de3ba863461a92bf134f8c156cef7992da43e0f659bc5cbd",
   "esbuildVersion": "0.28.2",
-  "omittedPlugins": ["codesample"]
+  "omittedPlugins": [
+    "codesample"
+  ]
 }

@@ -396,7 +396,7 @@ This section documents what is needed to reproduce the current working implement
 
 ### 19.2 SDK / Runtime Assumptions
 
-- `.NET SDK 10.0.402` or a later servicing patch in that feature band (`global.json`)
+- `.NET SDK 10.0.403`, exactly as pinned in `global.json`
 - ASP.NET Core/Blazor runtime components available
 - Local HTTPS dev certificate trusted (`dotnet dev-certs https --trust`) for easiest local use
 

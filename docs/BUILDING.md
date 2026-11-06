@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- `.NET SDK 10.0.402` or a later servicing patch in that feature band (`global.json`)
+- `.NET SDK 10.0.403`, exactly as pinned in `global.json`
 - PowerShell (examples below use Windows PowerShell/PowerShell)
 - Optional: trusted local HTTPS dev certificate
   - `dotnet dev-certs https --trust`
@@ -13,8 +13,14 @@ Package versions are maintained in `Directory.Packages.props`, including transit
 pins. Restore the checked-in lockfiles with `dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj --locked-mode`.
 All NuGet vulnerability severities are audited; advisories and an unavailable audit
 feed fail restore. Updating a dependency requires regenerating and reviewing the
-lockfiles. Microsoft.Build.Framework and Microsoft.NET.StringTools remain on
-18.9.6, the newest versions supporting .NET 10; 18.10 and later require .NET 11.
+lockfiles. SDK roll-forward is disabled because SDK changes can alter implicit
+dependencies and cause `NU1004` failures during locked restore. Update
+`global.json`, the Docker SDK image, and lockfiles together when upgrading the SDK.
+
+Microsoft.Build.Framework and Microsoft.NET.StringTools remain on 18.9.6, the
+latest compatible versions for this .NET 10 application. Newer releases use
+.NET 11 runtime assets; their package reference metadata alone is insufficient
+to establish runtime compatibility.
 
 Frontend asset integrity is checked with `python3 scripts/verify-frontend-assets.py`.
 The pinned TinyMCE distribution includes a rebuilt DOMPurify module because the
@@ -35,7 +41,7 @@ npm exec --prefix scripts/frontend -- playwright install chromium
 npm run test:sanitizer --prefix scripts/frontend
 ```
 
-The container uses .NET 10.0.13 on Alpine 3.24 with ICU and timezone data, runs
+The container uses .NET 10.0.14 on Alpine 3.24 with ICU and timezone data, runs
 as UID/GID 10001, and retains SQLite's Linux-musl native asset. Rebuild with
 `docker build --pull` to refresh the base image when security updates are released.
 
@@ -135,7 +141,8 @@ packages, verify bundled assets, run tests, build the final Docker image, and sc
 it with the pinned, checksum-verified Trivy release. The image scan includes all
 severities and unfixed findings; findings or scanner failures prevent publishing.
 The pull-request workflow also runs browser sanitizer regressions. The tag workflow
-runs on `v*` tags (for example `v0.8.0`) and uploads the published web artifact.
+runs on numeric tags (for example `0.24.2`) and `v*` tags, and uploads the published
+web artifact.
 
 ## Docker Build
 

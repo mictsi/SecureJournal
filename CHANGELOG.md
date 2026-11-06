@@ -1,3 +1,15 @@
+# 0.24.2 - 2026-11-06
+
+## Security and maintenance
+- Update to .NET SDK 10.0.403, ASP.NET runtime 10.0.14, and current compatible NuGet dependencies.
+- Disable SDK roll-forward and regenerate lockfiles to fix scheduled GitHub CI restores failing with `NU1004`.
+- Update HtmlSanitizer, AngleSharp, Markdig, Azure.Core, MSAL, and OpenTelemetry HTTP instrumentation.
+- Refresh TinyMCE 8.10.1 with the existing DOMPurify 3.4.17 sanitizer rebuild, Sekura 3.2.2, and Playwright 1.65.0.
+- Update the pinned setup-dotnet action to 6.1.0 and checksum-verified Trivy scanner to 0.76.2.
+- Retain Microsoft.Build.Framework and Microsoft.NET.StringTools 18.9.6 for .NET 10 runtime compatibility.
+- Validation: 189 automated tests and frontend asset integrity checks passed; NuGet, npm, and final-container scans found no known vulnerabilities.
+- Full dependency details and upgrade guidance: [0.24.2](docs/release_notes/v0.24.2.md).
+
 # 0.24.1 - 2026-10-25
 
 ## Release

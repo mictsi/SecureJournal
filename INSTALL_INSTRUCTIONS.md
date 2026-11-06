@@ -12,7 +12,7 @@ For the newer split documentation pages, see:
 - Operating system:
   - Windows 10/11 (examples below use PowerShell)
   - Linux/macOS also supported with equivalent `dotnet` commands
-- `.NET SDK 10.0.402` or a later servicing patch in that feature band (`global.json`)
+- `.NET SDK 10.0.403`, exactly as pinned in `global.json`
 - Optional but recommended:
   - `Git`
   - Visual Studio with .NET 10 support and the **ASP.NET and web development** workload, or
@@ -205,7 +205,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-appservice.
 
 ## 5. SDK And Restore Requirements
 
-Install .NET SDK 10.0.402 or a later servicing patch in that feature band, as
+Install .NET SDK 10.0.403 exactly, as
 specified in `global.json`. The previous web-assets workaround is no longer needed.
 Restore requires access to NuGet and its vulnerability feed. Missing audit data or
 a known package vulnerability fails restore; resolve the reported issue before

@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 
@@ -47,8 +47,8 @@ jobs:
 
       - name: Scan final image for all known vulnerabilities
         env:
-          TRIVY_VERSION: "0.76.1"
-          TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_SHA256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf
         run: |
           set -euo pipefail
           trivy_dir="$(mktemp -d "$RUNNER_TEMP/trivy.XXXXXX")"

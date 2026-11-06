@@ -26,6 +26,8 @@ jobs:
       # Directory.Build.props makes advisories and unavailable audit feeds fail restore.
       - name: Restore locked dependencies and audit all severities
         run: dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj --locked-mode
+      - name: Test dependency snapshot generation
+        run: python3 scripts/test-nuget-dependency-snapshot.py
       - name: Audit frontend maintenance dependencies
         run: npm --prefix scripts/frontend audit --audit-level=low
       - name: Test browser sanitizer regressions

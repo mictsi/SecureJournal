@@ -144,6 +144,25 @@ The pull-request workflow also runs browser sanitizer regressions. The tag workf
 runs on numeric tags (for example `0.24.2`) and `v*` tags, and uploads the published
 web artifact.
 
+`.github/workflows/dependency-submission.yml` refreshes GitHub's NuGet dependency
+inventory after pushes to the default branch, weekly, or on a manual default-branch
+run. It performs locked restore and vulnerability auditing, then reads the three
+NuGet lockfiles using a Python standard-library script. Snapshots contain resolved
+versions and dependency edges, including central transitive pins. Each manifest is
+associated with its actual `.csproj` path so the submitted inventory supersedes
+stale static analysis for that project. Project references are excluded from NuGet
+packages; the test project's packages are marked as development dependencies.
+The script rejects unsupported lockfile formats and incomplete inventories.
+
+The submission job is the only workflow job with `contents: write`; it does not
+run for pull requests or non-default branches. Checkout does not persist credentials,
+and the submission token is passed only to the GitHub API step. No third-party
+scanner is downloaded or executed. npm continues to use its checked-in lockfile
+for GitHub's supported static dependency analysis.
+
+Run the offline snapshot regression tests with
+`python3 scripts/test-nuget-dependency-snapshot.py`.
+
 ## Docker Build
 
 Build image from repository root:

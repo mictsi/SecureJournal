@@ -1,0 +1,46 @@
+name: Submit resolved dependencies
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "31 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-submission-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    # Manual runs on other branches must not submit a privileged snapshot.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Test snapshot generation without network access
+        run: python3 scripts/test-nuget-dependency-snapshot.py
+      - name: Restore and audit the locked dependency graph
+        run: dotnet restore SecureJournal.Tests/SecureJournal.Tests.csproj --locked-mode
+      - name: Prepare resolved NuGet manifests
+        run: python3 scripts/generate-nuget-dependency-snapshot.py --output "$RUNNER_TEMP/nuget-dependency-snapshot.json"
+      - name: Submit dependency snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "/repos/${GITHUB_REPOSITORY}/dependency-graph/snapshots" \
+            --input "$RUNNER_TEMP/nuget-dependency-snapshot.json"

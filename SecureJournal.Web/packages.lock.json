@@ -140,9 +140,9 @@
       },
       "TinyMCE": {
         "type": "Direct",
-        "requested": "[8.10.1, )",
-        "resolved": "8.10.1",
-        "contentHash": "oQRlHBsCC0szp5gbfW/YHKXpX1k9rWnMgd6gSOJZZMy8AYH7J8c1EU3duJNBmUMc9e6nGjy7oLARQi/heIgvmg=="
+        "requested": "[8.10.2, )",
+        "resolved": "8.10.2",
+        "contentHash": "p9HtWYt9PU2jgIkfDVsBOccH6kL3jIBnit3z0wbxTrR/b9mK2WEor/gUgFfBo+0y0JkiYrNCittspFgFRsD88Q=="
       },
       "Azure.Monitor.OpenTelemetry.Exporter": {
         "type": "Transitive",

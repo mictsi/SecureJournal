@@ -9,7 +9,7 @@
     "test:sanitizer": "node test-sanitizer.mjs"
   },
   "devDependencies": {
-    "dompurify": "3.4.17",
+    "dompurify": "3.5.0",
     "esbuild": "0.28.2",
     "playwright": "1.65.0"
   }
